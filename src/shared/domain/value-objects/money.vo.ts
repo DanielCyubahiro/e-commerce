@@ -1,8 +1,10 @@
 export class Money {
-  private constructor(
-    private readonly amount: number,
-    private readonly currency: string,
-  ) {}
+  private readonly amount: number;
+  private readonly currency: string;
+  private constructor(amount: number, currency: string) {
+    this.amount = amount;
+    this.currency = currency;
+  }
 
   static create(amount: number, currency: string): Money {
     if (amount < 0) {

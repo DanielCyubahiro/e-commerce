@@ -1,7 +1,10 @@
 import { UniqueId } from './value-objects/unique-id.vo';
 
 export abstract class Entity<T extends UniqueId = UniqueId> {
-  constructor(protected readonly id: T) {}
+  protected readonly id: T;
+  constructor(id: T) {
+    this.id = id;
+  }
 
   getId(): T {
     return this.id;

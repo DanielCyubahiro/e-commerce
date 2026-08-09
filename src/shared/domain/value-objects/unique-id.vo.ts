@@ -5,7 +5,7 @@ export class UniqueId {
     this.id = id ?? crypto.randomUUID();
   }
 
-  getId(): string {
+  getValue(): string {
     return this.id;
   }
 

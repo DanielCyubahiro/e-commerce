@@ -26,4 +26,8 @@ export class Money {
   getCurrency(): string {
     return this.currency;
   }
+
+  toCent(): number {
+    return Math.round(this.amount * 100);
+  }
 }

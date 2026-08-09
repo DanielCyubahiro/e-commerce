@@ -7,7 +7,7 @@ export class Money {
     this.currency = currency;
   }
 
-  static create(amount: number, currency: string): Money {
+  static create(amount: number, currency: string = 'EUR'): Money {
     if (amount < 0) {
       throw new Error('Amount cannot be negative');
     }

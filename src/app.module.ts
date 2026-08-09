@@ -1,7 +1,14 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module';
 
 @Module({
-  imports: [],
+  imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    MongoModule,
+  ],
   controllers: [],
   providers: [],
 })

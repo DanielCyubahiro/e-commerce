@@ -7,7 +7,7 @@ export const MongoProvider = {
   provide: MONGO_DB,
   inject: [ConfigService],
   useFactory: async (configService: ConfigService) => {
-    const mongoUri = configService.getOrThrow<string>('MONGO_URI');
+    const mongoUri = configService.getOrThrow<string>('MONGO_DB_URI');
     const mongoDbName = configService.get<string>('MONGO_DB_NAME', 'ecommerce');
 
     const client = new MongoClient(mongoUri);

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ProductRepository } from '../../application/ports/product.repository.port';
+import { ProductRepository } from '../../application/ports/product.repository';
 import { DRIZZLE } from '../../../shared/infrastructure/database/postgres/drizzle.provider';
 import type { DrizzleDB } from '../../../shared/infrastructure/database/postgres/drizzle.provider';
 

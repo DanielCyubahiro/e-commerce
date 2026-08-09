@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module';
 import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle.module';
+import { CqrsModule } from '@nestjs/cqrs';
+import { ProductModule } from './product/product.module';
 
 @Module({
   imports: [
@@ -10,6 +12,8 @@ import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle
     }),
     MongoModule,
     DrizzleModule,
+    CqrsModule,
+    ProductModule,
   ],
   controllers: [],
   providers: [],

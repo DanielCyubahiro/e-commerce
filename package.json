@@ -20,7 +20,7 @@
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f",
-    "start:dev": "npm run db:up && nest start --watch" 
+    "start:dev": "npm run db:up && nest start --watch"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -28,6 +28,8 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/cqrs": "^11.0.3",
     "@nestjs/platform-express": "^11.0.1",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
     "drizzle-orm": "^0.45.2",
     "mongodb": "^7.5.0",
     "postgres": "^3.4.9",

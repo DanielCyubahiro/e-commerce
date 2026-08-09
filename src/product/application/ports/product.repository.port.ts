@@ -1,7 +1,7 @@
-import { Money } from '../../../../shared/domain/value-objects/money.vo';
-import { Product } from '../../entity/product.entity';
-import { ProductId } from '../../value-object/product-id.vo';
-import { Sku } from '../../value-object/sku.vo';
+import { Money } from '../../../shared/domain/value-objects/money.vo';
+import { Product } from '../../domain/entity/product.entity';
+import { ProductId } from '../../domain/value-object/product-id.vo';
+import { Sku } from '../../domain/value-object/sku.vo';
 
 export const PRODUCT_REPOSITORY = Symbol('PRODUCT_REPOSITORY');
 

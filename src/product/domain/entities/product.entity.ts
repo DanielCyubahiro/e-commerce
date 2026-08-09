@@ -46,6 +46,7 @@ export class Product extends AggregateRoot {
     name: string,
     description: string,
     price: number,
+    currency: string,
     sku: string,
     stock: number,
   ): Product {
@@ -55,7 +56,7 @@ export class Product extends AggregateRoot {
       id: new ProductId(),
       name,
       description,
-      price: Money.create(price),
+      price: Money.create(price, currency),
       sku: Sku.create(sku),
       stock,
       lowStockThreshold: 5,

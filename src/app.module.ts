@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module';
+import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle.module';
 
 @Module({
   imports: [
@@ -8,6 +9,7 @@ import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module
       isGlobal: true,
     }),
     MongoModule,
+    DrizzleModule,
   ],
   controllers: [],
   providers: [],

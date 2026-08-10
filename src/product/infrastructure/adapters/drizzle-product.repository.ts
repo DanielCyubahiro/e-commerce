@@ -70,13 +70,19 @@ export class DrizzleProductRepository implements ProductRepository {
 
     if (productFilters.minPrice) {
       conditions.push(
-        gte(products.priceAmount, productFilters.minPrice.toCent()),
+        gte(
+          products.priceAmount,
+          Money.create(productFilters.minPrice).toCent(),
+        ),
       );
     }
 
     if (productFilters.maxPrice) {
       conditions.push(
-        lte(products.priceAmount, productFilters.maxPrice.toCent()),
+        lte(
+          products.priceAmount,
+          Money.create(productFilters.maxPrice).toCent(),
+        ),
       );
     }
 

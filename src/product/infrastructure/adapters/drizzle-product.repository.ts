@@ -92,6 +92,15 @@ export class DrizzleProductRepository implements ProductRepository {
     return rows.map((row) => DrizzleProductRepository.toDomain(row));
   }
 
+  async delete(id: ProductId): Promise<boolean> {
+    const rows = await this.db
+      .delete(products)
+      .where(eq(products.id, id.value))
+      .returning({ id: products.id });
+
+    return rows.length > 0;
+  }
+
   private static toPersistence(product: Product): typeof products.$inferInsert {
     return {
       id: product.id.value,

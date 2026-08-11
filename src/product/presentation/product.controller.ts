@@ -1,7 +1,18 @@
-import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { CreateProductCommand } from '../application/use-cases/commands/create-product/create-product.command';
+import { DeleteProductCommand } from '../application/use-cases/commands/delete-product/delete-product.command';
 import { ProductResponseDto } from './dtos/product-response.dto';
 import { ListProductsQuery } from '../application/use-cases/queries/list-products/list-products.query';
 import { GetProductQuery } from '../application/use-cases/queries/get-product/get-product.query';
@@ -50,5 +61,13 @@ export class ProductController {
     );
 
     return ProductResponseDto.fromDomain(product);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param('id') id: string): Promise<void> {
+    await this.commandBus.execute<DeleteProductCommand, void>(
+      new DeleteProductCommand(id),
+    );
   }
 }

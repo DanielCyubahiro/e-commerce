@@ -15,7 +15,7 @@ export class ProductController {
 
   @Post()
   async create(@Body() body: CreateProductDto): Promise<void> {
-    await this.commandBus.execute(
+    await this.commandBus.execute<CreateProductCommand, void>(
       new CreateProductCommand(
         body.name,
         body.description,

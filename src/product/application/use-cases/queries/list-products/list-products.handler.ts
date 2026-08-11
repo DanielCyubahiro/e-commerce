@@ -1,5 +1,5 @@
 import { QueryHandler, type IQueryHandler } from '@nestjs/cqrs';
-import { ListProductsQuery } from './list-products.queries';
+import { ListProductsQuery } from './list-products.query';
 import { Inject } from '@nestjs/common';
 import type { ProductRepository } from '../../../ports/product.repository';
 import type { Product } from '../../../../domain/entities/product.entity';

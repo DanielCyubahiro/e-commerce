@@ -3,7 +3,7 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { CreateProductCommand } from '../application/use-cases/commands/create-product/create-product.command';
 import { ProductResponseDto } from './dtos/product-response.dto';
-import { ListProductsQuery } from '../application/use-cases/queries/list-products/list-products.queries';
+import { ListProductsQuery } from '../application/use-cases/queries/list-products/list-products.query';
 import { Product } from '../domain/entities/product.entity';
 
 @Controller('products')

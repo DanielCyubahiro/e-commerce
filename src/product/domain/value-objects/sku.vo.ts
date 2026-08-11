@@ -2,10 +2,10 @@ export class Sku {
   private static readonly SKU_REGEX = /^[A-Za-z0-9-]+$/;
   private static readonly MAX_LENGTH = 50;
   private static readonly MIN_LENGTH = 3;
-  private readonly value: string;
+  private readonly _value: string;
 
   private constructor(value: string) {
-    this.value = value;
+    this._value = value;
   }
 
   static create(value: string): Sku {
@@ -26,11 +26,11 @@ export class Sku {
     return new Sku(trimmedValue.toUpperCase());
   }
 
-  getValue(): string {
-    return this.value;
+  get value(): string {
+    return this._value;
   }
 
   equals(other: Sku): boolean {
-    return this.value === other.value;
+    return this._value === other._value;
   }
 }

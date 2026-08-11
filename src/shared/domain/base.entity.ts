@@ -1,14 +1,14 @@
 import { UniqueId } from './value-objects/unique-id.vo';
 
 export abstract class Entity<T extends UniqueId = UniqueId> {
-  protected readonly id: T;
-  
-  constructor(id: T) {
-    this.id = id;
+  protected readonly _id: T;
+
+  protected constructor(id: T) {
+    this._id = id;
   }
 
-  getId(): T {
-    return this.id;
+  get id(): T {
+    return this._id;
   }
 
   equals(other: Entity<T>): boolean {
@@ -24,6 +24,6 @@ export abstract class Entity<T extends UniqueId = UniqueId> {
       return false;
     }
 
-    return this.id.equals(other.id);
+    return this._id.equals(other._id);
   }
 }

@@ -16,8 +16,7 @@ export interface ProductProps {
   updatedAt: Date;
 }
 
-export class Product extends AggregateRoot {
-  private _id: ProductId;
+export class Product extends AggregateRoot<ProductId> {
   private _name: string;
   private _description: string;
   private _price: Money;
@@ -29,8 +28,7 @@ export class Product extends AggregateRoot {
   private _updatedAt: Date;
 
   private constructor(props: ProductProps) {
-    super();
-    this._id = props.id;
+    super(props.id);
     this._name = props.name;
     this._description = props.description;
     this._price = props.price;
@@ -53,7 +51,7 @@ export class Product extends AggregateRoot {
     Product.validateName(name);
     Product.validateStock(stock);
     const props: ProductProps = {
-      id: new ProductId(),
+      id: ProductId.create(),
       name,
       description,
       price: Money.create(price, currency),
@@ -81,10 +79,6 @@ export class Product extends AggregateRoot {
 
   static reconstitute(props: ProductProps): Product {
     return new Product(props);
-  }
-
-  get id(): ProductId {
-    return this._id;
   }
 
   get name(): string {

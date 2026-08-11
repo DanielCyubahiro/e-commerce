@@ -14,5 +14,5 @@ export interface ProductRepository {
   save(product: Product): Promise<void>;
   findById(id: ProductId): Promise<Product | null>;
   findBySku(sku: Sku): Promise<Product | null>;
-  findAll(productFilters: ProductFilters): Promise<Product[]>;
+  findMany(filters: ProductFilters): Promise<Product[]>;
 }

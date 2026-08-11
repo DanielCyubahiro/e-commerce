@@ -15,13 +15,13 @@ export class ProductResponseDto {
 
   static fromDomain(product: Product): ProductResponseDto {
     const dto = new ProductResponseDto();
-    dto.id = product.id.getValue();
+    dto.id = product.id.value;
     dto.name = product.name;
     dto.description = product.description;
-    dto.price = product.price.getAmount();
-    dto.sku = product.sku.getValue();
+    dto.price = product.price.amount;
+    dto.sku = product.sku.value;
     dto.stock = product.stock;
-    dto.currency = product.price.getCurrency();
+    dto.currency = product.price.currency;
     dto.lowStockThreshold = product.lowStockThreshold;
     dto.isActive = product.isActive;
     dto.createdAt = product.createdAt.toISOString();

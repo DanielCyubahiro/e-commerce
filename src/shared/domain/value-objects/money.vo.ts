@@ -1,10 +1,10 @@
 export class Money {
-  private readonly amount: number;
-  private readonly currency: string;
+  private readonly _amount: number;
+  private readonly _currency: string;
 
   private constructor(amount: number, currency: string) {
-    this.amount = amount;
-    this.currency = currency;
+    this._amount = amount;
+    this._currency = currency;
   }
 
   static create(amount: number, currency: string = 'EUR'): Money {
@@ -19,15 +19,15 @@ export class Money {
     return new Money(amount, currency);
   }
 
-  getAmount(): number {
-    return this.amount;
+  get amount(): number {
+    return this._amount;
   }
 
-  getCurrency(): string {
-    return this.currency;
+  get currency(): string {
+    return this._currency;
   }
 
-  toCent(): number {
-    return Math.round(this.amount * 100);
+  toCents(): number {
+    return Math.round(this._amount * 100);
   }
 }

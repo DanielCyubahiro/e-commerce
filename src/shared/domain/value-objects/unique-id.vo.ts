@@ -1,12 +1,32 @@
 export class UniqueId {
-  private readonly id: string;
+  private static readonly UUID_REGEX =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  constructor(id?: string) {
-    this.id = id ?? crypto.randomUUID();
+  protected readonly _value: string;
+
+  protected constructor(value: string) {
+    this._value = value;
   }
 
-  getValue(): string {
-    return this.id;
+  static create(value?: string): UniqueId {
+    return new UniqueId(this.parse(value));
+  }
+
+  protected static parse(value?: string): string {
+    if (value === undefined) {
+      return crypto.randomUUID();
+    }
+
+    const trimmedValue = value.trim();
+    if (!UniqueId.UUID_REGEX.test(trimmedValue)) {
+      throw new Error(`"${value}" is not a valid identifier.`);
+    }
+
+    return trimmedValue.toLowerCase();
+  }
+
+  get value(): string {
+    return this._value;
   }
 
   equals(other: UniqueId): boolean {
@@ -22,6 +42,6 @@ export class UniqueId {
       return false;
     }
 
-    return this.id === other.id;
+    return this._value === other._value;
   }
 }

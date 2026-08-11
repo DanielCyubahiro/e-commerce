@@ -17,97 +17,89 @@ export class DrizzleProductRepository implements ProductRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
   async save(product: Product): Promise<void> {
-    const productData = DrizzleProductRepository.toPersistence(product);
+    const row = DrizzleProductRepository.toPersistence(product);
     await this.db
       .insert(products)
-      .values(productData)
+      .values(row)
       .onConflictDoUpdate({
         target: products.id,
         set: {
-          name: productData.name,
-          description: productData.description,
-          priceAmount: productData.priceAmount,
-          priceCurrency: productData.priceCurrency,
-          sku: productData.sku,
-          stock: productData.stock,
-          lowStockThreshold: productData.lowStockThreshold,
-          isActive: productData.isActive,
-          updatedAt: productData.updatedAt,
+          name: row.name,
+          description: row.description,
+          priceAmount: row.priceAmount,
+          priceCurrency: row.priceCurrency,
+          sku: row.sku,
+          stock: row.stock,
+          lowStockThreshold: row.lowStockThreshold,
+          isActive: row.isActive,
+          updatedAt: row.updatedAt,
         },
       });
   }
 
   async findById(id: ProductId): Promise<Product | null> {
-    const productData = await this.db
+    const rows = await this.db
       .select()
       .from(products)
-      .where(eq(products.id, id.getValue()))
+      .where(eq(products.id, id.value))
       .limit(1);
 
-    if (productData.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
 
-    return DrizzleProductRepository.toDomain(productData[0]);
+    return DrizzleProductRepository.toDomain(rows[0]);
   }
 
   async findBySku(sku: Sku): Promise<Product | null> {
-    const productData = await this.db
+    const rows = await this.db
       .select()
       .from(products)
-      .where(eq(products.sku, sku.getValue()))
+      .where(eq(products.sku, sku.value))
       .limit(1);
 
-    if (productData.length === 0) {
+    if (rows.length === 0) {
       return null;
     }
 
-    return DrizzleProductRepository.toDomain(productData[0]);
+    return DrizzleProductRepository.toDomain(rows[0]);
   }
 
-  async findAll(productFilters: ProductFilters): Promise<Product[]> {
+  async findMany(filters: ProductFilters): Promise<Product[]> {
     const conditions: SQL[] = [];
 
-    if (productFilters.minPrice) {
+    if (filters.minPrice) {
       conditions.push(
-        gte(
-          products.priceAmount,
-          Money.create(productFilters.minPrice).toCent(),
-        ),
+        gte(products.priceAmount, Money.create(filters.minPrice).toCents()),
       );
     }
 
-    if (productFilters.maxPrice) {
+    if (filters.maxPrice) {
       conditions.push(
-        lte(
-          products.priceAmount,
-          Money.create(productFilters.maxPrice).toCent(),
-        ),
+        lte(products.priceAmount, Money.create(filters.maxPrice).toCents()),
       );
     }
 
-    if (productFilters.isActive !== undefined) {
-      conditions.push(eq(products.isActive, productFilters.isActive));
+    if (filters.isActive !== undefined) {
+      conditions.push(eq(products.isActive, filters.isActive));
     }
 
-    const productDataList = await this.db
+    const rows = await this.db
       .select()
       .from(products)
       .where(and(...conditions));
 
-    return productDataList.map((productData) =>
-      DrizzleProductRepository.toDomain(productData),
-    );
+    return rows.map((row) => DrizzleProductRepository.toDomain(row));
   }
 
   private static toPersistence(product: Product): typeof products.$inferInsert {
     return {
-      id: product.id.getValue(),
+      id: product.id.value,
       name: product.name,
       description: product.description,
-      priceAmount: product.price.toCent(),
-      priceCurrency: product.price.getCurrency(),
-      sku: product.sku.getValue(),
+      priceAmount: product.price.toCents(),
+      priceCurrency: product.price.currency,
+      sku: product.sku.value,
       stock: product.stock,
       lowStockThreshold: product.lowStockThreshold,
       isActive: product.isActive,
@@ -116,21 +108,18 @@ export class DrizzleProductRepository implements ProductRepository {
     };
   }
 
-  private static toDomain(productData: typeof products.$inferSelect): Product {
+  private static toDomain(row: typeof products.$inferSelect): Product {
     return Product.reconstitute({
-      id: new ProductId(productData.id),
-      name: productData.name,
-      description: productData.description,
-      price: Money.create(
-        productData.priceAmount / 100,
-        productData.priceCurrency,
-      ),
-      sku: Sku.create(productData.sku),
-      stock: productData.stock,
-      lowStockThreshold: productData.lowStockThreshold,
-      isActive: productData.isActive,
-      createdAt: productData.createdAt,
-      updatedAt: productData.updatedAt,
+      id: ProductId.create(row.id),
+      name: row.name,
+      description: row.description,
+      price: Money.create(row.priceAmount / 100, row.priceCurrency),
+      sku: Sku.create(row.sku),
+      stock: row.stock,
+      lowStockThreshold: row.lowStockThreshold,
+      isActive: row.isActive,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     });
   }
 }

@@ -5,15 +5,23 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { DomainException } from '../../domain/base.domain-exception';
+import {
+  DomainErrorKind,
+  DomainException,
+} from '../../domain/base.domain-exception';
 
-const STATUS = HttpStatus.UNPROCESSABLE_ENTITY;
+const STATUS_BY_KIND: Record<DomainErrorKind, HttpStatus> = {
+  invariant: HttpStatus.UNPROCESSABLE_ENTITY,
+  'malformed-identifier': HttpStatus.BAD_REQUEST,
+};
 
 @Catch(DomainException)
 export class DomainExceptionFilter implements ExceptionFilter {
   catch(exception: DomainException, host: ArgumentsHost): void {
-    host.switchToHttp().getResponse<Response>().status(STATUS).json({
-      statusCode: STATUS,
+    const status = STATUS_BY_KIND[exception.kind];
+
+    host.switchToHttp().getResponse<Response>().status(status).json({
+      statusCode: status,
       code: exception.code,
       message: exception.message,
     });

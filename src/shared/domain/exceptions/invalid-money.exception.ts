@@ -1,7 +1,8 @@
-import { DomainException } from '../base.domain-exception';
+import { DomainErrorKind, DomainException } from '../base.domain-exception';
 
 export class InvalidMoneyException extends DomainException {
   readonly code = 'MONEY_INVALID';
+  readonly kind: DomainErrorKind = 'invariant';
 
   private constructor(message: string) {
     super(message);

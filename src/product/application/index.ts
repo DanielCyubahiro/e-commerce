@@ -1,5 +1,6 @@
 import { CreateProductHandler } from './use-cases/commands/create-product/create-product.handler';
 import { ListProductsHandler } from './use-cases/queries/list-products/list-products.handler';
+import { GetProductHandler } from './use-cases/queries/get-product/get-product.handler';
 
 export const commandHandlers = [CreateProductHandler];
-export const queryHandlers = [ListProductsHandler];
+export const queryHandlers = [ListProductsHandler, GetProductHandler];

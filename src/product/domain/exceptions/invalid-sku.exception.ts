@@ -1,7 +1,11 @@
-import { DomainException } from '../../../shared/domain/base.domain-exception';
+import {
+  DomainErrorKind,
+  DomainException,
+} from '../../../shared/domain/base.domain-exception';
 
 export class InvalidSkuException extends DomainException {
   readonly code = 'PRODUCT_SKU_INVALID';
+  readonly kind: DomainErrorKind = 'invariant';
 
   private constructor(message: string) {
     super(message);

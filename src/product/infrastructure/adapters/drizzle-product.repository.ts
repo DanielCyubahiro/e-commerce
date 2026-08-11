@@ -65,20 +65,6 @@ export class DrizzleProductRepository implements ProductRepository {
     return DrizzleProductRepository.toDomain(rows[0]);
   }
 
-  async findByName(name: string): Promise<Product | null> {
-    const rows = await this.db
-      .select()
-      .from(products)
-      .where(eq(products.name, name))
-      .limit(1);
-
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return DrizzleProductRepository.toDomain(rows[0]);
-  }
-
   async findMany(filters: ProductFilters): Promise<Product[]> {
     const conditions: SQL[] = [];
 

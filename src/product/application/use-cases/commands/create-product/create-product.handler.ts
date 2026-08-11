@@ -6,6 +6,7 @@ import {
   type ProductRepository,
 } from '../../../ports/product.repository';
 import { Product } from '../../../../domain/entities/product.entity';
+import { DuplicateSkuException } from '../../../exceptions/duplicate-sku.exception';
 
 @CommandHandler(CreateProductCommand)
 export class CreateProductHandler implements ICommandHandler<CreateProductCommand> {
@@ -23,6 +24,12 @@ export class CreateProductHandler implements ICommandHandler<CreateProductComman
       command.sku,
       command.stock,
     );
+
+    const skuOwner = await this.productRepository.findBySku(product.sku);
+
+    if (skuOwner) {
+      throw new DuplicateSkuException(product.sku.value);
+    }
 
     await this.productRepository.save(product);
   }

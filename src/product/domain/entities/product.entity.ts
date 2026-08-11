@@ -2,6 +2,8 @@ import { AggregateRoot } from '../../../shared/domain/base.aggregate-root';
 import { Money } from '../../../shared/domain/value-objects/money.vo';
 import { ProductId } from '../value-objects/product-id.vo';
 import { Sku } from '../value-objects/sku.vo';
+import { InvalidProductNameException } from '../exceptions/invalid-product-name.exception';
+import { NegativeStockException } from '../exceptions/negative-stock.exception';
 
 export interface ProductProps {
   id: ProductId;
@@ -17,6 +19,8 @@ export interface ProductProps {
 }
 
 export class Product extends AggregateRoot<ProductId> {
+  private static readonly MIN_NAME_LENGTH = 2;
+
   private _name: string;
   private _description: string;
   private _price: Money;
@@ -66,14 +70,14 @@ export class Product extends AggregateRoot<ProductId> {
   }
 
   private static validateName(name: string): void {
-    if (!name || name.trim().length < 2) {
-      throw new Error('Product name must be at least 2 characters long.');
+    if (!name || name.trim().length < Product.MIN_NAME_LENGTH) {
+      throw new InvalidProductNameException(Product.MIN_NAME_LENGTH);
     }
   }
 
   private static validateStock(stock: number): void {
     if (stock < 0) {
-      throw new Error('Stock cannot be negative.');
+      throw new NegativeStockException(stock);
     }
   }
 

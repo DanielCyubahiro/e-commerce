@@ -1,3 +1,5 @@
+import { InvalidIdentifierException } from '../exceptions/invalid-identifier.exception';
+
 export class UniqueId {
   private static readonly UUID_REGEX =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -19,7 +21,7 @@ export class UniqueId {
 
     const trimmedValue = value.trim();
     if (!UniqueId.UUID_REGEX.test(trimmedValue)) {
-      throw new Error(`"${value}" is not a valid identifier.`);
+      throw new InvalidIdentifierException(value);
     }
 
     return trimmedValue.toLowerCase();

@@ -1,3 +1,5 @@
+import { InvalidSkuException } from '../exceptions/invalid-sku.exception';
+
 export class Sku {
   private static readonly SKU_REGEX = /^[A-Za-z0-9-]+$/;
   private static readonly MAX_LENGTH = 50;
@@ -14,14 +16,10 @@ export class Sku {
       trimmedValue.length < Sku.MIN_LENGTH ||
       trimmedValue.length > Sku.MAX_LENGTH
     ) {
-      throw new Error(
-        `SKU must be between ${Sku.MIN_LENGTH} and ${Sku.MAX_LENGTH} characters.`,
-      );
+      throw InvalidSkuException.outOfRange(Sku.MIN_LENGTH, Sku.MAX_LENGTH);
     }
     if (!Sku.SKU_REGEX.test(trimmedValue)) {
-      throw new Error(
-        'SKU can only contain alphanumeric characters and dashes.',
-      );
+      throw InvalidSkuException.invalidCharacters();
     }
     return new Sku(trimmedValue.toUpperCase());
   }

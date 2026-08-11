@@ -1,3 +1,5 @@
+import { InvalidMoneyException } from '../exceptions/invalid-money.exception';
+
 export class Money {
   private readonly _amount: number;
   private readonly _currency: string;
@@ -9,11 +11,11 @@ export class Money {
 
   static create(amount: number, currency: string = 'EUR'): Money {
     if (amount < 0) {
-      throw new Error('Amount cannot be negative');
+      throw InvalidMoneyException.negativeAmount(amount);
     }
 
     if (!currency || currency.trim() === '') {
-      throw new Error('Currency cannot be empty');
+      throw InvalidMoneyException.emptyCurrency();
     }
 
     return new Money(amount, currency);

@@ -3,6 +3,9 @@
 /node_modules
 /build
 
+# incremental build state
+*.tsbuildinfo
+
 # Logs
 logs
 *.log

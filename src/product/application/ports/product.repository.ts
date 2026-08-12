@@ -5,9 +5,9 @@ import { Sku } from '../../domain/value-objects/sku.vo';
 export const PRODUCT_REPOSITORY = Symbol('PRODUCT_REPOSITORY');
 
 export interface ProductFilters {
-  minPrice?: number;
-  maxPrice?: number;
-  isActive?: boolean;
+  minPrice?: number | undefined;
+  maxPrice?: number | undefined;
+  isActive?: boolean | undefined;
 }
 
 export interface ProductRepository {

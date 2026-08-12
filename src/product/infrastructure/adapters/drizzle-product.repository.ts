@@ -44,11 +44,12 @@ export class DrizzleProductRepository implements ProductRepository {
       .where(eq(products.id, id.value))
       .limit(1);
 
-    if (rows.length === 0) {
+    const row = rows[0];
+    if (!row) {
       return null;
     }
 
-    return DrizzleProductRepository.toDomain(rows[0]);
+    return DrizzleProductRepository.toDomain(row);
   }
 
   async findBySku(sku: Sku): Promise<Product | null> {
@@ -58,11 +59,12 @@ export class DrizzleProductRepository implements ProductRepository {
       .where(eq(products.sku, sku.value))
       .limit(1);
 
-    if (rows.length === 0) {
+    const row = rows[0];
+    if (!row) {
       return null;
     }
 
-    return DrizzleProductRepository.toDomain(rows[0]);
+    return DrizzleProductRepository.toDomain(row);
   }
 
   async findMany(filters: ProductFilters): Promise<Product[]> {

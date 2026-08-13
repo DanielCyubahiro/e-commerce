@@ -1,4 +1,7 @@
-import { DomainErrorKind, DomainException } from '../base.domain-exception';
+import {
+  type DomainErrorKind,
+  DomainException,
+} from '../base.domain-exception';
 
 export class InvalidMoneyException extends DomainException {
   readonly code = 'MONEY_INVALID';

@@ -1,5 +1,5 @@
 import { AggregateRoot as CqrsAggregateRoot } from '@nestjs/cqrs';
-import { UniqueId } from './value-objects/unique-id.vo';
+import { type UniqueId } from './value-objects/unique-id.vo';
 
 export abstract class AggregateRoot<
   T extends UniqueId = UniqueId,

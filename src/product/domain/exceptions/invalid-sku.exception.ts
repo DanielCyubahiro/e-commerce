@@ -1,5 +1,5 @@
 import {
-  DomainErrorKind,
+  type DomainErrorKind,
   DomainException,
 } from '../../../shared/domain/base.domain-exception';
 

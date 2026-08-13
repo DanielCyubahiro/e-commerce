@@ -1,4 +1,7 @@
-import { DomainErrorKind, DomainException } from '../base.domain-exception';
+import {
+  type DomainErrorKind,
+  DomainException,
+} from '../base.domain-exception';
 
 export class InvalidIdentifierException extends DomainException {
   readonly code = 'IDENTIFIER_INVALID';

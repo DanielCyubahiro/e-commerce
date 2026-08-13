@@ -1,5 +1,5 @@
 import {
-  ApplicationErrorKind,
+  type ApplicationErrorKind,
   ApplicationException,
 } from '../../../shared/application/base.application-exception';
 

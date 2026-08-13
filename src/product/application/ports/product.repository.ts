@@ -1,6 +1,6 @@
-import { Product } from '../../domain/entities/product.entity';
-import { ProductId } from '../../domain/value-objects/product-id.vo';
-import { Sku } from '../../domain/value-objects/sku.vo';
+import { type Product } from '../../domain/entities/product.entity';
+import { type ProductId } from '../../domain/value-objects/product-id.vo';
+import { type Sku } from '../../domain/value-objects/sku.vo';
 
 export const PRODUCT_REPOSITORY = Symbol('PRODUCT_REPOSITORY');
 

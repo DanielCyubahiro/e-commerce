@@ -1,21 +1,24 @@
-import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
-import { CreateProductCommand } from './create-product.command';
 import { Inject } from '@nestjs/common';
+import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs';
+import { Product } from '@/product/domain';
 import {
-  PRODUCT_REPOSITORY,
-  type ProductRepository,
-} from '../../../ports/product.repository';
-import { Product } from '../../../../domain/entities/product.entity';
-import { DuplicateSkuException } from '../../../exceptions/duplicate-sku.exception';
+  PRODUCT_WRITE_REPOSITORY,
+  type ProductWriteRepository,
+} from '../../../ports/product.write-repository';
+import { CreateProductCommand } from './create-product.command';
 
 @CommandHandler(CreateProductCommand)
-export class CreateProductHandler implements ICommandHandler<CreateProductCommand> {
+export class CreateProductHandler implements ICommandHandler<
+  CreateProductCommand,
+  string
+> {
   constructor(
-    @Inject(PRODUCT_REPOSITORY)
-    private readonly productRepository: ProductRepository,
+    @Inject(PRODUCT_WRITE_REPOSITORY)
+    private readonly productRepository: ProductWriteRepository,
   ) {}
 
-  async execute(command: CreateProductCommand): Promise<void> {
+  /** @returns the new product's id */
+  async execute(command: CreateProductCommand): Promise<string> {
     const product = Product.create({
       name: command.name,
       description: command.description,
@@ -25,12 +28,8 @@ export class CreateProductHandler implements ICommandHandler<CreateProductComman
       stock: command.stock,
     });
 
-    const skuOwner = await this.productRepository.findBySku(product.sku);
+    await this.productRepository.add(product);
 
-    if (skuOwner) {
-      throw new DuplicateSkuException(product.sku.value);
-    }
-
-    await this.productRepository.save(product);
+    return product.id.value;
   }
 }

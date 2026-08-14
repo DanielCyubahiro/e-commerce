@@ -76,6 +76,14 @@ export default tseslint.config(
     },
   },
   {
+    // Contract suites are modules imported by two runners, not files jest
+    // executes, so exporting from them is the point rather than a mistake.
+    files: ['test/contracts/*.contract.ts'],
+    rules: {
+      'jest/no-export': 'off',
+    },
+  },
+  {
     files: ['src/*/domain/**/*.ts'],
     rules: {
       'no-restricted-imports': [

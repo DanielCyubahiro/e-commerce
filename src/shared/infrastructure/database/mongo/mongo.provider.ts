@@ -4,7 +4,6 @@ import { type Db, MongoClient } from 'mongodb';
 export const MONGO_CLIENT = Symbol('MONGO_CLIENT');
 export const MONGO_DB = Symbol('MONGO_DB');
 
-/** Kept injectable, separately from the handle, so shutdown can close it. */
 export const MongoClientProvider = {
   provide: MONGO_CLIENT,
   inject: [ConfigService],

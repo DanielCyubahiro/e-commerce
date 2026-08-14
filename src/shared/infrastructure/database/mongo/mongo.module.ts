@@ -7,11 +7,6 @@ import {
   MongoDbProvider,
 } from './mongo.provider';
 
-/**
- * Nothing injects `MONGO_DB` yet; the module is retained for an upcoming bounded
- * context. The connection still opens at boot, so the server must be reachable
- * when the application starts.
- */
 @Global()
 @Module({
   providers: [MongoClientProvider, MongoDbProvider],

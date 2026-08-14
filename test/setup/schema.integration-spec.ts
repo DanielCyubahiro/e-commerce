@@ -7,8 +7,6 @@ describe('migrated test database', () => {
   });
 
   it('is a throwaway container, never the development database', async () => {
-    // truncateAll() runs against whatever this resolves to, so being wrong here
-    // would destroy development data rather than fail a test.
     const rows = await testDb().execute<{ current_database: string }>(
       sql`SELECT current_database()`,
     );

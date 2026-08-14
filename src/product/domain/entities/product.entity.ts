@@ -21,8 +21,6 @@ export interface ProductProps {
   price: Money;
   sku: Sku;
   stock: number;
-  lowStockThreshold: number;
-  isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -36,8 +34,6 @@ export class Product extends AggregateRoot<ProductId> {
   private _price: Money;
   private _sku: Sku;
   private _stock: number;
-  private _lowStockThreshold: number;
-  private _isActive: boolean;
   private _createdAt: Date;
   private _updatedAt: Date;
 
@@ -48,8 +44,6 @@ export class Product extends AggregateRoot<ProductId> {
     this._price = props.price;
     this._sku = props.sku;
     this._stock = props.stock;
-    this._lowStockThreshold = props.lowStockThreshold;
-    this._isActive = props.isActive;
     this._createdAt = props.createdAt;
     this._updatedAt = props.updatedAt;
   }
@@ -76,8 +70,6 @@ export class Product extends AggregateRoot<ProductId> {
       price: Money.fromDecimal(input.price, input.currency),
       sku: Sku.create(input.sku),
       stock: input.stock,
-      lowStockThreshold: 5,
-      isActive: true,
       createdAt: now,
       updatedAt: now,
     });
@@ -129,14 +121,6 @@ export class Product extends AggregateRoot<ProductId> {
 
   get stock(): number {
     return this._stock;
-  }
-
-  get lowStockThreshold(): number {
-    return this._lowStockThreshold;
-  }
-
-  get isActive(): boolean {
-    return this._isActive;
   }
 
   get createdAt(): Date {

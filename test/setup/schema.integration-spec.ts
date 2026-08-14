@@ -27,14 +27,39 @@ describe('migrated test database', () => {
       'created_at',
       'description',
       'id',
-      'is_active',
-      'low_stock_threshold',
       'name',
       'price_amount',
       'price_currency',
       'sku',
       'stock',
       'updated_at',
+    ]);
+  });
+
+  it('bounds sku to the length the domain enforces', async () => {
+    const rows = await testDb().execute<{
+      character_maximum_length: number;
+    }>(sql`
+      SELECT character_maximum_length
+      FROM information_schema.columns
+      WHERE table_name = 'products' AND column_name = 'sku'
+    `);
+
+    expect(rows[0]?.character_maximum_length).toBe(50);
+  });
+
+  it('indexes the columns the filter and the sort order use', async () => {
+    const rows = await testDb().execute<{ indexname: string }>(sql`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'products'
+      ORDER BY indexname
+    `);
+
+    expect(rows.map((row) => row.indexname)).toEqual([
+      'products_created_at_id_idx',
+      'products_pkey',
+      'products_price_amount_idx',
+      'products_sku_unique',
     ]);
   });
 });

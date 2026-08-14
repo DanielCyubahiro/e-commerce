@@ -41,12 +41,11 @@ export class ProductController {
 
   @Get()
   async findAll(
-    @Query('isActive') isActive?: boolean,
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
   ): Promise<ProductResponseDto[]> {
     const products = await this.queryBus.execute<ListProductsQuery, Product[]>(
-      new ListProductsQuery(isActive, minPrice, maxPrice),
+      new ListProductsQuery(minPrice, maxPrice),
     );
 
     return products.map((product: Product) =>

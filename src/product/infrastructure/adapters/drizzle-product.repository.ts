@@ -30,8 +30,6 @@ export class DrizzleProductRepository implements ProductRepository {
           priceCurrency: row.priceCurrency,
           sku: row.sku,
           stock: row.stock,
-          lowStockThreshold: row.lowStockThreshold,
-          isActive: row.isActive,
           updatedAt: row.updatedAt,
         },
       });
@@ -88,10 +86,6 @@ export class DrizzleProductRepository implements ProductRepository {
       );
     }
 
-    if (filters.isActive !== undefined) {
-      conditions.push(eq(products.isActive, filters.isActive));
-    }
-
     const rows = await this.db
       .select()
       .from(products)
@@ -118,8 +112,6 @@ export class DrizzleProductRepository implements ProductRepository {
       priceCurrency: product.price.currency,
       sku: product.sku.value,
       stock: product.stock,
-      lowStockThreshold: product.lowStockThreshold,
-      isActive: product.isActive,
       createdAt: product.createdAt,
       updatedAt: product.updatedAt,
     };
@@ -133,8 +125,6 @@ export class DrizzleProductRepository implements ProductRepository {
       price: Money.fromMinorUnits(row.priceAmount, row.priceCurrency),
       sku: Sku.create(row.sku),
       stock: row.stock,
-      lowStockThreshold: row.lowStockThreshold,
-      isActive: row.isActive,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

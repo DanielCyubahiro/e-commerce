@@ -8,8 +8,6 @@ export class ProductResponseDto {
   sku!: string;
   stock!: number;
   currency?: string;
-  lowStockThreshold!: number;
-  isActive!: boolean;
   createdAt!: string;
   updatedAt!: string;
 
@@ -22,8 +20,6 @@ export class ProductResponseDto {
     dto.sku = product.sku.value;
     dto.stock = product.stock;
     dto.currency = product.price.currency;
-    dto.lowStockThreshold = product.lowStockThreshold;
-    dto.isActive = product.isActive;
     dto.createdAt = product.createdAt.toISOString();
     dto.updatedAt = product.updatedAt.toISOString();
     return dto;

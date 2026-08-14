@@ -16,7 +16,6 @@ export class ListProductsHandler implements IQueryHandler<ListProductsQuery> {
 
   async execute(query: ListProductsQuery): Promise<Product[]> {
     return this.productRepository.findMany({
-      isActive: query.isActive,
       minPrice: query.minPrice,
       maxPrice: query.maxPrice,
     });

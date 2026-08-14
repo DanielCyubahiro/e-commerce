@@ -7,7 +7,6 @@ export const PRODUCT_REPOSITORY = Symbol('PRODUCT_REPOSITORY');
 export interface ProductFilters {
   minPrice?: number | undefined;
   maxPrice?: number | undefined;
-  isActive?: boolean | undefined;
 }
 
 export interface ProductRepository {

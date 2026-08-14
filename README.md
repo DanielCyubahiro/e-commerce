@@ -1,98 +1,86 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# e-commerce
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+A NestJS learning project exploring DDD, CQRS, and hexagonal architecture. One
+bounded context (`product`) sits on a shared kernel; customers and orders will
+follow.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Architecture
 
-## Description
+Dependencies point inward. ESLint enforces the boundaries, so a violation fails
+the build rather than relying on discipline.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+| Layer | Owns | May import |
+| --- | --- | --- |
+| `domain` | Aggregates, value objects, invariants | Nothing outside itself. No framework. |
+| `application` | Commands, queries, handlers, ports | `domain` |
+| `infrastructure` | Port implementations (Drizzle adapters) | `application`, `domain` |
+| `presentation` | Controllers, DTOs, filters | `application` |
 
-## Project setup
+Commands operate on the `Product` aggregate. Queries never touch it; they project
+rows into read models.
 
-```bash
-$ pnpm install
-```
+Each layer exposes a barrel (`index.ts`) as its public surface. Code inside a
+layer imports by relative path, never through its own barrel: that cycle makes a
+Nest injection token resolve to `undefined` and surfaces at boot as an unrelated
+"can't resolve dependencies" error.
 
-## Compile and run the project
+## Prerequisites
+
+- Node 22+, pnpm, and Docker (Postgres and Mongo, plus integration tests)
+
+## Setup
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install
+cp .env.example .env
+pnpm db:up
 ```
 
-## Run tests
+Every variable in `.env.example` is required at boot. A missing or malformed one
+aborts startup with a message naming it, rather than failing later on first
+query.
 
-```bash
-# unit tests
-$ pnpm run test
+## Scripts
 
-# e2e tests
-$ pnpm run test:e2e
+| Script | Purpose |
+| --- | --- |
+| `pnpm start:dev` | Start databases, then watch mode |
+| `pnpm start` | Run once against a running database |
+| `pnpm build` | Compile to `dist` |
+| `pnpm test` | Unit tests, no I/O |
+| `pnpm test:integration` | Repository tests against a throwaway Postgres container |
+| `pnpm test:http` | HTTP tests through the real pipe and filter stack |
+| `pnpm test:all` | Every project |
+| `pnpm test:cov` | Coverage |
+| `pnpm lint` | ESLint with type-aware rules |
+| `pnpm db:up` / `db:down` / `db:logs` | Local Postgres and Mongo |
 
-# test coverage
-$ pnpm run test:cov
-```
+## Testing layers
 
-## Deployment
+1. **Unit** (`src/**/*.spec.ts`) pure domain logic, no test doubles.
+2. **Application** handlers against in-memory fakes rather than mocks. A mock
+   asserts how a collaborator was called; a fake asserts what happened.
+3. **Contract** (`test/contracts/`) one suite run twice, against the in-memory
+   fake and against the Drizzle adapter, so the fake cannot silently drift from
+   the real implementation.
+4. **Integration** (`test/**/*.integration-spec.ts`) real Postgres via
+   testcontainers, with the drizzle migrations applied, so each run also proves
+   the migration folder still applies from empty.
+5. **HTTP** (`test/**/*.http-spec.ts`) real validation and filters via
+   `configureApp`, fake repositories, no database.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Assert thrown domain exceptions with `catchError` from `@test/support/catch-error`,
+not `expect(fn).toThrow(SomeException)`: those exceptions have private
+constructors so they can only be built through named factories, which Jest's
+`toThrow` cannot accept.
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+## Conventions
 
-```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Money is never a decimal. `Money` holds an integer count of minor units;
+  `fromDecimal` rejects more precision than the currency has rather than
+  rounding it away.
+- Value objects and aggregates validate their own invariants. DTOs check only
+  type, presence, and absurd-size ceilings, so a rule is never written twice.
+- Errors carry a stable `code`. Domain invariants map to 422, malformed
+  identifiers to 400, conflicts to 409, and anything unrecognised to a generic
+  500 that leaks no driver detail.

@@ -54,9 +54,6 @@ const config: Config = {
       moduleNameMapper,
     },
   ],
-  // The http project has no tests until Task 3 adds the first one. Jest only
-  // accepts this at the root, never inside an individual project.
-  passWithNoTests: true,
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.module.ts',

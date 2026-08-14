@@ -1,17 +1,16 @@
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { configureApp } from '@/app.config';
 import { AppModule } from '@/app.module';
-import { ApplicationExceptionFilter } from '@/shared/presentation/filters/application-exception.filter';
-import { DomainExceptionFilter } from '@/shared/presentation/filters/domain-exception.filter';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  app.useGlobalFilters(
-    new ApplicationExceptionFilter(),
-    new DomainExceptionFilter(),
-  );
-  await app.listen(process.env.PORT ?? 3000);
+  const app = configureApp(await NestFactory.create(AppModule));
+
+  // Without this, SIGTERM kills the process before onModuleDestroy runs and the
+  // database pools are never closed.
+  app.enableShutdownHooks();
+
+  await app.listen(app.get(ConfigService).getOrThrow<number>('PORT'));
 }
 
 void bootstrap();

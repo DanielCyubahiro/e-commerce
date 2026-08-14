@@ -5,6 +5,6 @@ export class CreateProductCommand {
     public readonly price: number,
     public readonly sku: string,
     public readonly stock: number,
-    public readonly currency?: string,
+    public readonly currency: string,
   ) {}
 }

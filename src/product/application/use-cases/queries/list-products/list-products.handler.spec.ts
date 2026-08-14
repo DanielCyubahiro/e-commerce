@@ -74,6 +74,18 @@ describe('ListProductsHandler', () => {
     expect(page.items.map((item) => item.sku)).toEqual(['EXACT']);
   });
 
+  it('assumes EUR for a direct caller that gives a bound without a currency', async () => {
+    // Unreachable through HTTP, where the query DTO requires a currency
+    // alongside any bound. It exists so the conversion is total.
+    await store('EUR-1', 10, 'EUR');
+
+    const page = await handler.execute(
+      new ListProductsQuery({ minPrice: 5 }, { limit: 100, offset: 0 }),
+    );
+
+    expect(page.items.map((item) => item.sku)).toEqual(['EUR-1']);
+  });
+
   it('passes pagination straight through', async () => {
     await store('A-1', 1);
     await store('A-2', 2);

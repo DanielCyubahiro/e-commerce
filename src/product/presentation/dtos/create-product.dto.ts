@@ -1,41 +1,44 @@
 import {
-  IsString,
-  MinLength,
-  MaxLength,
+  IsInt,
+  IsNotEmpty,
   IsNumber,
-  Min,
-  Matches,
   IsOptional,
+  IsString,
+  MaxLength,
 } from 'class-validator';
 
+/**
+ * Checks type, presence, and ceilings loose enough to reject an abusive payload
+ * without restating a business rule. Precise bounds (name length, sku format,
+ * price precision, currency shape) belong to the domain and surface as 422 with a
+ * typed code, so they are never written in two places that can drift.
+ *
+ * The property initialiser is the API's only currency default.
+ */
 export class CreateProductDto {
   @IsString()
-  @MinLength(2)
-  @MaxLength(255)
+  @IsNotEmpty()
+  @MaxLength(1000)
   name!: string;
 
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(10000)
   description!: string;
 
   @IsNumber()
-  @Min(0)
   price!: number;
 
   @IsString()
-  @MinLength(3)
-  @MaxLength(50)
-  @Matches(/^[A-Za-z0-9-]+$/, {
-    message: 'SKU can only contain alphanumeric characters and dashes.',
-  })
+  @IsNotEmpty()
+  @MaxLength(200)
   sku!: string;
 
-  @IsNumber()
-  @Min(0)
+  @IsInt()
   stock!: number;
 
   @IsString()
-  @MinLength(3)
-  @MaxLength(3)
+  @IsNotEmpty()
   @IsOptional()
-  currency?: string;
+  currency: string = 'EUR';
 }

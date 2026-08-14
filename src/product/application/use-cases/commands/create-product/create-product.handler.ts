@@ -23,7 +23,7 @@ export class CreateProductHandler implements ICommandHandler<
       name: command.name,
       description: command.description,
       price: command.price,
-      currency: command.currency ?? 'EUR',
+      currency: command.currency,
       sku: command.sku,
       stock: command.stock,
     });

@@ -44,12 +44,14 @@ describe('CreateProductHandler', () => {
     expect(repository.snapshot()[0]?.price.minorUnits).toBe(24999);
   });
 
-  it('defaults the currency when the command omits it', async () => {
+  it('uses the currency the command carries', async () => {
+    // The default itself lives in CreateProductDto now, so it is asserted in
+    // the HTTP suite rather than here.
     await handler.execute(
-      new CreateProductCommand('Kettle', 'Boils water.', 10, 'KET-1', 1),
+      new CreateProductCommand('Kettle', 'Boils water.', 10, 'KET-1', 1, 'USD'),
     );
 
-    expect(repository.snapshot()[0]?.price.currency).toBe('EUR');
+    expect(repository.snapshot()[0]?.price.currency).toBe('USD');
   });
 
   it('surfaces a duplicate sku from the repository', async () => {

@@ -4,6 +4,10 @@ const transform = {
   '^.+\\.(t|j)s$': ['ts-jest', { tsconfig: 'tsconfig.json' }],
 } satisfies Config['transform'];
 
+// class-transformer and class-validator read decorator metadata at runtime. Nest
+// loads this itself, so only the bare unit tests would otherwise fail.
+const setupFiles = ['reflect-metadata'];
+
 const moduleNameMapper = {
   '^@/(.*)$': '<rootDir>/src/$1',
   '^@test/(.*)$': '<rootDir>/test/$1',
@@ -34,6 +38,7 @@ const config: Config = {
       testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/test/**/*.spec.ts'],
       transform,
       moduleNameMapper,
+      setupFiles,
     },
     {
       displayName: 'integration',
@@ -42,6 +47,7 @@ const config: Config = {
       testMatch: ['<rootDir>/test/**/*.integration-spec.ts'],
       transform,
       moduleNameMapper,
+      setupFiles,
       globalSetup: '<rootDir>/test/setup/postgres-container.ts',
       globalTeardown: '<rootDir>/test/setup/postgres-container-teardown.ts',
     },
@@ -52,6 +58,7 @@ const config: Config = {
       testMatch: ['<rootDir>/test/**/*.http-spec.ts'],
       transform,
       moduleNameMapper,
+      setupFiles,
     },
   ],
   collectCoverageFrom: [
@@ -63,6 +70,35 @@ const config: Config = {
     '!src/**/*.spec.ts',
   ],
   coverageDirectory: 'coverage',
+  // Per layer rather than one global number: the domain is pure functions with no
+  // excuse for gaps, while a provider factory needs a live connection to cover.
+  //
+  // `global` here means everything the globs below do not match, so it covers
+  // infrastructure, presentation, and config only. Its branch floor is 80 rather
+  // than 85 because with emitDecoratorMetadata every decorator emits a
+  // conditional in TypeScript's __decorate helper: the controller reports 100%
+  // statements and 75% branches, and all ten uncovered branches sit on decorator
+  // lines. Reaching 85 would mean testing compiler output.
+  coverageThreshold: {
+    global: {
+      statements: 85,
+      branches: 80,
+      functions: 85,
+      lines: 85,
+    },
+    'src/**/domain/**/*.ts': {
+      statements: 100,
+      branches: 100,
+      functions: 100,
+      lines: 100,
+    },
+    'src/**/application/**/*.ts': {
+      statements: 95,
+      branches: 95,
+      functions: 95,
+      lines: 95,
+    },
+  },
 };
 
 export default config;

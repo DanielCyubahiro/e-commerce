@@ -64,6 +64,15 @@ describe('Money', () => {
       expect(() => Money.fromDecimal(-0.01, 'EUR')).toThrow();
     });
 
+    it('rejects an amount written in exponential notation', () => {
+      // 1e-7 stringifies as "1e-7", so counting decimal places by string would
+      // read zero. Such magnitudes are unrepresentable, not precise.
+      expect(
+        catchError(() => Money.fromDecimal(1e-7, 'EUR'), InvalidMoneyException)
+          .message,
+      ).toMatch(/decimal places/);
+    });
+
     it('rejects values that are not finite', () => {
       expect(() => Money.fromDecimal(Number.NaN, 'EUR')).toThrow();
       expect(() =>

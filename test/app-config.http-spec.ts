@@ -53,6 +53,13 @@ class ProbeController {
   unknown(): never {
     throw new Error('boom: password=hunter2 at products_sku_unique');
   }
+
+  @Get('non-error')
+  nonError(): never {
+    // Throwing a non-Error is the point: the filter must not assume `.stack`.
+    // eslint-disable-next-line @typescript-eslint/only-throw-error
+    throw 'a bare string, not an Error';
+  }
 }
 
 describe('configureApp global filters', () => {
@@ -117,5 +124,12 @@ describe('configureApp global filters', () => {
     });
     expect(JSON.stringify(response.body)).not.toContain('hunter2');
     expect(JSON.stringify(response.body)).not.toContain('products_sku_unique');
+  });
+
+  it('survives something thrown that is not an Error', async () => {
+    const response = await request(app.getHttpServer()).get('/probe/non-error');
+
+    expect(response.status).toBe(500);
+    expect(response.body).toMatchObject({ code: 'INTERNAL_ERROR' });
   });
 });

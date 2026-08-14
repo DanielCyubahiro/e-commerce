@@ -16,14 +16,14 @@ export class CreateProductHandler implements ICommandHandler<CreateProductComman
   ) {}
 
   async execute(command: CreateProductCommand): Promise<void> {
-    const product = Product.create(
-      command.name,
-      command.description,
-      command.price,
-      command.currency || 'EUR',
-      command.sku,
-      command.stock,
-    );
+    const product = Product.create({
+      name: command.name,
+      description: command.description,
+      price: command.price,
+      currency: command.currency ?? 'EUR',
+      sku: command.sku,
+      stock: command.stock,
+    });
 
     const skuOwner = await this.productRepository.findBySku(product.sku);
 

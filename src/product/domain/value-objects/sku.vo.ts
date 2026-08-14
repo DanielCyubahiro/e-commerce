@@ -28,7 +28,7 @@ export class Sku {
     return this._value;
   }
 
-  equals(other: Sku): boolean {
-    return this._value === other._value;
+  equals(other: unknown): boolean {
+    return other instanceof Sku && this._value === other._value;
   }
 }

@@ -1,8 +1,18 @@
 import { AggregateRoot, Money } from '@/shared/domain';
+import { InvalidProductDescriptionException } from '../exceptions/invalid-product-description.exception';
+import { InvalidProductNameException } from '../exceptions/invalid-product-name.exception';
+import { InvalidStockException } from '../exceptions/invalid-stock.exception';
 import { ProductId } from '../value-objects/product-id.vo';
 import { Sku } from '../value-objects/sku.vo';
-import { InvalidProductNameException } from '../exceptions/invalid-product-name.exception';
-import { NegativeStockException } from '../exceptions/negative-stock.exception';
+
+export interface CreateProductInput {
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  sku: string;
+  stock: number;
+}
 
 export interface ProductProps {
   id: ProductId;
@@ -19,6 +29,7 @@ export interface ProductProps {
 
 export class Product extends AggregateRoot<ProductId> {
   private static readonly MIN_NAME_LENGTH = 2;
+  private static readonly MAX_NAME_LENGTH = 255;
 
   private _name: string;
   private _description: string;
@@ -43,45 +54,61 @@ export class Product extends AggregateRoot<ProductId> {
     this._updatedAt = props.updatedAt;
   }
 
-  static create(
-    name: string,
-    description: string,
-    price: number,
-    currency: string,
-    sku: string,
-    stock: number,
-  ): Product {
+  /**
+   * Takes one object rather than positional arguments because four of the six
+   * fields are strings, so `create(name, description, price, currency, sku,
+   * stock)` accepts `sku` and `currency` transposed without complaint.
+   */
+  static create(input: CreateProductInput): Product {
+    const name = input.name.trim();
+    const description = input.description.trim();
+
     Product.validateName(name);
-    Product.validateStock(stock);
-    const props: ProductProps = {
+    Product.validateDescription(description);
+    Product.validateStock(input.stock);
+
+    const now = new Date();
+
+    return new Product({
       id: ProductId.create(),
       name,
       description,
-      price: Money.fromDecimal(price, currency),
-      sku: Sku.create(sku),
-      stock,
+      price: Money.fromDecimal(input.price, input.currency),
+      sku: Sku.create(input.sku),
+      stock: input.stock,
       lowStockThreshold: 5,
       isActive: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-    return new Product(props);
-  }
-
-  private static validateName(name: string): void {
-    if (!name || name.trim().length < Product.MIN_NAME_LENGTH) {
-      throw new InvalidProductNameException(Product.MIN_NAME_LENGTH);
-    }
-  }
-
-  private static validateStock(stock: number): void {
-    if (stock < 0) {
-      throw new NegativeStockException(stock);
-    }
+      createdAt: now,
+      updatedAt: now,
+    });
   }
 
   static reconstitute(props: ProductProps): Product {
     return new Product(props);
+  }
+
+  private static validateName(name: string): void {
+    if (name.length < Product.MIN_NAME_LENGTH) {
+      throw InvalidProductNameException.tooShort(Product.MIN_NAME_LENGTH);
+    }
+    if (name.length > Product.MAX_NAME_LENGTH) {
+      throw InvalidProductNameException.tooLong(Product.MAX_NAME_LENGTH);
+    }
+  }
+
+  private static validateDescription(description: string): void {
+    if (description.length === 0) {
+      throw InvalidProductDescriptionException.empty();
+    }
+  }
+
+  private static validateStock(stock: number): void {
+    if (!Number.isInteger(stock)) {
+      throw InvalidStockException.notAnInteger(stock);
+    }
+    if (stock < 0) {
+      throw InvalidStockException.negative(stock);
+    }
   }
 
   get name(): string {

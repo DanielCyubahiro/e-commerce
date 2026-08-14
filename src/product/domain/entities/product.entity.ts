@@ -1,5 +1,4 @@
-import { AggregateRoot } from '../../../shared/domain/base.aggregate-root';
-import { Money } from '../../../shared/domain/value-objects/money.vo';
+import { AggregateRoot, Money } from '@/shared/domain';
 import { ProductId } from '../value-objects/product-id.vo';
 import { Sku } from '../value-objects/sku.vo';
 import { InvalidProductNameException } from '../exceptions/invalid-product-name.exception';
@@ -58,7 +57,7 @@ export class Product extends AggregateRoot<ProductId> {
       id: ProductId.create(),
       name,
       description,
-      price: Money.create(price, currency),
+      price: Money.fromDecimal(price, currency),
       sku: Sku.create(sku),
       stock,
       lowStockThreshold: 5,

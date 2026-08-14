@@ -8,7 +8,7 @@ import type { Response } from 'express';
 import {
   DomainErrorKind,
   DomainException,
-} from '../../domain/base.domain-exception';
+} from '../../domain/domain-exception.base';
 
 const STATUS_BY_KIND: Record<DomainErrorKind, HttpStatus> = {
   invariant: HttpStatus.UNPROCESSABLE_ENTITY,

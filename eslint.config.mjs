@@ -75,4 +75,30 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['src/*/domain/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@nestjs/*'],
+              message:
+                'The domain layer must not depend on a framework. Keep Nest in application, infrastructure, and presentation.',
+            },
+            {
+              group: [
+                '**/application/**',
+                '**/infrastructure/**',
+                '**/presentation/**',
+              ],
+              message:
+                'Dependencies point inward. The domain layer must not import an outer layer.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

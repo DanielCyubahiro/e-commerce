@@ -11,11 +11,8 @@ import { configureApp } from '@/app.config';
 import {
   type ApplicationErrorKind,
   ApplicationException,
-} from '@/shared/application/base.application-exception';
-import {
-  type DomainErrorKind,
-  DomainException,
-} from '@/shared/domain/base.domain-exception';
+} from '@/shared/application';
+import { type DomainErrorKind, DomainException } from '@/shared/domain';
 
 class ProbeInvariantException extends DomainException {
   readonly code = 'PROBE_INVARIANT';

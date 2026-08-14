@@ -1,7 +1,4 @@
-import {
-  type DomainErrorKind,
-  DomainException,
-} from '../../../shared/domain/base.domain-exception';
+import { type DomainErrorKind, DomainException } from '@/shared/domain';
 
 export class NegativeStockException extends DomainException {
   readonly code = 'PRODUCT_STOCK_NEGATIVE';

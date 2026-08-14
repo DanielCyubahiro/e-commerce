@@ -20,7 +20,7 @@ describe('catchError', () => {
   it('fails when a different exception class is thrown', () => {
     expect(() =>
       catchError(() => {
-        throw InvalidMoneyException.emptyCurrency();
+        throw InvalidMoneyException.invalidCurrency('');
       }, InvalidSkuException),
     ).toThrow(/Expected InvalidSkuException to be thrown/);
   });
@@ -45,7 +45,7 @@ describe('catchRejection', () => {
   it('fails when a different exception class is rejected', async () => {
     await expect(
       catchRejection(
-        () => Promise.reject(InvalidMoneyException.emptyCurrency()),
+        () => Promise.reject(InvalidMoneyException.invalidCurrency('')),
         InvalidSkuException,
       ),
     ).rejects.toThrow(/Expected InvalidSkuException to be rejected with/);

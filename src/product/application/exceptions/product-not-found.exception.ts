@@ -1,7 +1,7 @@
 import {
   type ApplicationErrorKind,
   ApplicationException,
-} from '../../../shared/application/base.application-exception';
+} from '@/shared/application';
 
 export class ProductNotFoundException extends ApplicationException {
   readonly code = 'PRODUCT_NOT_FOUND';

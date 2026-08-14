@@ -1,7 +1,4 @@
-import {
-  type DomainErrorKind,
-  DomainException,
-} from '../../../shared/domain/base.domain-exception';
+import { type DomainErrorKind, DomainException } from '@/shared/domain';
 
 export class InvalidProductNameException extends DomainException {
   readonly code = 'PRODUCT_NAME_INVALID';

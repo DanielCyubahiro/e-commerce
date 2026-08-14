@@ -1,7 +1,7 @@
-import { UniqueId } from '../../../shared/domain/value-objects/unique-id.vo';
+import { UniqueId } from '@/shared/domain';
 
-export class ProductId extends UniqueId {
-  static override create(value?: string): ProductId {
+export class ProductId extends UniqueId<'ProductId'> {
+  static create(value?: string): ProductId {
     return new ProductId(this.parse(value));
   }
 }

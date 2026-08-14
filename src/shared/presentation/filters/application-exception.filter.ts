@@ -8,7 +8,7 @@ import type { Response } from 'express';
 import {
   ApplicationErrorKind,
   ApplicationException,
-} from '../../application/base.application-exception';
+} from '../../application/application-exception.base';
 
 const STATUS_BY_KIND: Record<ApplicationErrorKind, HttpStatus> = {
   conflict: HttpStatus.CONFLICT,

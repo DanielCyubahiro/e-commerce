@@ -1,49 +1,43 @@
 import { InvalidIdentifierException } from '../exceptions/invalid-identifier.exception';
 
-export class UniqueId {
-  private static readonly UUID_REGEX =
+/**
+ * `Brand` is never read at runtime. Without it every identifier is structurally
+ * a `{ value: string }`, so the compiler accepts an OrderId where a ProductId
+ * belongs. Runtime `equals` compares constructors for the same reason, covering
+ * values that cross a boundary untyped.
+ */
+export abstract class UniqueId<Brand extends string = string> {
+  private static readonly UUID_PATTERN =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-  protected readonly _value: string;
+  declare private readonly __brand: Brand;
 
-  protected constructor(value: string) {
-    this._value = value;
-  }
-
-  static create(value?: string): UniqueId {
-    return new UniqueId(this.parse(value));
-  }
+  protected constructor(protected readonly _value: string) {}
 
   protected static parse(value?: string): string {
     if (value === undefined) {
       return crypto.randomUUID();
     }
 
-    const trimmedValue = value.trim();
-    if (!UniqueId.UUID_REGEX.test(trimmedValue)) {
+    const trimmed = value.trim();
+    if (!UniqueId.UUID_PATTERN.test(trimmed)) {
       throw new InvalidIdentifierException(value);
     }
 
-    return trimmedValue.toLowerCase();
+    return trimmed.toLowerCase();
   }
 
   get value(): string {
     return this._value;
   }
 
-  equals(other: UniqueId): boolean {
-    if (other === null || other === undefined) {
-      return false;
-    }
-
-    if (this === other) {
-      return true;
-    }
-
+  equals(other: unknown): boolean {
     if (!(other instanceof UniqueId)) {
       return false;
     }
 
-    return this._value === other._value;
+    return (
+      this.constructor === other.constructor && this._value === other._value
+    );
   }
 }

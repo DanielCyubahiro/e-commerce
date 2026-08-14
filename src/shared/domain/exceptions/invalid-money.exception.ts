@@ -1,7 +1,7 @@
 import {
   type DomainErrorKind,
   DomainException,
-} from '../base.domain-exception';
+} from '../domain-exception.base';
 
 export class InvalidMoneyException extends DomainException {
   readonly code = 'MONEY_INVALID';
@@ -17,7 +17,30 @@ export class InvalidMoneyException extends DomainException {
     );
   }
 
-  static emptyCurrency(): InvalidMoneyException {
-    return new InvalidMoneyException('Currency cannot be empty.');
+  static notAnInteger(minorUnits: number): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `Minor units must be a whole number, received ${minorUnits}.`,
+    );
+  }
+
+  static notFinite(amount: number): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `Amount must be a finite number, received ${amount}.`,
+    );
+  }
+
+  static tooManyDecimalPlaces(
+    amount: number,
+    allowed: number,
+  ): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `Amount ${amount} has more than ${allowed} decimal places, which this currency cannot represent.`,
+    );
+  }
+
+  static invalidCurrency(currency: string): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `Currency must be three letters, received "${currency}".`,
+    );
   }
 }

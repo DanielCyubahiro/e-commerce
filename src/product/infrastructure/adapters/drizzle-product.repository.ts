@@ -9,7 +9,7 @@ import type { DrizzleDB } from '../../../shared/infrastructure/database/postgres
 import { Product } from '../../domain/entities/product.entity';
 import { products } from '../../../shared/infrastructure/database/postgres/schema';
 import { Sku } from '../../domain/value-objects/sku.vo';
-import { Money } from '../../../shared/domain/value-objects/money.vo';
+import { Money } from '@/shared/domain';
 import { ProductId } from '../../domain/value-objects/product-id.vo';
 
 @Injectable()
@@ -72,13 +72,19 @@ export class DrizzleProductRepository implements ProductRepository {
 
     if (filters.minPrice) {
       conditions.push(
-        gte(products.priceAmount, Money.create(filters.minPrice).toCents()),
+        gte(
+          products.priceAmount,
+          Money.fromDecimal(filters.minPrice, 'EUR').minorUnits,
+        ),
       );
     }
 
     if (filters.maxPrice) {
       conditions.push(
-        lte(products.priceAmount, Money.create(filters.maxPrice).toCents()),
+        lte(
+          products.priceAmount,
+          Money.fromDecimal(filters.maxPrice, 'EUR').minorUnits,
+        ),
       );
     }
 
@@ -108,7 +114,7 @@ export class DrizzleProductRepository implements ProductRepository {
       id: product.id.value,
       name: product.name,
       description: product.description,
-      priceAmount: product.price.toCents(),
+      priceAmount: product.price.minorUnits,
       priceCurrency: product.price.currency,
       sku: product.sku.value,
       stock: product.stock,
@@ -124,7 +130,7 @@ export class DrizzleProductRepository implements ProductRepository {
       id: ProductId.create(row.id),
       name: row.name,
       description: row.description,
-      price: Money.create(row.priceAmount / 100, row.priceCurrency),
+      price: Money.fromMinorUnits(row.priceAmount, row.priceCurrency),
       sku: Sku.create(row.sku),
       stock: row.stock,
       lowStockThreshold: row.lowStockThreshold,

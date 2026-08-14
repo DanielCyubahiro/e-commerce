@@ -10,13 +10,16 @@ import {
   Query,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import {
+  CreateProductCommand,
+  DeleteProductCommand,
+  GetProductQuery,
+  ListProductsQuery,
+  type ProductReadModel,
+} from '../application';
+import type { Page } from '@/shared/application';
 import { CreateProductDto } from './dtos/create-product.dto';
-import { CreateProductCommand } from '../application/use-cases/commands/create-product/create-product.command';
-import { DeleteProductCommand } from '../application/use-cases/commands/delete-product/delete-product.command';
 import { ProductResponseDto } from './dtos/product-response.dto';
-import { ListProductsQuery } from '../application/use-cases/queries/list-products/list-products.query';
-import { GetProductQuery } from '../application/use-cases/queries/get-product/get-product.query';
-import { Product } from '../domain/entities/product.entity';
 
 @Controller('products')
 export class ProductController {
@@ -43,23 +46,29 @@ export class ProductController {
   async findAll(
     @Query('minPrice') minPrice?: number,
     @Query('maxPrice') maxPrice?: number,
+    @Query('currency') currency?: string,
   ): Promise<ProductResponseDto[]> {
-    const products = await this.queryBus.execute<ListProductsQuery, Product[]>(
-      new ListProductsQuery(minPrice, maxPrice),
+    const page = await this.queryBus.execute<
+      ListProductsQuery,
+      Page<ProductReadModel>
+    >(
+      new ListProductsQuery(
+        { minPrice, maxPrice, currency },
+        { limit: 100, offset: 0 },
+      ),
     );
 
-    return products.map((product: Product) =>
-      ProductResponseDto.fromDomain(product),
-    );
+    return page.items.map((item) => ProductResponseDto.fromReadModel(item));
   }
 
   @Get(':id')
   async findOne(@Param('id') id: string): Promise<ProductResponseDto> {
-    const product = await this.queryBus.execute<GetProductQuery, Product>(
-      new GetProductQuery(id),
-    );
+    const product = await this.queryBus.execute<
+      GetProductQuery,
+      ProductReadModel
+    >(new GetProductQuery(id));
 
-    return ProductResponseDto.fromDomain(product);
+    return ProductResponseDto.fromReadModel(product);
   }
 
   @Delete(':id')

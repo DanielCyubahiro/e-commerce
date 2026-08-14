@@ -84,6 +84,30 @@ export default tseslint.config(
     },
   },
   {
+    // Entities and value objects only: shared/presentation/filters legitimately
+    // imports the domain exception base class in order to catch it.
+    files: ['src/*/presentation/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/domain/entities/**',
+                '**/domain/value-objects/**',
+                '@/*/domain/entities/**',
+                '@/*/domain/value-objects/**',
+              ],
+              message:
+                'Presentation must not import domain entities or value objects. Consume read models through the application layer.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ['src/*/domain/**/*.ts'],
     rules: {
       'no-restricted-imports': [

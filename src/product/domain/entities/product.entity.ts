@@ -14,15 +14,13 @@ export interface CreateProductInput {
   stock: number;
 }
 
-export interface ProductProps {
+interface ProductState {
   id: ProductId;
   name: string;
   description: string;
   price: Money;
   sku: Sku;
   stock: number;
-  createdAt: Date;
-  updatedAt: Date;
 }
 
 export class Product extends AggregateRoot<ProductId> {
@@ -34,18 +32,14 @@ export class Product extends AggregateRoot<ProductId> {
   private _price: Money;
   private _sku: Sku;
   private _stock: number;
-  private _createdAt: Date;
-  private _updatedAt: Date;
 
-  private constructor(props: ProductProps) {
-    super(props.id);
-    this._name = props.name;
-    this._description = props.description;
-    this._price = props.price;
-    this._sku = props.sku;
-    this._stock = props.stock;
-    this._createdAt = props.createdAt;
-    this._updatedAt = props.updatedAt;
+  private constructor(state: ProductState) {
+    super(state.id);
+    this._name = state.name;
+    this._description = state.description;
+    this._price = state.price;
+    this._sku = state.sku;
+    this._stock = state.stock;
   }
 
   /**
@@ -61,8 +55,6 @@ export class Product extends AggregateRoot<ProductId> {
     Product.validateDescription(description);
     Product.validateStock(input.stock);
 
-    const now = new Date();
-
     return new Product({
       id: ProductId.create(),
       name,
@@ -70,13 +62,7 @@ export class Product extends AggregateRoot<ProductId> {
       price: Money.fromDecimal(input.price, input.currency),
       sku: Sku.create(input.sku),
       stock: input.stock,
-      createdAt: now,
-      updatedAt: now,
     });
-  }
-
-  static reconstitute(props: ProductProps): Product {
-    return new Product(props);
   }
 
   private static validateName(name: string): void {
@@ -121,13 +107,5 @@ export class Product extends AggregateRoot<ProductId> {
 
   get stock(): number {
     return this._stock;
-  }
-
-  get createdAt(): Date {
-    return this._createdAt;
-  }
-
-  get updatedAt(): Date {
-    return this._updatedAt;
   }
 }

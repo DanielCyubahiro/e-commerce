@@ -1,9 +1,15 @@
 export { DuplicateSkuException } from './exceptions/duplicate-sku.exception';
 export { ProductNotFoundException } from './exceptions/product-not-found.exception';
 export {
+  PRODUCT_READ_REPOSITORY,
+  type ProductFilters,
+  type ProductReadRepository,
+} from './ports/product.read-repository';
+export {
   PRODUCT_WRITE_REPOSITORY,
   type ProductWriteRepository,
 } from './ports/product.write-repository';
+export type { ProductReadModel } from './read-models/product.read-model';
 export { CreateProductCommand } from './use-cases/commands/create-product/create-product.command';
 export { CreateProductHandler } from './use-cases/commands/create-product/create-product.handler';
 export { DeleteProductCommand } from './use-cases/commands/delete-product/delete-product.command';

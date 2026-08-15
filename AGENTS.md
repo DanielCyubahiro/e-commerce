@@ -20,19 +20,21 @@ Where the test goes:
 | --- | --- | --- |
 | Domain invariant | `src/**/domain/**/*.spec.ts` | unit |
 | Handler behaviour | `src/**/application/**/*.spec.ts`, against a fake | unit |
-| New method on a port | the shared `test/contracts/*.contract.ts` | unit + integration |
+| New method on a port | the shared `test/contracts/*.contract.ts`, run via a binding file per implementation | unit + integration |
 | New adapter for a port | one binding file per implementation | unit + integration |
-| Endpoint, status, validation | `test/*.http-spec.ts` | http |
+| Endpoint, status, validation | `test/**/*.http-spec.ts` | http |
 | Index or schema change | `test/setup/schema.integration-spec.ts` | integration |
 
 Filenames decide which Jest project claims a file. `*.spec.ts` is unit,
 `*-spec.ts` is not. `foo.integration-spec.ts` and `foo.http-spec.ts` are
 invisible to the unit project by design.
 
-The contract row is a mechanism, not a suggestion. Adding a method to
-`test/contracts/*.contract.ts` breaks the in-memory fake and the Drizzle adapter
-simultaneously until both implement it, which is what stops the fake from
-silently diverging.
+The contract row is a mechanism, not a suggestion. No Jest project matches
+`*.contract.ts` directly: a `*.spec.ts` and an `*.integration-spec.ts`
+binding file per implementation import and invoke the shared function, for
+example `product-write-repository.spec.ts` binding the in-memory fake.
+Adding a method there breaks both bindings simultaneously until each
+implements it, which is what stops the fake from silently diverging.
 
 Assert thrown domain exceptions with `catchError` from
 `@test/support/catch-error`, never `expect(fn).toThrow(SomeException)`. Those
@@ -47,7 +49,8 @@ cannot accept.
   layer entitled to know both a decimal and its minor-unit form. See
   `ListProductsHandler.toMinorUnits`.
 - **DTOs check type, presence, and absurd-size ceilings only.** Anything with a
-  domain counterpart is left to the domain and surfaces as 422.
+  domain counterpart is left to the domain; the exception filter decides the
+  resulting HTTP status.
 - **No rule is written twice.** If a check exists in the domain, the DTO does
   not repeat it.
 
@@ -67,7 +70,7 @@ Worked instances, copy these shapes:
 | Rule | Mechanism |
 | --- | --- |
 | Domain imports no framework, no outer layer | `no-restricted-imports` |
-| Presentation imports no entity or value object | `no-restricted-imports` |
+| Presentation imports no domain entity, value object, or the domain barrel | `no-restricted-imports` |
 | Application imports no adapter or controller | `no-restricted-imports` |
 | Infrastructure imports no presentation | `no-restricted-imports` |
 | No import cycles, including a layer's own barrel | `import/no-cycle` |
@@ -85,7 +88,8 @@ Four kinds. A comment must say something the code cannot.
    throws, what it returns at the edges. Never how it works. Test: can a caller
    who never opens the body use it correctly?
 2. **Member comments** for units and invariants on data fields.
-3. **Implementation comments** only where the *why* is non-obvious.
+3. **Implementation comments** only where the *why* is non-obvious, like
+   counting decimal places before rounding in `money.vo.ts`.
 4. **Cross-module comments** for couplings spanning files, placed at the
    constrained end and pointing at the authority.
 

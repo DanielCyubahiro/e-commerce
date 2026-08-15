@@ -26,6 +26,10 @@ import type { PaginatedResponse } from './dtos/paginated-response.dto';
 import { ProductIdParamDto } from './dtos/product-id.param.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
 
+/**
+ * Translates HTTP to a command or query and back; holds no logic of its own,
+ * which is why it has no unit tests beyond the http-spec suite.
+ */
 @Controller('products')
 export class ProductController {
   constructor(
@@ -33,6 +37,14 @@ export class ProductController {
     private readonly queryBus: QueryBus,
   ) {}
 
+  /**
+   * Returns the id and sets `Location`, so a client need not parse the body to
+   * find the new resource.
+   *
+   * `passthrough: true` is required: without it Nest hands over the raw
+   * response and stops serialising the return value, so `return { id }` would
+   * never send.
+   */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(

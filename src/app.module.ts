@@ -6,6 +6,11 @@ import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module
 import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle.module';
 import { ProductModule } from './product/product.module';
 
+/**
+ * `validate: validateEnv` is what makes a malformed environment abort at
+ * boot rather than fail later at first use, and `isGlobal: true` is why no
+ * other module imports `ConfigModule` for itself.
+ */
 @Module({
   imports: [
     ConfigModule.forRoot({

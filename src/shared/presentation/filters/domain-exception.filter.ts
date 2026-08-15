@@ -10,6 +10,8 @@ import {
   DomainException,
 } from '../../domain/domain-exception.base';
 
+// Total over DomainErrorKind, so adding a kind is a compile error here rather
+// than an unmapped status at runtime.
 const STATUS_BY_KIND: Record<DomainErrorKind, HttpStatus> = {
   invariant: HttpStatus.UNPROCESSABLE_ENTITY,
   'malformed-identifier': HttpStatus.BAD_REQUEST,

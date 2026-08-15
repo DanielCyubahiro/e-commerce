@@ -16,6 +16,11 @@ export class ProductResponseDto {
   createdAt!: string;
   updatedAt!: string;
 
+  /**
+   * `priceMinorUnits` is the stored integer; turning it into the decimal a
+   * client expects happens here, presentation's job and nowhere else's. See
+   * "Read model" in docs/concepts.md.
+   */
   static fromReadModel(model: ProductReadModel): ProductResponseDto {
     const dto = new ProductResponseDto();
     dto.id = model.id;

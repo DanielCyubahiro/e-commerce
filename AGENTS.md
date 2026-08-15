@@ -37,9 +37,14 @@ Adding a method there breaks both bindings simultaneously until each
 implements it, which is what stops the fake from silently diverging.
 
 Assert thrown domain exceptions with `catchError` from
-`@test/support/catch-error`, never `expect(fn).toThrow(SomeException)`. Those
-exceptions have private constructors and named factories, which Jest's `toThrow`
-cannot accept.
+`@test/support/catch-error`, never `expect(fn).toThrow(SomeException)`. Most
+domain exceptions are built only through a named factory behind a private
+constructor, and TypeScript rejects passing one to `toThrow`: its
+`Constructable` parameter type requires a public constructor, so the call
+fails to compile with `TS2345` rather than failing at runtime.
+`InvalidIdentifierException` is the one exception with a public constructor
+and no factory, so `toThrow` would actually compile against it, but
+`catchError` stays the uniform pattern to reach for.
 
 ## Where things live
 
@@ -61,9 +66,9 @@ Worked instances, copy these shapes:
 - **Define errors out of existence.** `STATUS_BY_KIND` in
   `domain-exception.filter.ts` is a total `Record<DomainErrorKind, HttpStatus>`,
   so adding an error kind is a compile error, never a runtime fallthrough.
-- **Reject inherited shallowness.** `AggregateRoot` is deliberately empty rather
-  than extending Nest's, which would inherit ten unused members and let a domain
-  method named `publish` silently override framework behaviour.
+- **Reject inherited shallowness.** `AggregateRoot` stays empty rather than
+  extending Nest's. See `docs/adr/0004-no-nest-aggregate-root-base-class.md`
+  for why.
 
 ## Already enforced, do not re-check
 
@@ -76,8 +81,10 @@ Worked instances, copy these shapes:
 | No import cycles, including a layer's own barrel | `import/no-cycle` |
 | Domain 100%, application 95%, rest 85% (branches 80) | `jest.config.ts` |
 
-The build proves these. Do not hand-verify them, and do not "fix" a boundary
-ESLint accepted.
+`pnpm lint` enforces the import rules above; `pnpm test:cov` enforces the
+coverage row. Neither runs automatically, there is no CI in this repo yet. Do
+not hand-verify a rule a tool already checks; run `pnpm lint` or
+`pnpm test:cov` instead, and do not "fix" a boundary ESLint accepted.
 
 ## Comments
 
@@ -104,4 +111,4 @@ in for a fix, or write an `@param` that retypes the parameter list.
 | "The test is obvious, I will write it after" | The red step is where you find out it asserts nothing. |
 | "I will validate this in the DTO too, to be safe" | That is the same rule written twice. Pick the layer that owns it. |
 | "I will import the barrel from inside its own layer" | That is a cycle. The Nest token resolves to `undefined` and fails at boot as an unrelated error. |
-| "This exception needs `expect().toThrow()`" | Private constructors. Use `catchError`. |
+| "This exception needs `expect().toThrow()`" | Most have a private constructor behind a factory, which fails `toThrow`'s type check. Use `catchError`. |

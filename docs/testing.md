@@ -25,9 +25,18 @@ vocabulary.
 Assert thrown domain exceptions with `catchError` (or its async counterpart
 `catchRejection`) from
 [`test/support/catch-error.ts`](../test/support/catch-error.ts), not
-`expect(fn).toThrow(SomeException)`. Those exceptions have private
-constructors and are built only through named factories, and Jest's `toThrow`
-cannot construct one to compare against.
+`expect(fn).toThrow(SomeException)`. Most domain exceptions
+(`InvalidStockException`, `InvalidSkuException`,
+`InvalidProductDescriptionException`, `InvalidProductNameException`,
+`InvalidMoneyException`) are built only through a named factory behind a
+private constructor, and that breaks `toThrow` at compile time, not runtime:
+its type signature accepts a `Constructable`, which requires a public `new`,
+so passing a class with a private constructor fails TypeScript with `TS2345`
+before the test ever runs. At runtime `toThrow` never constructs anything
+either way: it does a plain `instanceof` check. `InvalidIdentifierException`
+is the one domain exception with a public constructor and no factory, so
+`toThrow` would actually compile and pass against it, but `catchError` stays
+the uniform pattern to reach for.
 
 ## Three Jest projects, not five
 
@@ -90,7 +99,9 @@ implementation. Adding a case to the contract, or a method to the port,
 breaks every binding at once until each implementation covers it, which is
 what stops a fake from drifting away from the real adapter unnoticed. See
 [Contract test](./concepts.md#contract-test) in the glossary for why this
-counts as a contract test rather than an ordinary shared test helper.
+counts as a contract test rather than an ordinary shared test helper, and
+[ADR 0005](./adr/0005-contract-tests-bind-to-every-adapter.md) for why the
+mechanism exists at all.
 
 The two contracts do not share a harness shape. The write side needs only one
 repository:
@@ -204,5 +215,7 @@ against compiler output rather than against this codebase's logic, so the
 floor is set at 80, the number the controller (and the rest of the `global`
 bucket, in aggregate) already clears.
 
-`AGENTS.md` states these four numbers in one line and links here for why;
-this file is where the reasoning behind the 80 rather than 85 lives.
+`AGENTS.md`'s enforcement table names `jest.config.ts`, not this file, as the
+mechanism for these four numbers. `jest.config.ts` itself already carries the
+reasoning for 80 rather than 85 in a comment; this file is where that
+reasoning is spelled out in full.

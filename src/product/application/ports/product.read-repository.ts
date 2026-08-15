@@ -8,8 +8,8 @@ export const PRODUCT_READ_REPOSITORY = Symbol('PRODUCT_READ_REPOSITORY');
  * Bounds are in minor units, matching the stored column, so no implementation
  * has to know how a decimal becomes an integer. `ListProductsHandler` converts.
  *
- * A price bound only means something within one currency, so `currency` is
- * required whenever either bound is set.
+ * A price bound only means something within one currency, but nothing here
+ * enforces that `currency` is set whenever a bound is; see docs/backlog.md.
  */
 export interface ProductFilters {
   minPriceMinorUnits?: number | undefined;

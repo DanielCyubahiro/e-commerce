@@ -7,7 +7,6 @@ import {
   MongoDbProvider,
 } from './mongo.provider';
 
-/** Wired ahead of first use: reserved for an upcoming bounded context, not yet queried by any code. */
 @Global()
 @Module({
   providers: [MongoClientProvider, MongoDbProvider],

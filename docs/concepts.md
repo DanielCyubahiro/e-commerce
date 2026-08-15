@@ -29,12 +29,10 @@ representable. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6,
 ### Aggregate root
 
 [`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts#L4-L16) is
-deliberately empty, a marker that adds nothing to `Entity`, and deliberately
-not Nest CQRS's own `AggregateRoot`: that framework class carries ten members
-this codebase never calls, so a domain method that happened to be named
-`publish` or `commit` would silently override framework behaviour instead of
-declaring a rule. Canonical source: Vaughn Vernon, "Effective Aggregate
-Design" (a three part paper).
+deliberately empty, a marker that adds nothing to `Entity`. See
+[ADR 0004](./adr/0004-no-nest-aggregate-root-base-class.md) for why it does
+not extend Nest CQRS's own `AggregateRoot` instead. Canonical source: Vaughn
+Vernon, "Effective Aggregate Design" (a three part paper).
 
 ### Entity
 
@@ -111,8 +109,10 @@ A handler binds a command or a query to a port.
 [`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts#L13-L18)
 is the only layer entitled to know both a decimal price and its minor-unit
 form, since presentation cannot import the domain and infrastructure should
-not need to know how the conversion works. Canonical source: Greg Young,
-"CQRS Documents".
+not need to know how the conversion works. See
+[ADR 0001](./adr/0001-money-as-integer-minor-units.md) for why the stored form
+is an integer count of minor units in the first place. Canonical source: Greg
+Young, "CQRS Documents".
 
 ### Read model
 
@@ -120,8 +120,9 @@ not need to know how the conversion works. Canonical source: Greg Young,
 is flat and carries no invariants; it is deliberately not the aggregate, so
 the query path never rehydrates a `Product` and the aggregate's persistence
 factory can stay private. `priceMinorUnits` is the stored integer;
-converting it to a decimal is the presentation layer's job. Canonical
-source: Greg Young, "CQRS Documents".
+converting it to a decimal is the presentation layer's job. See
+[ADR 0002](./adr/0002-read-write-split-without-rehydration.md) for why the
+read side is built this way. Canonical source: Greg Young, "CQRS Documents".
 
 ### Projection
 
@@ -134,9 +135,10 @@ Documents".
 
 Dependencies point inward only, and the four layers are ESLint-enforced
 rather than left to discipline: an import that crosses the wrong way fails
-the build. See [`docs/architecture.md`](./architecture.md) for the layer
-table and what each layer may import. Canonical source: Robert C. Martin,
-*Clean Architecture*, Ch. 22, "The Clean Architecture".
+`pnpm lint`. See [`docs/architecture.md`](./architecture.md) for the layer
+table, the enforcement mechanism, and what each layer may import. Canonical
+source: Robert C. Martin, *Clean Architecture*, Ch. 22, "The Clean
+Architecture".
 
 ### Shared kernel
 

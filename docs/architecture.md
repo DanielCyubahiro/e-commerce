@@ -10,7 +10,9 @@ redefining them.
 ## Layers and enforcement
 
 Dependencies point inward. ESLint enforces the boundaries, so a violation
-fails the build rather than relying on discipline.
+fails `pnpm lint` rather than relying on discipline. Nothing runs that
+automatically today: there is no CI in this repo, so the check only happens
+when someone runs the command.
 
 | Layer | Owns | May import |
 | --- | --- | --- |
@@ -69,10 +71,17 @@ sequenceDiagram
     H->>P: add(product)
     P->>A: DrizzleProductWriteRepository
     A->>DB: INSERT
-    DB-->>A: 23505 on duplicate sku
-    A-->>H: DuplicateSkuException
-    H-->>Ctl: id
-    Ctl-->>C: 201 + Location header
+    alt sku already exists
+        DB-->>A: 23505 on duplicate sku
+        A-->>H: DuplicateSkuException
+        H-->>Ctl: exception propagates
+        Ctl-->>C: 409 Conflict
+    else no conflict
+        DB-->>A: row inserted
+        A-->>H: id
+        H-->>Ctl: id
+        Ctl-->>C: 201 + Location header
+    end
 ```
 
 Walking each hop:
@@ -91,9 +100,9 @@ Walking each hop:
   stock before an instance exists, then calls `add` on the
   `ProductWriteRepository` port.
 - [`DrizzleProductWriteRepository.add`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
-  inserts the row. A duplicate SKU trips Postgres's unique constraint (SQLSTATE
-  `23505`); the adapter walks the wrapped error's cause chain and raises
-  `DuplicateSkuException` instead of letting a driver error escape.
+  inserts the row. A duplicate SKU raises `DuplicateSkuException` instead of
+  letting the driver error escape; see [the fork seam](#fork-seam) for how that
+  detection works and the constraint-name coupling it depends on.
 - On the success path the handler returns only the new id, never the
   aggregate, and the controller sets a `Location` header pointing at the new
   resource before the framework serialises a 201.
@@ -105,7 +114,9 @@ checks type, presence, and generous size ceilings, while
 owns the rules (name length, non-empty description, integer non-negative
 stock), so a rule is never written twice. See
 [Invariant](./concepts.md#invariant) in the glossary for how the two layers
-divide that work in general.
+divide that work in general, and
+[ADR 0006](./adr/0006-validation-at-the-edge-versus-the-domain.md) for why the
+split is drawn where it is.
 
 ## Error path
 
@@ -131,15 +142,6 @@ passes through with Nest's own `{ statusCode, message, error }` body and no
 `code` at all, deliberately, so the pipe's per-field messages survive
 unedited. A client branching on `code` has to treat that response shape as a
 case of its own.
-
-Verified against source: `conflict` maps to `HttpStatus.CONFLICT` (409) and
-`not-found` maps to `HttpStatus.NOT_FOUND` (404) in
-[`application-exception.filter.ts`](../src/shared/presentation/filters/application-exception.filter.ts),
-matching
-[`DuplicateSkuException`](../src/product/application/exceptions/duplicate-sku.exception.ts)'s
-`conflict` kind and
-[`ProductNotFoundException`](../src/product/application/exceptions/product-not-found.exception.ts)'s
-`not-found` kind. The table above is unchanged from the plan.
 
 `STATUS_BY_KIND` in
 [`domain-exception.filter.ts`](../src/shared/presentation/filters/domain-exception.filter.ts)
@@ -189,6 +191,9 @@ insert at the database; the equivalent duplicate-detection code just stops
 recognising it, so the raw driver error escapes instead. The client gets a 500
 from `UnhandledExceptionFilter` where it should get a 409 from
 `DuplicateSkuException`, and the gap only shows up under concurrent writes.
+[ADR 0003](./adr/0003-sku-uniqueness-arbitrated-by-the-database.md) records why
+detection works this way, catching the constraint violation rather than
+pre-checking for a duplicate.
 
 The procedure:
 

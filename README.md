@@ -36,12 +36,6 @@ query.
 | `pnpm lint` | ESLint with type-aware rules |
 | `pnpm db:up` / `db:down` / `db:logs` | Local Postgres and Mongo |
 
-## Conventions
-
-- Errors carry a stable `code` in the response body (for example
-  `PRODUCT_SKU_DUPLICATE`), separate from the HTTP status returned alongside
-  it.
-
 ## Where to go next
 
 | Question | File |

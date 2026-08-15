@@ -117,16 +117,20 @@ divide that work in general.
 | Not found | `ApplicationException`, kind `not-found` | `ApplicationExceptionFilter` | 404 |
 | Anything unrecognised | none | `UnhandledExceptionFilter` | 500, no driver detail |
 
-Every response body also carries a stable, machine-readable `code`, distinct
-from the status above. `DomainExceptionFilter` and `ApplicationExceptionFilter`
-both emit `{ statusCode, code, message }`, where `code` is `exception.code`; a
-duplicate SKU comes back as
+`DomainException` and `ApplicationException` both carry a stable,
+machine-readable `code`, distinct from the status above.
+`DomainExceptionFilter` and `ApplicationExceptionFilter` emit
+`{ statusCode, code, message }`, where `code` is `exception.code`; a duplicate
+SKU comes back as
 `{ statusCode: 409, code: 'PRODUCT_SKU_DUPLICATE', message: ... }`
 ([`duplicate-sku.exception.ts`](../src/product/application/exceptions/duplicate-sku.exception.ts)).
-`UnhandledExceptionFilter` shapes its body the same way, with the fixed code
-`'INTERNAL_ERROR'`. A status is shared by every failure of that kind, and a
-message is prose free to be reworded; a client that needs to act on a
-specific failure branches on `code`.
+`UnhandledExceptionFilter` sets the same fixed code, `'INTERNAL_ERROR'`, only
+for a genuinely unrecognised error. A framework exception, such as a
+`ValidationPipe` rejection, takes a different branch of that same filter and
+passes through with Nest's own `{ statusCode, message, error }` body and no
+`code` at all, deliberately, so the pipe's per-field messages survive
+unedited. A client branching on `code` has to treat that response shape as a
+case of its own.
 
 Verified against source: `conflict` maps to `HttpStatus.CONFLICT` (409) and
 `not-found` maps to `HttpStatus.NOT_FOUND` (404) in

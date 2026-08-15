@@ -133,4 +133,57 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ['src/*/application/**/*.ts', 'src/shared/application/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              // Bare variants (no trailing /**) are required alongside the
+              // /** forms: no-restricted-imports matches import specifiers
+              // with gitignore semantics, where a trailing /** does not match
+              // the barrel path itself (e.g. '@/product/infrastructure'),
+              // only paths nested under it.
+              group: [
+                '**/infrastructure/**',
+                '**/infrastructure',
+                '**/presentation/**',
+                '**/presentation',
+                '@/*/infrastructure/**',
+                '@/*/infrastructure',
+                '@/*/presentation/**',
+                '@/*/presentation',
+              ],
+              message:
+                'Dependencies point inward. The application layer defines ports; it must not import an adapter or a controller.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/*/infrastructure/**/*.ts', 'src/shared/infrastructure/**/*.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '**/presentation/**',
+                '**/presentation',
+                '@/*/presentation/**',
+                '@/*/presentation',
+              ],
+              message:
+                'Infrastructure implements application ports. It must not import presentation.',
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

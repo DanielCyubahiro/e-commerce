@@ -18,6 +18,11 @@ export class DeleteProductHandler implements ICommandHandler<
     private readonly productRepository: ProductWriteRepository,
   ) {}
 
+  /**
+   * `ProductWriteRepository.delete` returns false rather than throwing when no
+   * product holds that id; turning that into `ProductNotFoundException`
+   * happens here.
+   */
   async execute(command: DeleteProductCommand): Promise<void> {
     const deleted = await this.productRepository.delete(
       ProductId.create(command.productId),

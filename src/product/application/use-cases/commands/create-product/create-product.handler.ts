@@ -7,6 +7,11 @@ import {
 } from '../../../ports/product.write-repository';
 import { CreateProductCommand } from './create-product.command';
 
+/**
+ * Constructs the aggregate, which validates name, description, and stock, then
+ * delegates SKU uniqueness to `ProductWriteRepository.add`. No read-then-write
+ * check happens here; the store is the sole arbiter of uniqueness.
+ */
 @CommandHandler(CreateProductCommand)
 export class CreateProductHandler implements ICommandHandler<
   CreateProductCommand,

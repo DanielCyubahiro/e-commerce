@@ -19,6 +19,7 @@ export class GetProductHandler implements IQueryHandler<
     private readonly productRepository: ProductReadRepository,
   ) {}
 
+  /** @throws ProductNotFoundException when no product holds that id. */
   async execute(query: GetProductQuery): Promise<ProductReadModel> {
     const product = await this.productRepository.findById(
       ProductId.create(query.productId),

@@ -1,3 +1,7 @@
+/**
+ * `currency` is last, mirroring `CreateProductDto`, where it is the only
+ * optional field and defaults to EUR.
+ */
 export class CreateProductCommand {
   constructor(
     public readonly name: string,

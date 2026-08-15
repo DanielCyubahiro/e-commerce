@@ -18,6 +18,10 @@ export interface ProductFilters {
 }
 
 export interface ProductReadRepository {
+  /**
+   * @returns null when no product holds that id. Turning that absence into
+   * `ProductNotFoundException` is the handler's job, not this port's.
+   */
   findById(id: ProductId): Promise<ProductReadModel | null>;
 
   /** Newest first, ordered by `created_at DESC, id DESC` so paging is total. */

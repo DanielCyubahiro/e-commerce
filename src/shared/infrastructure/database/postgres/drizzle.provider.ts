@@ -4,6 +4,8 @@ import postgres from 'postgres';
 import * as schema from './schema';
 
 export const POSTGRES_CLIENT = Symbol('POSTGRES_CLIENT');
+// The query-building handle every product adapter injects; DrizzleModule
+// closes the pool behind it (via POSTGRES_CLIENT) on shutdown, not this file.
 export const DRIZZLE = Symbol('DRIZZLE');
 
 export type PostgresClient = ReturnType<typeof postgres>;

@@ -14,6 +14,11 @@ import { products } from '@/shared/infrastructure/database/postgres/schema';
 const UNIQUE_VIOLATION = '23505';
 const SKU_UNIQUE_CONSTRAINT = 'products_sku_unique';
 
+/**
+ * The only place a driver error becomes an application exception: everything
+ * above this adapter sees only `ProductWriteRepository`'s port contract, never
+ * a raw Postgres error.
+ */
 @Injectable()
 export class DrizzleProductWriteRepository implements ProductWriteRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}

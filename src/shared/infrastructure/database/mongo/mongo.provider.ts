@@ -4,6 +4,10 @@ import { type Db, MongoClient } from 'mongodb';
 export const MONGO_CLIENT = Symbol('MONGO_CLIENT');
 export const MONGO_DB = Symbol('MONGO_DB');
 
+/**
+ * Connects at boot ahead of first use: reserved for an upcoming bounded
+ * context, so nothing queries it yet (see .env.example).
+ */
 export const MongoClientProvider = {
   provide: MONGO_CLIENT,
   inject: [ConfigService],

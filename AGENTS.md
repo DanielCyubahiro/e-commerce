@@ -71,7 +71,7 @@ Worked instances, copy these shapes:
 | Application imports no adapter or controller | `no-restricted-imports` |
 | Infrastructure imports no presentation | `no-restricted-imports` |
 | No import cycles, including a layer's own barrel | `import/no-cycle` |
-| Domain 100%, application 95%, rest 85% coverage | `jest.config.ts` |
+| Domain 100%, application 95%, rest 85% (branches 80) | `jest.config.ts` |
 
 The build proves these. Do not hand-verify them, and do not "fix" a boundary
 ESLint accepted.

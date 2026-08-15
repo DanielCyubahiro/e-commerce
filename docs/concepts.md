@@ -41,7 +41,8 @@ Design" (a three part paper).
 [`Entity.equals`](../src/shared/domain/entity.base.ts#L10-L16) compares by id
 and by constructor together, so a `Product` and a hypothetical `Order` that
 happened to share a UUID would still not be equal. Canonical source: Eric
-Evans, *Domain-Driven Design*, Ch. 5, "Entities".
+Evans, *Domain-Driven Design*, Ch. 5, "A Model Expressed in Software,"
+section "Entities".
 
 ### Value object
 
@@ -53,7 +54,7 @@ normalises on construction (`Money` to minor units, `Sku` to uppercase), and
 each compares by value through its own `equals`. Contrast `ProductId`, itself
 a value object, but one that also serves as identity rather than a plain
 attribute. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5,
-"Value Objects".
+"A Model Expressed in Software," section "Value Objects".
 
 ### Invariant
 
@@ -75,7 +76,7 @@ in the application layer:
 and
 [`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts#L3)
 are what Nest injects by, never a concrete class. Canonical source: Alistair
-Cockburn, "Hexagonal Architecture" (the Ports and Adapters pattern).
+Cockburn's Hexagonal Architecture, also called Ports and Adapters.
 
 ### Adapter
 
@@ -86,7 +87,7 @@ implements `ProductWriteRepository` in the infrastructure layer; its
 walks Drizzle's wrapped error cause chain to detect a Postgres unique
 violation and maps it to `DuplicateSkuException`, an application exception,
 rather than letting a driver error escape to the caller. Canonical source:
-Alistair Cockburn, "Hexagonal Architecture".
+Alistair Cockburn's Hexagonal Architecture, also called Ports and Adapters.
 
 ### Command
 
@@ -158,7 +159,7 @@ is one suite, run once against
 and once against the Drizzle adapter, so a divergence between the fake and
 the real implementation is a test failure rather than a surprise later. See
 "Fake versus mock" below for why the in-memory repository counts as a fake
-rather than a mock. Canonical source: Martin Fowler, "ContractTest" (bliki).
+rather than a mock. Canonical source: Martin Fowler, "Contract Test" (bliki).
 
 ### Fake versus mock
 

@@ -106,9 +106,11 @@ export default tseslint.config(
               // The domain barrel re-exports entities and value objects
               // alongside exception base classes, so importing it whole
               // bypasses the group above. Match only the barrel path itself
-              // (last segment exactly "domain"), so a direct file import
-              // like '../../domain/domain-exception.base' keeps working.
-              regex: '(^|/)domain$',
+              // (last segment "domain", or "domain/index" since
+              // '@/product/domain/index' resolves to the same file), so a
+              // direct file import like '../../domain/domain-exception.base'
+              // keeps working.
+              regex: '(^|/)domain(/index)?$',
               message:
                 'Presentation must not import the domain barrel; it re-exports entities and value objects. Import the specific domain file you need, or consume read models through the application layer.',
             },
@@ -130,10 +132,12 @@ export default tseslint.config(
                 'The domain layer must not depend on a framework. Keep Nest in application, infrastructure, and presentation.',
             },
             {
-              // Bare variants (no trailing /**) alongside the /** forms:
-              // gitignore-style matching does not treat a trailing /** as
-              // matching the barrel path itself (e.g. '@/product/application'),
-              // only paths nested under it.
+              // Bare variants (no trailing /**) sit alongside every /** form
+              // in this block and in the application and infrastructure
+              // blocks below: no-restricted-imports matches specifiers with
+              // gitignore semantics, where a trailing /** matches paths
+              // nested under a directory but not a bare barrel import of the
+              // directory itself (e.g. '@/product/application').
               group: [
                 '**/application/**',
                 '**/application',
@@ -151,27 +155,19 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/*/application/**/*.ts', 'src/shared/application/**/*.ts'],
+    files: ['src/*/application/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              // Bare variants (no trailing /**) are required alongside the
-              // /** forms: no-restricted-imports matches import specifiers
-              // with gitignore semantics, where a trailing /** does not match
-              // the barrel path itself (e.g. '@/product/infrastructure'),
-              // only paths nested under it.
+              // Bare variants for the same reason as the domain block above.
               group: [
                 '**/infrastructure/**',
                 '**/infrastructure',
                 '**/presentation/**',
                 '**/presentation',
-                '@/*/infrastructure/**',
-                '@/*/infrastructure',
-                '@/*/presentation/**',
-                '@/*/presentation',
               ],
               message:
                 'Dependencies point inward. The application layer defines ports; it must not import an adapter or a controller.',
@@ -182,19 +178,15 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/*/infrastructure/**/*.ts', 'src/shared/infrastructure/**/*.ts'],
+    files: ['src/*/infrastructure/**/*.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
         {
           patterns: [
             {
-              group: [
-                '**/presentation/**',
-                '**/presentation',
-                '@/*/presentation/**',
-                '@/*/presentation',
-              ],
+              // Bare variants for the same reason as the domain block above.
+              group: ['**/presentation/**', '**/presentation'],
               message:
                 'Infrastructure implements application ports. It must not import presentation.',
             },

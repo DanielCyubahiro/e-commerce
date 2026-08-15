@@ -23,6 +23,11 @@ interface ProductState {
   stock: number;
 }
 
+/**
+ * The consistency boundary for a product: every invariant (name, description,
+ * stock) is validated once, in `create`, and is never re-checked by callers
+ * downstream.
+ */
 export class Product extends AggregateRoot<ProductId> {
   private static readonly MIN_NAME_LENGTH = 2;
   private static readonly MAX_NAME_LENGTH = 255;

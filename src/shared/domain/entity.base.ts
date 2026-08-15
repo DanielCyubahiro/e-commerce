@@ -7,6 +7,11 @@ export abstract class Entity<TId extends UniqueId = UniqueId> {
     return this._id;
   }
 
+  /**
+   * Compares the constructor as well as the id, so a Product and an Order that
+   * happen to share a UUID are not equal. Ids are branded at compile time; this
+   * covers values that reached here untyped.
+   */
   equals(other: unknown): boolean {
     if (!(other instanceof Entity)) {
       return false;

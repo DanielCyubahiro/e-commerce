@@ -1,5 +1,9 @@
 import { type DomainErrorKind, DomainException } from '@/shared/domain';
 
+/**
+ * `kind: 'invariant'` surfaces as 422 Unprocessable Entity, per
+ * `STATUS_BY_KIND` in `domain-exception.filter.ts`.
+ */
 export class InvalidProductNameException extends DomainException {
   readonly code = 'PRODUCT_NAME_INVALID';
   readonly kind: DomainErrorKind = 'invariant';

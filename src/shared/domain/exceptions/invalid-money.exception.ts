@@ -3,6 +3,10 @@ import {
   DomainException,
 } from '../domain-exception.base';
 
+/**
+ * `kind: 'invariant'` surfaces as 422 Unprocessable Entity, per
+ * `STATUS_BY_KIND` in `domain-exception.filter.ts`.
+ */
 export class InvalidMoneyException extends DomainException {
   readonly code = 'MONEY_INVALID';
   readonly kind: DomainErrorKind = 'invariant';

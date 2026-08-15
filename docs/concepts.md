@@ -146,12 +146,9 @@ table and what each layer may import. Canonical source: Robert C. Martin,
 [`Money`](../src/shared/domain/value-objects/money.vo.ts) on the domain
 side, [`DomainException`](../src/shared/domain/domain-exception.base.ts) and
 [`ApplicationException`](../src/shared/application/application-exception.base.ts)
-on the error side. The two exception bases are deliberately different
-classes with their own HTTP filters: a `DomainException`, raised inside the
-aggregate for an invariant, is filtered to 422; an `ApplicationException`,
-raised at the write boundary for a conflict such as a duplicate SKU, is
-filtered to 409. Canonical source: Eric Evans, *Domain-Driven Design*
-(Shared Kernel, Part IV).
+on the error side. See "Domain versus application exception" below for how
+the two exception bases differ. Canonical source: Eric Evans, *Domain-Driven
+Design* (Shared Kernel, Part IV).
 
 ### Contract test
 
@@ -159,8 +156,30 @@ filtered to 409. Canonical source: Eric Evans, *Domain-Driven Design*
 is one suite, run once against
 [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts)
 and once against the Drizzle adapter, so a divergence between the fake and
-the real implementation is a test failure rather than a surprise later. The
-fake is a fake, not a mock: it asserts what actually happened, such as a
-stored product being found by a later delete, while a mock would assert how
-a collaborator was called. Canonical source: Martin Fowler, "ContractTest"
-(bliki); on fakes versus mocks specifically, Fowler, "Mocks Aren't Stubs".
+the real implementation is a test failure rather than a surprise later. See
+"Fake versus mock" below for why the in-memory repository counts as a fake
+rather than a mock. Canonical source: Martin Fowler, "ContractTest" (bliki).
+
+### Fake versus mock
+
+[`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts)
+is a fake, not a mock: it asserts what actually happened, such as a stored
+product being found by a later delete, while a mock would assert how a
+collaborator was called. Its fidelity to the real adapter is not taken on
+trust; the contract suite (see "Contract test" above) is what catches drift.
+Canonical source: Martin Fowler, "Mocks Aren't Stubs".
+
+### Domain versus application exception
+
+`DomainErrorKind` has two values, and
+[`STATUS_BY_KIND`](../src/shared/presentation/filters/domain-exception.filter.ts)
+maps each to its own HTTP status: `invariant`, raised inside the aggregate
+(for example by `Product.create`'s validation), to 422; `malformed-identifier`,
+raised by
+[`UniqueId.parse`](../src/shared/domain/value-objects/unique-id.vo.ts) via
+`InvalidIdentifierException` when a string is not a UUID, to 400. Contrast
+`ApplicationException`, filtered separately in
+[`application-exception.filter.ts`](../src/shared/presentation/filters/application-exception.filter.ts),
+whose `conflict` kind (a duplicate SKU) is filtered to 409 instead. Canonical
+source: Eric Evans, *Domain-Driven Design* (invariants); on mapping errors by
+architectural layer, Robert C. Martin, *Clean Architecture*.

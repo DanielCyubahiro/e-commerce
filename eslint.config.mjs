@@ -102,6 +102,16 @@ export default tseslint.config(
               message:
                 'Presentation must not import domain entities or value objects. Consume read models through the application layer.',
             },
+            {
+              // The domain barrel re-exports entities and value objects
+              // alongside exception base classes, so importing it whole
+              // bypasses the group above. Match only the barrel path itself
+              // (last segment exactly "domain"), so a direct file import
+              // like '../../domain/domain-exception.base' keeps working.
+              regex: '(^|/)domain$',
+              message:
+                'Presentation must not import the domain barrel; it re-exports entities and value objects. Import the specific domain file you need, or consume read models through the application layer.',
+            },
           ],
         },
       ],
@@ -120,10 +130,17 @@ export default tseslint.config(
                 'The domain layer must not depend on a framework. Keep Nest in application, infrastructure, and presentation.',
             },
             {
+              // Bare variants (no trailing /**) alongside the /** forms:
+              // gitignore-style matching does not treat a trailing /** as
+              // matching the barrel path itself (e.g. '@/product/application'),
+              // only paths nested under it.
               group: [
                 '**/application/**',
+                '**/application',
                 '**/infrastructure/**',
+                '**/infrastructure',
                 '**/presentation/**',
+                '**/presentation',
               ],
               message:
                 'Dependencies point inward. The domain layer must not import an outer layer.',

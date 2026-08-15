@@ -49,6 +49,10 @@ lerna-debug.log*
 .temp
 .tmp
 
+# agent scratch: ledgers, task briefs, review packages
+.superpowers/
+TODO.md
+
 # Runtime data
 pids
 *.pid

@@ -11,11 +11,13 @@ vocabulary.
 
 ### Bounded context
 
-A bounded context is a top-level directory under `src/` with its own domain,
-application, infrastructure, and presentation layers. The shared kernel
-every context reuses (see "Shared kernel" below) is deliberately excluded
-from that count, even though it has the same four directories, because it
-holds no domain concept of its own, only what every context needs.
+A bounded context is a top-level directory under `src/` marked by having its
+own `domain/` layer; application, infrastructure, and presentation typically
+follow once that layer exists, but they are not what marks it as a context.
+The shared kernel every context reuses (see "Shared kernel" below) is
+deliberately excluded by name, even though it has a `domain/` layer of its
+own too, because it holds no domain concept of its own, only what every
+context needs.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |

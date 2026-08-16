@@ -28,10 +28,12 @@ export interface DocPage {
 }
 
 /**
- * Everything a docs check needs from one read of the repo. `contexts` is
- * every directory under `src/` that has its own `domain/` layer, excluding
- * the shared kernel; it is not a fixed name list, so a new bounded context
- * appears here the moment that layer exists.
+ * What `readDocsModel` reads in one pass: `src/` for contexts, and every
+ * markdown page with its links. `readGlossary` and `readAdrIndex` are
+ * separate readers that re-read their own files directly rather than drawing
+ * on this model. `contexts` is every directory under `src/` that has its own
+ * `domain/` layer, excluding the shared kernel; it is not a fixed name list,
+ * so a new bounded context appears here the moment that layer exists.
  */
 export interface DocsModel {
   contexts: string[];
@@ -67,7 +69,7 @@ export function slugify(heading: string): string {
   return heading
     .replace(/^#+\s*/, '')
     .toLowerCase()
-    .replace(/[^a-z0-9 -]/g, '')
+    .replace(/[^a-z0-9 _-]/g, '')
     .trim()
     .replace(/ +/g, '-');
 }
@@ -110,7 +112,7 @@ function readContexts(): string[] {
     .sort();
 }
 
-/** Reads every tracked markdown file and `src/` once. Throws on unreadable files. */
+/** Reads every markdown file on disk and `src/` once. Throws on unreadable files. */
 export function readDocsModel(): DocsModel {
   const pages = walkMarkdown(REPO_ROOT).map((path) => {
     const body = readFileSync(join(REPO_ROOT, path), 'utf8');
@@ -146,8 +148,7 @@ export const CONTEXT_PAGE_HEADINGS = [
  * a literal in the docs rather than a list in this file: an exemption list
  * here would be invisible to whoever writes the entry.
  */
-export const REPO_WIDE_RULE_MARKER =
-  '**Repo-wide rule, no per-context instances.**';
+const REPO_WIDE_RULE_MARKER = '**Repo-wide rule, no per-context instances.**';
 
 /** One `###` entry in `docs/concepts.md`. `locations` is the instance table's first column. */
 export interface GlossaryEntry {
@@ -158,10 +159,10 @@ export interface GlossaryEntry {
 
 /**
  * Parses every `###` entry out of `docs/concepts.md`. `locations` is read off
- * whatever pipe-delimited rows follow the heading, so a malformed row (one
- * missing a closing `|`, say) is silently dropped from the list rather than
- * raising a parse error; a hand-authored table with a broken row degrades to
- * a wrong `locations` list, not a thrown exception.
+ * whatever pipe-delimited rows follow the heading: any line starting with `|`
+ * counts as a row, and its first cell is taken as-is, so a malformed row (one
+ * missing a closing `|`, say) is still accepted with whatever text lands in
+ * that cell, rather than being dropped or raising a parse error.
  */
 export function readGlossary(): GlossaryEntry[] {
   const body = readFileSync(join(REPO_ROOT, 'docs/concepts.md'), 'utf8');
@@ -188,8 +189,9 @@ export function readGlossary(): GlossaryEntry[] {
 }
 
 /**
- * `files` is every numbered ADR on disk; `indexed` is every ADR the index
- * table links to. Both are bare filenames, sorted, so a mismatch reads as a
+ * `files` is every numbered ADR on disk; `indexed` is every ADR any link in
+ * `docs/adr/README.md` points at, table or prose, not only the summary
+ * table's own rows. Both are bare filenames, sorted, so a mismatch reads as a
  * plain set difference in either direction.
  */
 export function readAdrIndex(): { files: string[]; indexed: string[] } {

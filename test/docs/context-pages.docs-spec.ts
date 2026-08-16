@@ -26,20 +26,35 @@ describe('context pages', () => {
   });
 
   it('every page carries the required headings in order', () => {
-    // Extra headings are legal anywhere; filtering the page's own heading
-    // list down to the required set and comparing that subsequence against
-    // CONTEXT_PAGE_HEADINGS checks position, not just presence.
+    // Extra headings are legal anywhere; filtering each page's own heading
+    // list down to the required set and diffing that against
+    // CONTEXT_PAGE_HEADINGS checks position, not just presence. Diffing full
+    // actual/expected objects, rather than collecting only the pages that
+    // fail into a `misordered` array, is what makes Jest's failure output
+    // name the expected order instead of printing it against `Expected: []`.
     const required: readonly string[] = CONTEXT_PAGE_HEADINGS;
 
-    const misordered = contextPages
-      .map((page) => ({
-        path: page.path,
-        order: page.headings.filter((heading) => required.includes(heading)),
-      }))
-      .filter(
-        ({ order }) => JSON.stringify(order) !== JSON.stringify(required),
-      );
+    const actual = contextPages.map((page) => ({
+      path: page.path,
+      headings: page.headings.filter((heading) => required.includes(heading)),
+    }));
+    const expected = contextPages.map((page) => ({
+      path: page.path,
+      headings: [...required],
+    }));
 
-    expect(misordered).toEqual([]);
+    expect(actual).toEqual(expected);
+  });
+
+  it('every context is linked from README', () => {
+    const readmeLinks = model.links
+      .filter((link) => link.file === 'README.md')
+      .map((link) => link.targetPath);
+
+    const missing = model.contexts.filter(
+      (context) => !readmeLinks.includes(pagePath(context)),
+    );
+
+    expect(missing).toEqual([]);
   });
 });

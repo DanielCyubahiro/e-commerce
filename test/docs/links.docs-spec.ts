@@ -50,15 +50,19 @@ describe('doc links', () => {
     // Link text that is just the filename is covered by the existence test
     // above. Anything else is read as a symbol: the last dotted segment, so
     // `Sku.MAX_LENGTH` requires `MAX_LENGTH` and `Product.create` requires
-    // `create`. Catches renames, which is what makes a link wrong.
+    // `create`. Matched on a word boundary rather than as a substring, so
+    // renaming `Product` still fails this check even though `ProductId` (and
+    // other symbols that merely contain the old name) remain in the file.
     const missing = model.links
       .filter((link) => link.targetPath.endsWith('.ts'))
       .filter((link) => link.text !== link.targetPath.split('/').pop())
       .filter((link) => {
         const segments = link.text.split('.');
         const symbol = (segments[segments.length - 1] ?? link.text).trim();
-        return !readFileSync(join(REPO_ROOT, link.targetPath), 'utf8').includes(
-          symbol,
+        const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const boundary = new RegExp(`\\b${escaped}\\b`);
+        return !boundary.test(
+          readFileSync(join(REPO_ROOT, link.targetPath), 'utf8'),
         );
       })
       .map(describeLink);

@@ -71,10 +71,10 @@ discipline alone, because no check here reads a sentence for staleness.
 
 | When you | Update | Checked by `pnpm test`? |
 | --- | --- | --- |
-| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list | Partly: the page, its headings, and the glossary row (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). Not the README list. |
+| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list | Yes: the page, its headings, the glossary row, and README's link to the page (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). |
 | Add or change a port | That context's `## Ports and adapters`, both tables | No |
 | Add an endpoint, or change its status | That context's `## Endpoints` | No |
-| Add an exception | That context's `## Error codes`, plus `docs/architecture.md`'s kind table if the *kind* is new | No |
+| Add an exception | That context's `## Error codes`, plus the `## Error path` table in `docs/architecture.md` (columns Failure, Base, Filter, Status) if the *kind* is new | No |
 | Introduce a term the glossary lacks | A new `docs/concepts.md` entry, with a table or the repo-wide-rule marker | Partly: once the entry exists, its shape and context coverage (`glossary.docs-spec.ts`). Not that you added one. |
 | Make a non-obvious call | A new ADR, plus its row in `docs/adr/README.md` | Partly: once the ADR file exists, its row (`adr-index.docs-spec.ts`). Not that you wrote one. |
 | Change the ESLint layer rules | `docs/architecture.md`'s enforcement table and the table above | No |
@@ -84,6 +84,14 @@ A context with no instance of a glossary term still gets a row, reading
 `| <context> | none | Not modelled yet |`. Absence is written, not omitted: an
 empty cell and a forgotten edit look identical, and omitting the row is
 exactly what `glossary.docs-spec.ts` catches.
+
+The five required headings a context page must carry are named nowhere but
+`CONTEXT_PAGE_HEADINGS` in `test/docs/docs-model.ts`; that constant is the
+authority, not this file, so the two cannot drift apart. Copy
+`docs/contexts/product.md` as the template rather than retyping the headings
+by hand. A required section with nothing to write yet, `## Endpoints` on a
+context with no controller, say, still gets written, holding the word `none`,
+the same convention as an empty glossary cell.
 
 ## APoSD in this codebase
 

@@ -107,8 +107,8 @@ counts as a contract test rather than an ordinary shared test helper, and
 [ADR 0005](./adr/0005-contract-tests-bind-to-every-adapter.md) for why the
 mechanism exists at all.
 
-The two contracts do not share a harness shape. A write harness needs only one
-repository:
+Harness shape follows what a contract's own port needs, not a shape every
+contract shares. A write harness needs only one repository:
 
 ```ts
 export interface WriteHarness {

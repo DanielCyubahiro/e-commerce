@@ -21,12 +21,14 @@ when someone runs the command.
 | `infrastructure` | Port implementations (Drizzle adapters) | `application`, `domain` |
 | `presentation` | Controllers, DTOs, filters | `application` |
 
-Commands operate on the `Product` aggregate. Queries never touch it; they
+Commands operate on a context's aggregate. Queries never touch it; they
 project rows into read models.
 
-Each layer exposes a barrel (`index.ts`) as its public surface. Code inside a
-layer imports by relative path, never through its own barrel: that cycle makes
-a Nest injection token resolve to `undefined` and surfaces at boot as an
+Most layers expose a barrel (`index.ts`) as their public surface;
+`src/product/presentation/`, `src/shared/presentation/`, and
+`src/shared/infrastructure/` do not yet have one. Code inside a layer that has
+a barrel imports by relative path, never through its own barrel: that cycle
+makes a Nest injection token resolve to `undefined` and surfaces at boot as an
 unrelated "can't resolve dependencies" error.
 
 ### Enforcement
@@ -106,13 +108,14 @@ with no table, column, or SQL fragment.
 
 ## Fork seam
 
-The application layer defines two ports in
-[`src/product/application/ports/`](../src/product/application/ports/):
+Each context defines its own ports under `src/<context>/application/ports/`.
+Everything above them, controllers, DTOs, command and query handlers, is
+written against these interfaces and knows nothing about Drizzle or Postgres.
+The ports a context actually has are listed under `## Ports and adapters` on
+its page in [`docs/contexts/`](./contexts/); product's are
 [`ProductReadRepository`](../src/product/application/ports/product.read-repository.ts)
 and
 [`ProductWriteRepository`](../src/product/application/ports/product.write-repository.ts).
-Everything above them, controllers, DTOs, command and query handlers, is
-written against these interfaces and knows nothing about Drizzle or Postgres.
 Forking this repo onto a different database or ORM touches more than the two
 adapters. It also replaces the module that provides their client and closes it
 on shutdown, and it leaves behind a handful of files that are Drizzle-specific
@@ -151,7 +154,7 @@ The procedure:
    providers cannot carry lifecycle hooks." Skip this step and the new
    connection leaks on shutdown instead of closing.
 4. Import the new module in
-   [`src/app.module.ts`](../src/app.module.ts), which is where `DrizzleModule`
+   [`app.module.ts`](../src/app.module.ts), which is where `DrizzleModule`
    itself is wired in today, not `product.module.ts`. `product.module.ts` only
    binds ports to adapters; it has no visibility into what those adapters need
    injected, and it is not where the client comes from.

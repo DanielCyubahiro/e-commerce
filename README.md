@@ -33,6 +33,7 @@ query.
 | `pnpm start` | Run once against a running database |
 | `pnpm build` | Compile to `dist` |
 | `pnpm test` | Unit and docs tests, no database |
+| `pnpm test:docs` | Docs structure tests only, no database |
 | `pnpm test:integration` | Repository tests against a throwaway Postgres container |
 | `pnpm test:http` | HTTP tests through the real pipe and filter stack |
 | `pnpm test:all` | Every project |

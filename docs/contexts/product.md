@@ -54,6 +54,17 @@ mechanism, and why a fake is held to the same suite as the adapter, is in
 | [`productWriteRepositoryContract`](../../test/contracts/product-write-repository.contract.ts) | [`product-write-repository.spec.ts`](../../test/contracts/product-write-repository.spec.ts) | [`product-write-repository.integration-spec.ts`](../../test/contracts/product-write-repository.integration-spec.ts) |
 | [`productReadRepositoryContract`](../../test/contracts/product-read-repository.contract.ts) | [`product-read-repository.spec.ts`](../../test/contracts/product-read-repository.spec.ts) | [`product-read-repository.integration-spec.ts`](../../test/contracts/product-read-repository.integration-spec.ts) |
 
+Each fake binding constructs one in-memory repository:
+[`InMemoryProductWriteRepository`](../../test/fakes/in-memory-product-write.repository.ts)
+on the write side, and
+[`InMemoryProductReadRepository`](../../test/fakes/in-memory-product-read.repository.ts)
+on the read side, which projects from a write fake instance rather than
+holding rows of its own. On both sides, `reset` clears that write fake's row
+map and `close` is a no-op, since neither fake acquires anything to release.
+Each adapter binding reaches the same shared test Postgres connection; `reset`
+truncates the `products` table between tests and `close` ends that
+connection.
+
 Failure modes a fake cannot reproduce, such as a column type rejecting a value
 Postgres cannot store, are covered outside the shared contract in
 [`drizzle-product-write.integration-spec.ts`](../../test/contracts/drizzle-product-write.integration-spec.ts).

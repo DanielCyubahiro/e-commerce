@@ -135,6 +135,15 @@ export interface ReadHarness {
 
 ([`ReadHarness`](../test/contracts/product-read-repository.contract.ts))
 
+`reset` and `close` are requirements on any harness, not detail specific to
+one binding. `reset` must leave the store as if no earlier test had run, so a
+sibling test never observes a row a previous one left behind, whatever the
+store backing `repository`, or `read` and `write`, actually is. `close`
+releases whatever resource the harness acquired to reach that store, typically
+a connection; a harness that acquired nothing may make `close` a no-op, but
+every implementation still supplies both methods so a contract runs the same
+way regardless of which one it is bound to.
+
 Each context lists its own contracts and their two bindings under
 `## Ports and adapters` on its page in [`docs/contexts/`](./contexts/).
 

@@ -25,11 +25,21 @@ describe('context pages', () => {
     expect(orphaned).toEqual([]);
   });
 
-  it.each(CONTEXT_PAGE_HEADINGS)('every page carries %s', (heading) => {
-    const missing = contextPages
-      .filter((page) => !page.headings.includes(heading))
-      .map((page) => page.path);
+  it('every page carries the required headings in order', () => {
+    // Extra headings are legal anywhere; filtering the page's own heading
+    // list down to the required set and comparing that subsequence against
+    // CONTEXT_PAGE_HEADINGS checks position, not just presence.
+    const required: readonly string[] = CONTEXT_PAGE_HEADINGS;
 
-    expect(missing).toEqual([]);
+    const misordered = contextPages
+      .map((page) => ({
+        path: page.path,
+        order: page.headings.filter((heading) => required.includes(heading)),
+      }))
+      .filter(
+        ({ order }) => JSON.stringify(order) !== JSON.stringify(required),
+      );
+
+    expect(misordered).toEqual([]);
   });
 });

@@ -56,7 +56,7 @@ adapter (in `integration`). See "The contract mechanism" below.
 
 ## The filename rule
 
-`testMatch` decides which project claims a file, and the three patterns do
+`testMatch` decides which project claims a file, and the four patterns do
 not overlap:
 
 | Project | Pattern |
@@ -64,21 +64,22 @@ not overlap:
 | `unit` | `src/**/*.spec.ts`, `test/**/*.spec.ts` |
 | `integration` | `test/**/*.integration-spec.ts` |
 | `http` | `test/**/*.http-spec.ts` |
+| `docs` | `test/docs/**/*.docs-spec.ts` |
 
-All three patterns are declared in [`testMatch`](../jest.config.ts).
+All four patterns are declared in [`testMatch`](../jest.config.ts).
 
 The rule a reader needs is about the suffix, not the folder: `*.spec.ts`
 requires a literal dot immediately before `spec.ts`. `foo.integration-spec.ts`
 ends in `-spec.ts`, a hyphen where `unit`'s pattern requires a dot, so it never
 matches `*.spec.ts` and stays invisible to `unit`. The same holds for
-`*.http-spec.ts`. That is also why `unit`'s pattern can safely include
-`test/**/*.spec.ts` as well as `src/**/*.spec.ts`: a shared contract suite's
-fake binding (for example
+`*.http-spec.ts` and `*.docs-spec.ts`. That is also why `unit`'s pattern can
+safely include `test/**/*.spec.ts` as well as `src/**/*.spec.ts`: a shared
+contract suite's fake binding (for example
 [`product-write-repository.spec.ts`](../test/contracts/product-write-repository.spec.ts))
 lives under `test/` but still ends in plain `.spec.ts`, so `unit` picks it up
 without also picking up its integration sibling. Confirmed empirically with
 `npx jest --listTests --selectProjects <name>` for each of `unit`,
-`integration`, and `http`: zero files matched by more than one.
+`integration`, `http`, and `docs`: zero files matched by more than one.
 
 ## Why integration runs serially
 

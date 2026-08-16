@@ -20,7 +20,7 @@ export const products = pgTable(
       .notNull()
       .default('EUR'),
     // Must stay equal to Sku.MAX_LENGTH. Three copies, nothing enforcing
-    // agreement; see docs/backlog.md.
+    // agreement.
     sku: varchar('sku', { length: 50 }).notNull().unique(),
     stock: integer('stock').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),

@@ -44,5 +44,4 @@ query.
 | How is it structured, and how do I fork it? | [docs/architecture.md](docs/architecture.md) |
 | How is it tested? | [docs/testing.md](docs/testing.md) |
 | Why was it built this way? | [docs/adr/](docs/adr/) |
-| What is deliberately unfinished? | [docs/backlog.md](docs/backlog.md) |
 | Rules for agents working here | [AGENTS.md](AGENTS.md) |

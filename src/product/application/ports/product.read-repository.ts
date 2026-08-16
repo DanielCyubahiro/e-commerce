@@ -9,7 +9,8 @@ export const PRODUCT_READ_REPOSITORY = Symbol('PRODUCT_READ_REPOSITORY');
  * has to know how a decimal becomes an integer. `ListProductsHandler` converts.
  *
  * A price bound only means something within one currency, but nothing here
- * enforces that `currency` is set whenever a bound is; see docs/backlog.md.
+ * enforces that `currency` is set whenever a bound is. A caller that bypasses
+ * the DTO can supply a bound with no currency and get EUR conversion.
  */
 export interface ProductFilters {
   minPriceMinorUnits?: number | undefined;

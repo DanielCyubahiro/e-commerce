@@ -51,11 +51,10 @@ never sees the two fields together.
   surfaces as 422 on both the create and the list path.
 - Every rule exists in exactly one place, so there is exactly one place to
   change it and no risk of two copies disagreeing.
-- This split is not the only validation-adjacent gap in the codebase.
-  [`docs/backlog.md`](../backlog.md#entry-1-unreachable-currency-fallback)
-  records a related, deliberately deferred finding: `ListProductsHandler`'s
-  currency fallback is unreachable through HTTP today only because the DTO's
-  `@ValidateIf` closes the gap, while the underlying `ProductFilters` type
-  would still let a non-HTTP caller supply a price bound with no currency.
-  That finding is a consequence of the split recorded here, not a separate
-  decision, so it is tracked in the backlog rather than re-argued in this ADR.
+- This split leaves one known gap, deliberately unfixed. `ListProductsHandler`'s
+  currency fallback is unreachable through HTTP only because
+  `ListProductsQueryDto`'s `@ValidateIf` requires `currency` whenever a price
+  bound is set. The underlying `ProductFilters` type still permits a bound with
+  no currency, so a non-HTTP caller building a `ListProductsQuery` directly gets
+  silent EUR conversion instead of a rejection. That is a consequence of the
+  split recorded here, not a separate decision.

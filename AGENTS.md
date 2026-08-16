@@ -1,9 +1,9 @@
 # AGENTS.md
 
-A NestJS learning backend: DDD, CQRS, and hexagonal architecture over one
-bounded context (`product`) on a shared kernel. It exists to teach architecture,
-not to serve users, and it gets forked when a new infrastructure technology is
-worth learning.
+A NestJS learning backend: DDD, CQRS, and hexagonal architecture. Bounded
+contexts sit on a shared kernel, one directory under `src/` each, documented
+under `docs/contexts/`. It exists to teach architecture, not to serve users,
+and it gets forked when a new infrastructure technology is worth learning.
 
 Read `docs/concepts.md` for what a term means here, `docs/architecture.md` for
 structure and the fork seam, `docs/testing.md` for the test layers, and
@@ -64,24 +64,26 @@ and no factory, so `toThrow` would actually compile against it, but
 
 ## Docs that must change with the code
 
-`pnpm test` fails when a context has no page, an entry misses a context, or a
-link dies. It cannot tell that a sentence went stale. This table covers what it
-cannot see.
+This is the complete checklist, not just the part `pnpm test` would catch you
+missing. The third column says which: some rows the docs project genuinely
+enforces, once the file or entry in question exists; the rest depends on
+discipline alone, because no check here reads a sentence for staleness.
 
-| When you | Update |
-| --- | --- |
-| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list |
-| Add or change a port | That context's `## Ports and adapters`, both tables |
-| Add an endpoint, or change its status | That context's `## Endpoints` |
-| Add an exception | That context's `## Error codes`, plus `docs/architecture.md`'s kind table if the *kind* is new |
-| Introduce a term the glossary lacks | A new `docs/concepts.md` entry, with a table or the repo-wide-rule marker |
-| Make a non-obvious call | A new ADR, plus its row in `docs/adr/README.md` |
-| Change the ESLint layer rules | `docs/architecture.md`'s enforcement table and the table above |
-| Change Jest projects or thresholds | `docs/testing.md` |
+| When you | Update | Checked by `pnpm test`? |
+| --- | --- | --- |
+| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list | Partly: the page, its headings, and the glossary row (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). Not the README list. |
+| Add or change a port | That context's `## Ports and adapters`, both tables | No |
+| Add an endpoint, or change its status | That context's `## Endpoints` | No |
+| Add an exception | That context's `## Error codes`, plus `docs/architecture.md`'s kind table if the *kind* is new | No |
+| Introduce a term the glossary lacks | A new `docs/concepts.md` entry, with a table or the repo-wide-rule marker | Partly: once the entry exists, its shape and context coverage (`glossary.docs-spec.ts`). Not that you added one. |
+| Make a non-obvious call | A new ADR, plus its row in `docs/adr/README.md` | Partly: once the ADR file exists, its row (`adr-index.docs-spec.ts`). Not that you wrote one. |
+| Change the ESLint layer rules | `docs/architecture.md`'s enforcement table and the table above | No |
+| Change Jest projects or thresholds | `docs/testing.md` | No |
 
 A context with no instance of a glossary term still gets a row, reading
 `| <context> | none | Not modelled yet |`. Absence is written, not omitted: an
-empty cell and a forgotten edit look identical.
+empty cell and a forgotten edit look identical, and omitting the row is
+exactly what `glossary.docs-spec.ts` catches.
 
 ## APoSD in this codebase
 
@@ -107,6 +109,7 @@ Worked instances, copy these shapes:
 | Every context has a docs page with all five headings | `test/docs/context-pages.docs-spec.ts` |
 | Every glossary entry covers every context | `test/docs/glossary.docs-spec.ts` |
 | Doc links resolve, name real symbols, and carry no line anchors | `test/docs/links.docs-spec.ts` |
+| Every ADR on disk is indexed, and no index row points at a missing ADR | `test/docs/adr-index.docs-spec.ts` |
 
 `pnpm lint` enforces the import rules above; `pnpm test:cov` enforces the
 coverage row; `pnpm test` runs the docs rules alongside the unit project. None

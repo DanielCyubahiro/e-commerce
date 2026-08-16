@@ -28,7 +28,7 @@ query.
 | `pnpm start:dev` | Start databases, then watch mode |
 | `pnpm start` | Run once against a running database |
 | `pnpm build` | Compile to `dist` |
-| `pnpm test` | Unit tests, no I/O |
+| `pnpm test` | Unit and docs tests, no database |
 | `pnpm test:integration` | Repository tests against a throwaway Postgres container |
 | `pnpm test:http` | HTTP tests through the real pipe and filter stack |
 | `pnpm test:all` | Every project |

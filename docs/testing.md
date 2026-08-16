@@ -1,7 +1,7 @@
 # Testing
 
 This file is the test reference `AGENTS.md` and `README.md` point to: what the
-five test layers are, how Jest is split into three projects, how a filename
+five test layers are, how Jest is split into four projects, how a filename
 routes a file to one of them, how the contract suite keeps a fake honest, and
 why the coverage thresholds are shaped the way they are. Term definitions
 (contract test, fake versus mock) live in
@@ -77,8 +77,8 @@ fake binding (for example
 [`product-write-repository.spec.ts`](../test/contracts/product-write-repository.spec.ts))
 lives under `test/` but still ends in plain `.spec.ts`, so `unit` picks it up
 without also picking up its integration sibling. Confirmed empirically with
-`npx jest --listTests --selectProjects <name>` for each of the three projects:
-zero files matched by more than one.
+`npx jest --listTests --selectProjects <name>` for each of `unit`,
+`integration`, and `http`: zero files matched by more than one.
 
 ## Why integration runs serially
 

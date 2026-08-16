@@ -27,6 +27,12 @@ export interface DocPage {
   body: string;
 }
 
+/**
+ * Everything a docs check needs from one read of the repo. `contexts` is
+ * every directory under `src/` that has its own `domain/` layer, excluding
+ * the shared kernel; it is not a fixed name list, so a new bounded context
+ * appears here the moment that layer exists.
+ */
 export interface DocsModel {
   contexts: string[];
   pages: DocPage[];

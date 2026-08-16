@@ -186,3 +186,23 @@ export function readGlossary(): GlossaryEntry[] {
       };
     });
 }
+
+/**
+ * `files` is every numbered ADR on disk; `indexed` is every ADR the index
+ * table links to. Both are bare filenames, sorted, so a mismatch reads as a
+ * plain set difference in either direction.
+ */
+export function readAdrIndex(): { files: string[]; indexed: string[] } {
+  const dir = join(REPO_ROOT, 'docs/adr');
+  const files = readdirSync(dir)
+    .filter((name) => /^\d{4}-.+\.md$/.test(name))
+    .sort();
+
+  const index = readFileSync(join(dir, 'README.md'), 'utf8');
+  const indexed = [...index.matchAll(LINK)]
+    .map((match) => match[2].trim())
+    .filter((target) => /^\d{4}-.+\.md$/.test(target))
+    .sort();
+
+  return { files, indexed };
+}

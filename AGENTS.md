@@ -24,10 +24,13 @@ Where the test goes:
 | New adapter for a port | one binding file per implementation | unit + integration |
 | Endpoint, status, validation | `test/**/*.http-spec.ts` | http |
 | Index or schema change | `test/setup/schema.integration-spec.ts` | integration |
+| Doc structure rule | `test/docs/*.docs-spec.ts` | docs |
 
 Filenames decide which Jest project claims a file. `*.spec.ts` is unit,
 `*-spec.ts` is not. `foo.integration-spec.ts` and `foo.http-spec.ts` are
-invisible to the unit project by design.
+invisible to the unit project by design. `*.docs-spec.ts` ends in `-spec.ts`
+too, so like the integration and http suffixes it is invisible to the unit
+project.
 
 The contract row is a mechanism, not a suggestion. No Jest project matches
 `*.contract.ts` directly: a `*.spec.ts` and an `*.integration-spec.ts`
@@ -59,6 +62,27 @@ and no factory, so `toThrow` would actually compile against it, but
 - **No rule is written twice.** If a check exists in the domain, the DTO does
   not repeat it.
 
+## Docs that must change with the code
+
+`pnpm test` fails when a context has no page, an entry misses a context, or a
+link dies. It cannot tell that a sentence went stale. This table covers what it
+cannot see.
+
+| When you | Update |
+| --- | --- |
+| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list |
+| Add or change a port | That context's `## Ports and adapters`, both tables |
+| Add an endpoint, or change its status | That context's `## Endpoints` |
+| Add an exception | That context's `## Error codes`, plus `docs/architecture.md`'s kind table if the *kind* is new |
+| Introduce a term the glossary lacks | A new `docs/concepts.md` entry, with a table or the repo-wide-rule marker |
+| Make a non-obvious call | A new ADR, plus its row in `docs/adr/README.md` |
+| Change the ESLint layer rules | `docs/architecture.md`'s enforcement table and the table above |
+| Change Jest projects or thresholds | `docs/testing.md` |
+
+A context with no instance of a glossary term still gets a row, reading
+`| <context> | none | Not modelled yet |`. Absence is written, not omitted: an
+empty cell and a forgotten edit look identical.
+
 ## APoSD in this codebase
 
 Worked instances, copy these shapes:
@@ -80,10 +104,14 @@ Worked instances, copy these shapes:
 | Infrastructure imports no presentation | `no-restricted-imports` |
 | No import cycles, including a layer's own barrel | `import/no-cycle` |
 | Domain 100%, application 95%, rest 85% (branches 80) | `jest.config.ts` |
+| Every context has a docs page with all five headings | `test/docs/context-pages.docs-spec.ts` |
+| Every glossary entry covers every context | `test/docs/glossary.docs-spec.ts` |
+| Doc links resolve, name real symbols, and carry no line anchors | `test/docs/links.docs-spec.ts` |
 
 `pnpm lint` enforces the import rules above; `pnpm test:cov` enforces the
-coverage row. Neither runs automatically, there is no CI in this repo yet. Do
-not hand-verify a rule a tool already checks; run `pnpm lint` or
+coverage row; `pnpm test` runs the docs rules alongside the unit project. None
+of these run automatically, there is no CI in this repo yet. Do not
+hand-verify a rule a tool already checks; run `pnpm lint`, `pnpm test`, or
 `pnpm test:cov` instead, and do not "fix" a boundary ESLint accepted.
 
 ## Comments
@@ -112,3 +140,5 @@ in for a fix, or write an `@param` that retypes the parameter list.
 | "I will validate this in the DTO too, to be safe" | That is the same rule written twice. Pick the layer that owns it. |
 | "I will import the barrel from inside its own layer" | That is a cycle. The Nest token resolves to `undefined` and fails at boot as an unrelated error. |
 | "This exception needs `expect().toThrow()`" | Most have a private constructor behind a factory, which fails `toThrow`'s type check. Use `catchError`. |
+| "I will document the context after the feature lands" | `pnpm test` is red until the page exists. The page is part of the feature. |
+| "This context has no read model, so I will leave the row out" | A missing row and a forgotten edit are indistinguishable. Write `none`. |

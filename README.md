@@ -1,9 +1,13 @@
 # e-commerce
 
-A NestJS learning project exploring DDD, CQRS, and hexagonal architecture. One
-bounded context (`product`) sits on a shared kernel; customers and orders will
-follow. It is deliberately architected to be forked onto new infrastructure
-when that is worth learning, not to serve real users.
+A NestJS learning project exploring DDD, CQRS, and hexagonal architecture.
+Bounded contexts sit on a shared kernel, one directory under `src/` each, one
+page under [docs/contexts/](docs/contexts/) each:
+
+- [product](docs/contexts/product.md)
+
+It is deliberately architected to be forked onto new infrastructure when that
+is worth learning, not to serve real users.
 
 ## Prerequisites
 
@@ -41,6 +45,7 @@ query.
 | Question | File |
 | --- | --- |
 | What does this term mean here? | [docs/concepts.md](docs/concepts.md) |
+| What does a given context contain? | [docs/contexts/](docs/contexts/) |
 | How is it structured, and how do I fork it? | [docs/architecture.md](docs/architecture.md) |
 | How is it tested? | [docs/testing.md](docs/testing.md) |
 | Why was it built this way? | [docs/adr/](docs/adr/) |

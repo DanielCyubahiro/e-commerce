@@ -75,7 +75,7 @@ is still one; `ProductId` is that case.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | shared | [`Money`](../src/shared/domain/value-objects/money.vo.ts) | `fromDecimal` normalises decimals to minor units |
-| product | [`Sku`](../src/product/domain/value-objects/sku.vo.ts) | `create` uppercases, bounds length 3 to 50 |
+| product | [`Sku`](../src/product/domain/value-objects/sku.vo.ts) | `create` uppercases on construction |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
 Expressed in Software," section "Value Objects".
@@ -89,7 +89,7 @@ actually reject a value.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`Product.create`](../src/product/domain/entities/product.entity.ts) | name 2 to 255 characters, description non-empty, stock a non-negative integer |
+| product | [`Product.create`](../src/product/domain/entities/product.entity.ts) | enforces the name, description, and stock invariants; [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts) deliberately does not repeat them |
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants as part of
 Aggregate consistency).

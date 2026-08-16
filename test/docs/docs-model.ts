@@ -156,6 +156,13 @@ export interface GlossaryEntry {
   isRepoWideRule: boolean;
 }
 
+/**
+ * Parses every `###` entry out of `docs/concepts.md`. `locations` is read off
+ * whatever pipe-delimited rows follow the heading, so a malformed row (one
+ * missing a closing `|`, say) is silently dropped from the list rather than
+ * raising a parse error; a hand-authored table with a broken row degrades to
+ * a wrong `locations` list, not a thrown exception.
+ */
 export function readGlossary(): GlossaryEntry[] {
   const body = readFileSync(join(REPO_ROOT, 'docs/concepts.md'), 'utf8');
 

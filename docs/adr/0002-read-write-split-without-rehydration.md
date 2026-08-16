@@ -23,7 +23,7 @@ way to construct one. Queries return a flat
 instead, and never rebuild a `Product` from a row. The read model's own comment
 states the consequence directly: nothing on the query path enforces an
 invariant, which is what lets `Product`'s constructor stay private (see
-[`product.read-model.ts:1-8`](../../src/product/application/read-models/product.read-model.ts#L1-L8)).
+[`ProductReadModel`](../../src/product/application/read-models/product.read-model.ts)).
 Because no query needs a way to reconstruct a `Product` from stored data, the
 aggregate never has to expose one, and its persistence factory (were one ever
 added) would not need to be public either.

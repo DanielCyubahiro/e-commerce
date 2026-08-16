@@ -24,7 +24,7 @@ vocabulary.
 
 Assert thrown domain exceptions with `catchError` (or its async counterpart
 `catchRejection`) from
-[`test/support/catch-error.ts`](../test/support/catch-error.ts), not
+[`catch-error.ts`](../test/support/catch-error.ts), not
 `expect(fn).toThrow(SomeException)`. Most domain exceptions
 (`InvalidStockException`, `InvalidSkuException`,
 `InvalidProductDescriptionException`, `InvalidProductNameException`,
@@ -38,9 +38,9 @@ is the one domain exception with a public constructor and no factory, so
 `toThrow` would actually compile and pass against it, but `catchError` stays
 the uniform pattern to reach for.
 
-## Three Jest projects, not five
+## Four Jest projects, not five
 
-[`jest.config.ts`](../jest.config.ts) declares three projects, split by what a
+[`jest.config.ts`](../jest.config.ts) declares four projects, split by what a
 test needs rather than by which of the five layers above it belongs to:
 
 | Project | Needs | Layers it runs |
@@ -48,6 +48,7 @@ test needs rather than by which of the five layers above it belongs to:
 | `unit` | Nothing, no I/O | Unit, Application, and the fake half of Contract |
 | `integration` | Docker, one Postgres container per run | Integration, and the Drizzle half of Contract |
 | `http` | Nothing, no database | HTTP |
+| `docs` | Nothing, no database | The markdown tree, checked against `src/` |
 
 Contract is the layer that splits across two projects: the same suite runs
 once bound to the in-memory fake (in `unit`) and once bound to the Drizzle
@@ -58,11 +59,13 @@ adapter (in `integration`). See "The contract mechanism" below.
 `testMatch` decides which project claims a file, and the three patterns do
 not overlap:
 
-| Project | Pattern | Source |
-| --- | --- | --- |
-| `unit` | `src/**/*.spec.ts`, `test/**/*.spec.ts` | [`jest.config.ts:38`](../jest.config.ts#L38) |
-| `integration` | `test/**/*.integration-spec.ts` | [`jest.config.ts:47`](../jest.config.ts#L47) |
-| `http` | `test/**/*.http-spec.ts` | [`jest.config.ts:58`](../jest.config.ts#L58) |
+| Project | Pattern |
+| --- | --- |
+| `unit` | `src/**/*.spec.ts`, `test/**/*.spec.ts` |
+| `integration` | `test/**/*.integration-spec.ts` |
+| `http` | `test/**/*.http-spec.ts` |
+
+All three patterns are declared in [`testMatch`](../jest.config.ts).
 
 The rule a reader needs is about the suffix, not the folder: `*.spec.ts`
 requires a literal dot immediately before `spec.ts`. `foo.integration-spec.ts`
@@ -80,7 +83,7 @@ zero files matched by more than one.
 ## Why integration runs serially
 
 `integration`'s `testMatch` has no `maxWorkers` setting next to it in
-[`jest.config.ts`](../jest.config.ts#L24-L26), because `maxWorkers` is a
+[`jest.config.ts`](../jest.config.ts), because `maxWorkers` is a
 top-level Jest option, not a per-project one: there is nowhere inside a single
 project entry to say "run just this project's files one at a time." Serial
 execution is instead enforced by the package script itself,
@@ -114,7 +117,7 @@ export interface WriteHarness {
 }
 ```
 
-([`product-write-repository.contract.ts:8-12`](../test/contracts/product-write-repository.contract.ts#L8-L12))
+([`WriteHarness`](../test/contracts/product-write-repository.contract.ts))
 
 The read side needs both ports, because seeding a row to read back has to go
 through the write port; the read contract never assumes how a row got into
@@ -129,7 +132,7 @@ export interface ReadHarness {
 }
 ```
 
-([`product-read-repository.contract.ts:9-15`](../test/contracts/product-read-repository.contract.ts#L9-L15))
+([`ReadHarness`](../test/contracts/product-read-repository.contract.ts))
 
 Each contract has two bindings, one per implementation:
 
@@ -168,7 +171,7 @@ than re-deriving that trust in every handler spec.
 
 ## Why testcontainers, not a shared database
 
-[`test/setup/postgres-container.ts`](../test/setup/postgres-container.ts)
+[`postgres-container.ts`](../test/setup/postgres-container.ts)
 starts one throwaway Postgres container as Jest `globalSetup` for the
 `integration` project and runs the Drizzle migrations against it before any
 test executes; `postgres-container-teardown.ts` stops it after the run. Two
@@ -187,7 +190,7 @@ things a long-lived shared test database cannot give:
 
 ## Coverage thresholds
 
-`coverageThreshold` in [`jest.config.ts`](../jest.config.ts#L82-L101) is set
+[`coverageThreshold`](../jest.config.ts) in `jest.config.ts` is set
 per layer rather than as one global number, because the layers do not have
 the same excuse for gaps:
 

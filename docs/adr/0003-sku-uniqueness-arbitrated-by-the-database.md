@@ -19,10 +19,10 @@ trying to prevent the collision earlier.
 
 `add` simply attempts the insert; a duplicate SKU is not pre-checked, it is
 caught. `add`'s try/catch and the private `isDuplicateSku` check
-(constants at
-[`drizzle-product.write-repository.ts:14-15`](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts#L14-L15),
-method at
-[lines 49 to 78](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts#L49-L78))
+(constants in
+[`DrizzleProductWriteRepository`](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts),
+method in
+[`isDuplicateSku`](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts))
 translate SQLSTATE `23505` on constraint `products_sku_unique` into
 [`DuplicateSkuException`](../../src/product/application/exceptions/duplicate-sku.exception.ts).
 The check walks the caught error's cause chain in a loop rather than reading

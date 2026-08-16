@@ -23,7 +23,7 @@ production.
 Each port gets exactly one exported contract function, taking a name and a
 harness factory, that declares the full suite of behaviour every
 implementation must satisfy. The write side's is
-[`productWriteRepositoryContract`](../../test/contracts/product-write-repository.contract.ts#L14-L18),
+[`productWriteRepositoryContract`](../../test/contracts/product-write-repository.contract.ts),
 and its own doc comment states the rationale directly: divergence has to be a
 test failure rather than a surprise. Two binding files invoke each contract,
 one constructing the in-memory fake and one constructing the Drizzle adapter

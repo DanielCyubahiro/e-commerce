@@ -110,7 +110,7 @@ Walking each hop:
 Validation splits across two places on purpose:
 [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts)
 checks type, presence, and generous size ceilings, while
-[`Product.create`](../src/product/domain/entities/product.entity.ts#L50-L66)
+[`Product.create`](../src/product/domain/entities/product.entity.ts)
 owns the rules (name length, non-empty description, integer non-negative
 stock), so a rule is never written twice. See
 [Invariant](./concepts.md#invariant) in the glossary for how the two layers
@@ -182,9 +182,8 @@ loudly. The `sku` column's `.unique()` call in `products.schema.ts` is what
 produces `CONSTRAINT "products_sku_unique" UNIQUE("sku")` in
 [`drizzle/0000_lumpy_absorbing_man.sql`](../drizzle/0000_lumpy_absorbing_man.sql),
 Drizzle's own naming convention for an unnamed unique constraint. The
-`isDuplicateSku` check in
-[`drizzle-product.write-repository.ts`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts#L49-L78)
-matches that exact string against the constraint name on a `23505` error. A new
+[`isDuplicateSku`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
+check matches that exact string against the constraint name on a `23505` error. A new
 adapter that keeps a Postgres unique constraint on `sku`, but lets its own
 schema tool name that constraint anything else, still rejects the duplicate
 insert at the database; the equivalent duplicate-detection code just stops
@@ -230,7 +229,7 @@ The procedure:
    `useClass: DrizzleProductWriteRepository` providers. No command or query
    handler needs to change.
 6. Write one binding file per contract suite. For the write side, follow
-   [`test/contracts/product-write-repository.integration-spec.ts`](../test/contracts/product-write-repository.integration-spec.ts):
+   [`product-write-repository.integration-spec.ts`](../test/contracts/product-write-repository.integration-spec.ts):
    supply a harness with `repository`, `reset()`, and `close()`. For the read
    side, follow
    [`product-read-repository.integration-spec.ts`](../test/contracts/product-read-repository.integration-spec.ts):

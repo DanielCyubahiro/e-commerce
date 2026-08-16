@@ -20,7 +20,7 @@ infrastructure, and presentation layers. Canonical source: Eric Evans,
 
 [`Product`](../src/product/domain/entities/product.entity.ts) is the
 aggregate, and it is the whole consistency boundary in this codebase:
-[`Product.create`](../src/product/domain/entities/product.entity.ts#L50-L66)
+[`Product.create`](../src/product/domain/entities/product.entity.ts)
 is the only way to construct one, and it validates name, description, and
 stock before an instance exists, so an invalid `Product` is never
 representable. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6,
@@ -28,7 +28,7 @@ representable. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6,
 
 ### Aggregate root
 
-[`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts#L4-L16) is
+[`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts) is
 deliberately empty, a marker that adds nothing to `Entity`. See
 [ADR 0004](./adr/0004-no-nest-aggregate-root-base-class.md) for why it does
 not extend Nest CQRS's own `AggregateRoot` instead. Canonical source: Vaughn
@@ -36,7 +36,7 @@ Vernon, "Effective Aggregate Design" (a three part paper).
 
 ### Entity
 
-[`Entity.equals`](../src/shared/domain/entity.base.ts#L10-L16) compares by id
+[`Entity.equals`](../src/shared/domain/entity.base.ts) compares by id
 and by constructor together, so a `Product` and a hypothetical `Order` that
 happened to share a UUID would still not be equal. Canonical source: Eric
 Evans, *Domain-Driven Design*, Ch. 5, "A Model Expressed in Software,"
@@ -58,9 +58,8 @@ attribute. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5,
 
 Invariants are enforced once, on the aggregate or the value object that owns
 them, and never re-checked in a DTO:
-[`Product.validateName`, `validateDescription`, and
-`validateStock`](../src/product/domain/entities/product.entity.ts#L68-L90)
-run inside `create`, while
+[`Product.validateName`](../src/product/domain/entities/product.entity.ts),
+`validateDescription`, and `validateStock` run inside `create`, while
 [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts)
 checks only type, presence, and a generous size ceiling, so the same rule is
 never written in two places that can drift apart. Canonical source: Eric
@@ -70,9 +69,9 @@ Evans, *Domain-Driven Design* (invariants as part of Aggregate consistency).
 
 A port is a `Symbol` token paired with a TypeScript interface, both defined
 in the application layer:
-[`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts#L5)
+[`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts)
 and
-[`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts#L3)
+[`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts)
 are what Nest injects by, never a concrete class. Canonical source: Alistair
 Cockburn's Hexagonal Architecture, also called Ports and Adapters.
 
@@ -80,9 +79,8 @@ Cockburn's Hexagonal Architecture, also called Ports and Adapters.
 
 [`DrizzleProductWriteRepository`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
 implements `ProductWriteRepository` in the infrastructure layer; its
-`isDuplicateSku` check ([lines 49 to
-78](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts#L49-L78))
-walks Drizzle's wrapped error cause chain to detect a Postgres unique
+[`isDuplicateSku`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
+check walks Drizzle's wrapped error cause chain to detect a Postgres unique
 violation and maps it to `DuplicateSkuException`, an application exception,
 rather than letting a driver error escape to the caller. Canonical source:
 Alistair Cockburn's Hexagonal Architecture, also called Ports and Adapters.
@@ -90,10 +88,10 @@ Alistair Cockburn's Hexagonal Architecture, also called Ports and Adapters.
 ### Command
 
 [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts)
-is intent: a plain data holder with no behaviour of its own. Its handler
-mutates the `Product` aggregate and [returns only the new
-id](../src/product/application/use-cases/commands/create-product/create-product.handler.ts#L33),
-never the aggregate itself. Canonical source: Martin Fowler, "CQRS" (bliki).
+is intent: a plain data holder with no behaviour of its own. Its handler,
+[`CreateProductHandler`](../src/product/application/use-cases/commands/create-product/create-product.handler.ts),
+mutates the `Product` aggregate and returns only the new id, never the
+aggregate itself. Canonical source: Martin Fowler, "CQRS" (bliki).
 
 ### Query
 
@@ -106,7 +104,7 @@ Fowler, "CQRS" (bliki).
 ### Handler
 
 A handler binds a command or a query to a port.
-[`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts#L13-L18)
+[`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts)
 is the only layer entitled to know both a decimal price and its minor-unit
 form, since presentation cannot import the domain and infrastructure should
 not need to know how the conversion works. See
@@ -126,7 +124,7 @@ read side is built this way. Canonical source: Greg Young, "CQRS Documents".
 
 ### Projection
 
-[`DrizzleProductReadRepository.project`](../src/product/infrastructure/adapters/drizzle-product.read-repository.ts#L124-L136)
+[`DrizzleProductReadRepository.project`](../src/product/infrastructure/adapters/drizzle-product.read-repository.ts)
 turns a Postgres row into a `ProductReadModel`, and it lives in the adapter,
 so no other layer knows the row's shape. Canonical source: Greg Young, "CQRS
 Documents".
@@ -155,7 +153,7 @@ Design* (Shared Kernel, Part IV).
 
 ### Contract test
 
-[`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts#L14-L18)
+[`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts)
 is one suite, run once against
 [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts)
 and once against the Drizzle adapter, so a divergence between the fake and

@@ -14,12 +14,13 @@ const moduleNameMapper = {
 };
 
 /**
- * Three test projects, separated by what they need rather than by what they
+ * Four test projects, separated by what they need rather than by what they
  * cover:
  *
  * - `unit` runs anywhere, no I/O.
  * - `integration` needs Docker; a container is provisioned once per run.
  * - `http` boots Nest with fake repositories, so it needs no database.
+ * - `docs` reads the markdown tree and asserts it matches the code.
  *
  * Run one with `--selectProjects`, or see the package scripts. Integration must
  * run serially; that is enforced by `--runInBand` in the script, because
@@ -56,6 +57,17 @@ const config: Config = {
       rootDir: '.',
       testEnvironment: 'node',
       testMatch: ['<rootDir>/test/**/*.http-spec.ts'],
+      transform,
+      moduleNameMapper,
+      setupFiles,
+    },
+    {
+      displayName: 'docs',
+      rootDir: '.',
+      testEnvironment: 'node',
+      // Reads markdown and source files from disk, so it cannot live in `unit`,
+      // which is documented as needing no I/O.
+      testMatch: ['<rootDir>/test/docs/**/*.docs-spec.ts'],
       transform,
       moduleNameMapper,
       setupFiles,

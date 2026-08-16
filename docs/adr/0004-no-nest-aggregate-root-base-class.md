@@ -20,7 +20,7 @@ boundary rule is not the only reason to avoid it.
 [`AggregateRoot`](../../src/shared/domain/aggregate-root.base.ts) is this
 codebase's own class, and it is deliberately empty: it extends
 [`Entity`](../../src/shared/domain/entity.base.ts) and adds nothing (see
-[`aggregate-root.base.ts:4-16`](../../src/shared/domain/aggregate-root.base.ts#L4-L16)
+[`AggregateRoot`](../../src/shared/domain/aggregate-root.base.ts)
 for the class's own reasoning). It carries no domain event machinery today.
 
 ## Alternatives considered

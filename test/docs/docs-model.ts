@@ -139,3 +139,43 @@ export const CONTEXT_PAGE_HEADINGS = [
   '## Request lifecycle',
   '## Error codes',
 ] as const;
+
+/**
+ * Marker an entry carries instead of an instance table when the term is a
+ * repo-wide rule rather than a pattern instantiated per context. Deliberately
+ * a literal in the docs rather than a list in this file: an exemption list
+ * here would be invisible to whoever writes the entry.
+ */
+export const REPO_WIDE_RULE_MARKER =
+  '**Repo-wide rule, no per-context instances.**';
+
+/** One `###` entry in `docs/concepts.md`. `locations` is the instance table's first column. */
+export interface GlossaryEntry {
+  term: string;
+  locations: string[];
+  isRepoWideRule: boolean;
+}
+
+export function readGlossary(): GlossaryEntry[] {
+  const body = readFileSync(join(REPO_ROOT, 'docs/concepts.md'), 'utf8');
+
+  return body
+    .split(/^### /m)
+    .slice(1)
+    .map((section) => {
+      const [heading, ...rest] = section.split('\n');
+      const lines = rest.join('\n');
+      return {
+        term: heading.trim(),
+        isRepoWideRule: lines.includes(REPO_WIDE_RULE_MARKER),
+        locations: lines
+          .split('\n')
+          .filter((line) => line.startsWith('|'))
+          .map((line) => line.split('|')[1].trim())
+          // Drops the header row and the `| --- |` separator.
+          .filter(
+            (cell) => cell !== '' && !/^-+$/.test(cell) && cell !== 'Location',
+          ),
+      };
+    });
+}

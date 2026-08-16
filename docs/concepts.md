@@ -1,141 +1,195 @@
 # Concepts
 
 This file defines terms the way this codebase uses them, not the way a
-textbook would. Each entry states the repo-specific fact, links to the code
-that carries it, and names a canonical source for the general idea, which
+textbook would. Each entry states the repo-specific fact, then an instance
+table names where that fact shows up in each bounded context and links to
+the code that carries it. `none` in a table cell means that context has no
+instance of the term yet. A canonical source names the general idea, which
 that source explains better than a paraphrase here ever could. Structure and
 layer rules live in `docs/architecture.md`; this file only defines
 vocabulary.
 
 ### Bounded context
 
-[`src/product/`](../src/product/) is the only bounded context in this
-codebase today; [`src/shared/`](../src/shared/) is the kernel it sits on, not
-a context of its own. Customers and orders, when they arrive, will sit
-alongside `product/` as siblings, each behind its own domain, application,
-infrastructure, and presentation layers. Canonical source: Eric Evans,
-*Domain-Driven Design*, Part IV, "Strategic Design".
+A bounded context is a top-level directory under `src/` with its own domain,
+application, infrastructure, and presentation layers. The shared kernel
+every context reuses (see "Shared kernel" below) is deliberately excluded
+from that count, even though it has the same four directories, because it
+holds no domain concept of its own, only what every context needs.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`src/product/`](../src/product/) | owns one aggregate, `Product` |
+
+Canonical source: Eric Evans, *Domain-Driven Design*, Part IV, "Strategic
+Design".
 
 ### Aggregate
 
-[`Product`](../src/product/domain/entities/product.entity.ts) is the
-aggregate, and it is the whole consistency boundary in this codebase:
-[`Product.create`](../src/product/domain/entities/product.entity.ts)
-is the only way to construct one, and it validates name, description, and
-stock before an instance exists, so an invalid `Product` is never
-representable. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6,
-"The Life Cycle of a Domain Object".
+An aggregate is the whole consistency boundary: every invariant across its
+objects is enforced on a single path into existence, so the constructor
+stays private and the only way to obtain an instance is a static factory
+that validates first.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | `create` validates name, description, and stock before an instance exists |
+
+Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6, "The Life Cycle
+of a Domain Object".
 
 ### Aggregate root
 
-[`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts) is
-deliberately empty, a marker that adds nothing to `Entity`. See
-[ADR 0004](./adr/0004-no-nest-aggregate-root-base-class.md) for why it does
-not extend Nest CQRS's own `AggregateRoot` instead. Canonical source: Vaughn
-Vernon, "Effective Aggregate Design" (a three part paper).
+An aggregate root marks which entity is an aggregate's single point of
+entry; the pattern does not require it to carry any behaviour a plain entity
+would not already have.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| shared | [`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts) | stays empty on purpose; see [ADR 0004](./adr/0004-no-nest-aggregate-root-base-class.md) for why it does not extend Nest CQRS's own `AggregateRoot` |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | extends the empty `AggregateRoot` |
+
+Canonical source: Vaughn Vernon, "Effective Aggregate Design" (a three part
+paper).
 
 ### Entity
 
-[`Entity.equals`](../src/shared/domain/entity.base.ts) compares by id
-and by constructor together, so a `Product` and a hypothetical `Order` that
-happened to share a UUID would still not be equal. Canonical source: Eric
-Evans, *Domain-Driven Design*, Ch. 5, "A Model Expressed in Software,"
-section "Entities".
+An entity's `equals` compares identity, not attributes, but this codebase's
+definition also compares the constructor, so two entities that happen to
+share an id but come from different classes still are not equal.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| shared | [`Entity`](../src/shared/domain/entity.base.ts) | the abstract base; every entity extends it directly or via `AggregateRoot` |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | inherits `equals` unmodified |
+
+Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
+Expressed in Software," section "Entities".
 
 ### Value object
 
-`Money` and `Sku` are both value objects: each has a private constructor and
-a named factory
-([`Money.fromDecimal`](../src/shared/domain/value-objects/money.vo.ts),
-[`Sku.create`](../src/product/domain/value-objects/sku.vo.ts)), each
-normalises on construction (`Money` to minor units, `Sku` to uppercase), and
-each compares by value through its own `equals`. Contrast `ProductId`, itself
-a value object, but one that also serves as identity rather than a plain
-attribute. Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5,
-"A Model Expressed in Software," section "Value Objects".
+Private constructor, named factory, normalisation at construction, comparison
+by value through its own `equals`. A value object that also serves as identity
+is still one; `ProductId` is that case.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| shared | [`Money`](../src/shared/domain/value-objects/money.vo.ts) | `fromDecimal` normalises decimals to minor units |
+| product | [`Sku`](../src/product/domain/value-objects/sku.vo.ts) | `create` uppercases, bounds length 3 to 50 |
+
+Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
+Expressed in Software," section "Value Objects".
 
 ### Invariant
 
 Invariants are enforced once, on the aggregate or the value object that owns
-them, and never re-checked in a DTO:
-[`Product.validateName`](../src/product/domain/entities/product.entity.ts),
-`validateDescription`, and `validateStock` run inside `create`, while
-[`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts)
-checks only type, presence, and a generous size ceiling, so the same rule is
-never written in two places that can drift apart. Canonical source: Eric
-Evans, *Domain-Driven Design* (invariants as part of Aggregate consistency).
+them, and never re-checked in a DTO: a DTO bounds only type, presence, and a
+size ceiling generous enough that the domain check is still the one that can
+actually reject a value.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`Product.create`](../src/product/domain/entities/product.entity.ts) | name 2 to 255 characters, description non-empty, stock a non-negative integer |
+
+Canonical source: Eric Evans, *Domain-Driven Design* (invariants as part of
+Aggregate consistency).
 
 ### Port
 
 A port is a `Symbol` token paired with a TypeScript interface, both defined
-in the application layer:
-[`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts)
-and
-[`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts)
-are what Nest injects by, never a concrete class. Canonical source: Alistair
-Cockburn's Hexagonal Architecture, also called Ports and Adapters.
+in the application layer, and Nest injects by the token, never by a concrete
+class.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts), [`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts) | write's `add` throws `DuplicateSkuException` rather than pre-checking; read's `findById` returns null on a miss |
+
+Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
+Ports and Adapters.
 
 ### Adapter
 
-[`DrizzleProductWriteRepository`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
-implements `ProductWriteRepository` in the infrastructure layer; its
-[`isDuplicateSku`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
-check walks Drizzle's wrapped error cause chain to detect a Postgres unique
-violation and maps it to `DuplicateSkuException`, an application exception,
-rather than letting a driver error escape to the caller. Canonical source:
-Alistair Cockburn's Hexagonal Architecture, also called Ports and Adapters.
+An adapter implements a port's interface in the infrastructure layer, and it
+is the only place a driver-specific failure is allowed to become an
+application exception; nothing above it should ever see a raw driver error.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`DrizzleProductWriteRepository`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts) | `isDuplicateSku` walks Drizzle's wrapped error cause chain to find the Postgres unique violation |
+
+Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
+Ports and Adapters.
 
 ### Command
 
-[`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts)
-is intent: a plain data holder with no behaviour of its own. Its handler,
-[`CreateProductHandler`](../src/product/application/use-cases/commands/create-product/create-product.handler.ts),
-mutates the `Product` aggregate and returns only the new id, never the
-aggregate itself. Canonical source: Martin Fowler, "CQRS" (bliki).
+A command is intent: a plain data holder with no behaviour of its own. Its
+handler is the one that acts, and it returns only what a caller needs to
+identify the result, never the aggregate itself.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field |
+
+Canonical source: Martin Fowler, "CQRS" (bliki).
 
 ### Query
 
-[`ListProductsQuery`](../src/product/application/use-cases/queries/list-products/list-products.query.ts)
-never touches the aggregate: it carries decimal price bounds and a
-pagination request, and its handler asks a read repository for rows
-directly, with no `Product` ever rehydrated. Canonical source: Martin
-Fowler, "CQRS" (bliki).
+A query never touches the aggregate: it carries only the parameters a read
+needs, and its handler asks a read repository for rows directly, with
+nothing ever rehydrated into a domain object.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`ListProductsQuery`](../src/product/application/use-cases/queries/list-products/list-products.query.ts), [`GetProductQuery`](../src/product/application/use-cases/queries/get-product/get-product.query.ts) | `ListProductsQuery` carries decimal price bounds; conversion to minor units happens only in the handler |
+
+Canonical source: Martin Fowler, "CQRS" (bliki).
 
 ### Handler
 
-A handler binds a command or a query to a port.
-[`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts)
-is the only layer entitled to know both a decimal price and its minor-unit
-form, since presentation cannot import the domain and infrastructure should
-not need to know how the conversion works. See
-[ADR 0001](./adr/0001-money-as-integer-minor-units.md) for why the stored form
-is an integer count of minor units in the first place. Canonical source: Greg
-Young, "CQRS Documents".
+A handler binds a command or a query to a port, and it is the one layer
+allowed to hold knowledge that only makes sense where two representations
+meet, since presentation cannot import the domain and infrastructure has no
+reason to know how a conversion works.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts) | the only layer entitled to know both a decimal price and its minor-unit form; see [ADR 0001](./adr/0001-money-as-integer-minor-units.md) |
+
+Canonical source: Greg Young, "CQRS Documents".
 
 ### Read model
 
-[`ProductReadModel`](../src/product/application/read-models/product.read-model.ts)
-is flat and carries no invariants; it is deliberately not the aggregate, so
-the query path never rehydrates a `Product` and the aggregate's persistence
-factory can stay private. `priceMinorUnits` is the stored integer;
-converting it to a decimal is the presentation layer's job. See
-[ADR 0002](./adr/0002-read-write-split-without-rehydration.md) for why the
-read side is built this way. Canonical source: Greg Young, "CQRS Documents".
+A read model is flat and carries no invariants: it is deliberately not the
+aggregate, so the query path never needs to rehydrate one and the
+aggregate's persistence factory can stay private.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`ProductReadModel`](../src/product/application/read-models/product.read-model.ts) | `priceMinorUnits` is the stored integer; presentation converts it to a decimal |
+
+Canonical source: Greg Young, "CQRS Documents".
 
 ### Projection
 
-[`DrizzleProductReadRepository.project`](../src/product/infrastructure/adapters/drizzle-product.read-repository.ts)
-turns a Postgres row into a `ProductReadModel`, and it lives in the adapter,
-so no other layer knows the row's shape. Canonical source: Greg Young, "CQRS
-Documents".
+A projection turns a stored row into a read model, and it lives in the
+adapter, so no other layer ever learns the row's shape.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`DrizzleProductReadRepository.project`](../src/product/infrastructure/adapters/drizzle-product.read-repository.ts) | renames the row's `priceAmount` column to `priceMinorUnits` |
+
+Canonical source: Greg Young, "CQRS Documents".
 
 ### Dependency rule
 
 Dependencies point inward only, and the four layers are ESLint-enforced
 rather than left to discipline: an import that crosses the wrong way fails
 `pnpm lint`. See [`docs/architecture.md`](./architecture.md) for the layer
-table, the enforcement mechanism, and what each layer may import. Canonical
-source: Robert C. Martin, *Clean Architecture*, Ch. 22, "The Clean
+table, the enforcement mechanism, and what each layer may import.
+
+**Repo-wide rule, no per-context instances.**
+
+Canonical source: Robert C. Martin, *Clean Architecture*, Ch. 22, "The Clean
 Architecture".
 
 ### Shared kernel
@@ -148,39 +202,54 @@ Architecture".
 side, [`DomainException`](../src/shared/domain/domain-exception.base.ts) and
 [`ApplicationException`](../src/shared/application/application-exception.base.ts)
 on the error side. See "Domain versus application exception" below for how
-the two exception bases differ. Canonical source: Eric Evans, *Domain-Driven
-Design* (Shared Kernel, Part IV).
+the two exception bases differ.
+
+**Repo-wide rule, no per-context instances.**
+
+Canonical source: Eric Evans, *Domain-Driven Design* (Shared Kernel, Part
+IV).
 
 ### Contract test
 
-[`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts)
-is one suite, run once against
-[`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts)
-and once against the Drizzle adapter, so a divergence between the fake and
-the real implementation is a test failure rather than a surprise later. See
-"Fake versus mock" below for why the in-memory repository counts as a fake
-rather than a mock. Canonical source: Martin Fowler, "Contract Test" (bliki).
+A contract test is one suite, written once against a port's interface and
+run against every implementation, fake and real alike, so a divergence
+between them is a test failure rather than a surprise later.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts), [`productReadRepositoryContract`](../test/contracts/product-read-repository.contract.ts) | each takes a `makeHarness` factory, so the same suite runs unmodified against any binding |
+
+Canonical source: Martin Fowler, "Contract Test" (bliki).
 
 ### Fake versus mock
 
-[`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts)
-is a fake, not a mock: it asserts what actually happened, such as a stored
-product being found by a later delete, while a mock would assert how a
-collaborator was called. Its fidelity to the real adapter is not taken on
-trust; the contract suite (see "Contract test" above) is what catches drift.
+A fake is a working implementation good enough for a test to assert on real
+behaviour that actually happened; a mock instead asserts on how a
+collaborator was called. A fake's fidelity to the real thing is never taken
+on trust: a contract test (see "Contract test" above) is what would catch it
+drifting.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete |
+
 Canonical source: Martin Fowler, "Mocks Aren't Stubs".
 
 ### Domain versus application exception
 
-`DomainErrorKind` has two values, and
-[`STATUS_BY_KIND`](../src/shared/presentation/filters/domain-exception.filter.ts)
-maps each to its own HTTP status: `invariant`, raised inside the aggregate
-(for example by `Product.create`'s validation), to 422; `malformed-identifier`,
-raised by
-[`UniqueId.parse`](../src/shared/domain/value-objects/unique-id.vo.ts) via
-`InvalidIdentifierException` when a string is not a UUID, to 400. Contrast
-`ApplicationException`, filtered separately in
-[`application-exception.filter.ts`](../src/shared/presentation/filters/application-exception.filter.ts),
-whose `conflict` kind (a duplicate SKU) is filtered to 409 instead. Canonical
-source: Eric Evans, *Domain-Driven Design* (invariants); on mapping errors by
-architectural layer, Robert C. Martin, *Clean Architecture*.
+A domain exception's `kind` decides its HTTP status through `STATUS_BY_KIND`:
+`invariant`, raised inside an aggregate or value object, maps to 422;
+`malformed-identifier`, raised when an identifier string fails to parse,
+maps to 400. An application exception is caught by a separate filter with
+its own kinds and its own statuses: `conflict` to 409, `not-found` to 404.
+The two bases are never caught by the same filter, so a rule violated inside
+the aggregate and a conflict discovered against other data never share a
+status code by accident.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| shared | [`IDENTIFIER_INVALID`](../src/shared/domain/exceptions/invalid-identifier.exception.ts) (malformed-identifier, 400), [`MONEY_INVALID`](../src/shared/domain/exceptions/invalid-money.exception.ts) (invariant, 422) | contrasts the two domain-exception kinds against each other |
+| product | [`PRODUCT_SKU_INVALID`](../src/product/domain/exceptions/invalid-sku.exception.ts) (invariant, 422) against [`PRODUCT_SKU_DUPLICATE`](../src/product/application/exceptions/duplicate-sku.exception.ts) (conflict, 409) | contrasts a domain exception against an application exception |
+
+Canonical source: Eric Evans, *Domain-Driven Design* (invariants); on mapping
+errors by architectural layer, Robert C. Martin, *Clean Architecture*.

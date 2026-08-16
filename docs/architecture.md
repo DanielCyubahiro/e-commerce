@@ -51,61 +51,11 @@ compiles. `src/shared/presentation/filters` relies on exactly that to import
 
 ## Request lifecycle
 
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant V as ValidationPipe + DTO
-    participant Ctl as ProductController
-    participant B as CommandBus / QueryBus
-    participant H as Handler
-    participant P as Port
-    participant A as Drizzle adapter
-    participant DB as Postgres
-
-    C->>V: POST /products
-    V->>V: type, presence, ceilings only
-    V->>Ctl: CreateProductDto
-    Ctl->>B: CreateProductCommand
-    B->>H: CreateProductHandler
-    H->>H: Product.create validates invariants
-    H->>P: add(product)
-    P->>A: DrizzleProductWriteRepository
-    A->>DB: INSERT
-    alt sku already exists
-        DB-->>A: 23505 on duplicate sku
-        A-->>H: DuplicateSkuException
-        H-->>Ctl: exception propagates
-        Ctl-->>C: 409 Conflict
-    else no conflict
-        DB-->>A: row inserted
-        A-->>H: id
-        H-->>Ctl: id
-        Ctl-->>C: 201 + Location header
-    end
-```
-
-Walking each hop:
-
-- The client posts to `/products`. `configureApp` in
-  [`app.config.ts`](../src/app.config.ts) installs a global `ValidationPipe`
-  that runs before any handler sees the request.
-- The pipe validates the body against
-  [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts)
-  and, only on success, hands a `CreateProductDto` instance to
-  [`ProductController.create`](../src/product/presentation/product.controller.ts).
-- The controller dispatches a `CreateProductCommand` on Nest CQRS's
-  `CommandBus`, which routes it to
-  [`CreateProductHandler`](../src/product/application/use-cases/commands/create-product/create-product.handler.ts).
-- The handler calls `Product.create`, which validates name, description, and
-  stock before an instance exists, then calls `add` on the
-  `ProductWriteRepository` port.
-- [`DrizzleProductWriteRepository.add`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
-  inserts the row. A duplicate SKU raises `DuplicateSkuException` instead of
-  letting the driver error escape; see [the fork seam](#fork-seam) for how that
-  detection works and the constraint-name coupling it depends on.
-- On the success path the handler returns only the new id, never the
-  aggregate, and the controller sets a `Location` header pointing at the new
-  resource before the framework serialises a 201.
+Every context follows the same pipeline: the global `ValidationPipe` runs
+against a DTO, the controller dispatches a command or query on Nest CQRS's bus,
+a handler calls a port, and an adapter reaches the database. Each context's own
+diagram, with its endpoints and exceptions named, is on its page under
+[`docs/contexts/`](./contexts/).
 
 Validation splits across two places on purpose:
 [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts)
@@ -131,10 +81,9 @@ split is drawn where it is.
 `DomainException` and `ApplicationException` both carry a stable,
 machine-readable `code`, distinct from the status above.
 `DomainExceptionFilter` and `ApplicationExceptionFilter` emit
-`{ statusCode, code, message }`, where `code` is `exception.code`; a duplicate
-SKU comes back as
-`{ statusCode: 409, code: 'PRODUCT_SKU_DUPLICATE', message: ... }`
-([`duplicate-sku.exception.ts`](../src/product/application/exceptions/duplicate-sku.exception.ts)).
+`{ statusCode, code, message }`, where `code` is `exception.code`.
+Each context lists the codes it raises on its own page; see
+[product's](./contexts/product.md#error-codes) for a worked set.
 `UnhandledExceptionFilter` sets the same fixed code, `'INTERNAL_ERROR'`, only
 for a genuinely unrecognised error. A framework exception, such as a
 `ValidationPipe` rejection, takes a different branch of that same filter and
@@ -177,32 +126,16 @@ targets a different database engine still needs new migrations for that
 engine. A fork that drops Drizzle for another ORM replaces all three outright
 with that ORM's own schema definition and migration format.
 
-One coupling between them is easy to miss, and it fails silently rather than
-loudly. The `sku` column's `.unique()` call in `products.schema.ts` is what
-produces `CONSTRAINT "products_sku_unique" UNIQUE("sku")` in
-[`drizzle/0000_lumpy_absorbing_man.sql`](../drizzle/0000_lumpy_absorbing_man.sql),
-Drizzle's own naming convention for an unnamed unique constraint. The
-[`isDuplicateSku`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
-check matches that exact string against the constraint name on a `23505` error. A new
-adapter that keeps a Postgres unique constraint on `sku`, but lets its own
-schema tool name that constraint anything else, still rejects the duplicate
-insert at the database; the equivalent duplicate-detection code just stops
-recognising it, so the raw driver error escapes instead. The client gets a 500
-from `UnhandledExceptionFilter` where it should get a 409 from
-`DuplicateSkuException`, and the gap only shows up under concurrent writes.
-[ADR 0003](./adr/0003-sku-uniqueness-arbitrated-by-the-database.md) records why
-detection works this way, catching the constraint violation rather than
-pre-checking for a duplicate.
-
 The procedure:
 
-1. Implement `ProductReadRepository` and `ProductWriteRepository` from
-   `src/product/application/ports/`. Match each method's documented contract,
-   not just its signature: `add` throws `DuplicateSkuException` on a colliding
-   SKU rather than pre-checking, so two concurrent callers cannot both pass a
-   check and then collide, which is why the constraint name above has to carry
-   over deliberately rather than by accident. `delete` returns `false` rather
-   than throwing when no row matched that id.
+1. For each context, implement the ports listed under `## Ports and adapters`
+   on its page in [`docs/contexts/`](./contexts/). Match each method's
+   documented contract, not just its signature. Where an adapter detects a
+   database constraint violation and maps it to an application exception, that
+   detection is coupled to the constraint's *name*, which a different schema
+   tool will not reproduce by accident. Each context page records its own
+   couplings; product's are in
+   [Fork notes](./contexts/product.md#fork-notes).
 2. Provide your new database client and give it a Nest injection token,
    following
    [`drizzle.provider.ts`](../src/shared/infrastructure/database/postgres/drizzle.provider.ts).
@@ -222,21 +155,12 @@ The procedure:
    itself is wired in today, not `product.module.ts`. `product.module.ts` only
    binds ports to adapters; it has no visibility into what those adapters need
    injected, and it is not where the client comes from.
-5. Register the two adapters against `PRODUCT_READ_REPOSITORY` and
-   `PRODUCT_WRITE_REPOSITORY` in
-   [`src/product/product.module.ts`](../src/product/product.module.ts),
-   replacing the `useClass: DrizzleProductReadRepository` and
-   `useClass: DrizzleProductWriteRepository` providers. No command or query
-   handler needs to change.
-6. Write one binding file per contract suite. For the write side, follow
-   [`product-write-repository.integration-spec.ts`](../test/contracts/product-write-repository.integration-spec.ts):
-   supply a harness with `repository`, `reset()`, and `close()`. For the read
-   side, follow
-   [`product-read-repository.integration-spec.ts`](../test/contracts/product-read-repository.integration-spec.ts):
-   its harness carries both `read` and `write` (seeding rows for a read test
-   goes through the write port, so the contract never assumes how a row got
-   there), plus the same `reset()` and `close()`. Point `reset` and `close` at
-   whatever your adapter connects to.
+5. Register each context's adapters against its port tokens in that context's
+   `<context>.module.ts`, replacing the `useClass` providers. No command or
+   query handler needs to change.
+6. Write one binding file per contract suite, per context. The harness shapes
+   are in [`docs/testing.md`](./testing.md#the-contract-mechanism); the
+   bindings each context already has are on its page.
 7. Run `pnpm test:integration`.
 
 The property that makes this safe: the contract suite is the port's

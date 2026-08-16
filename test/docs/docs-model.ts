@@ -127,3 +127,15 @@ export function readDocsModel(): DocsModel {
     links: pages.flatMap((page) => parseLinks(page.path, page.body)),
   };
 }
+
+/**
+ * The headings every context page must carry, in order. Extra headings are
+ * allowed anywhere; these five are the checked minimum.
+ */
+export const CONTEXT_PAGE_HEADINGS = [
+  '## What it owns',
+  '## Endpoints',
+  '## Ports and adapters',
+  '## Request lifecycle',
+  '## Error codes',
+] as const;

@@ -107,7 +107,7 @@ counts as a contract test rather than an ordinary shared test helper, and
 [ADR 0005](./adr/0005-contract-tests-bind-to-every-adapter.md) for why the
 mechanism exists at all.
 
-The two contracts do not share a harness shape. The write side needs only one
+The two contracts do not share a harness shape. A write harness needs only one
 repository:
 
 ```ts
@@ -120,8 +120,8 @@ export interface WriteHarness {
 
 ([`WriteHarness`](../test/contracts/product-write-repository.contract.ts))
 
-The read side needs both ports, because seeding a row to read back has to go
-through the write port; the read contract never assumes how a row got into
+A read harness carries both ports, because seeding a row to read back goes
+through the write port, and the context never assumes how a row reached
 storage:
 
 ```ts
@@ -135,26 +135,8 @@ export interface ReadHarness {
 
 ([`ReadHarness`](../test/contracts/product-read-repository.contract.ts))
 
-Each contract has two bindings, one per implementation:
-
-| Contract | Fake binding (`unit`) | Adapter binding (`integration`) |
-| --- | --- | --- |
-| Write | [`product-write-repository.spec.ts`](../test/contracts/product-write-repository.spec.ts) | [`product-write-repository.integration-spec.ts`](../test/contracts/product-write-repository.integration-spec.ts) |
-| Read | [`product-read-repository.spec.ts`](../test/contracts/product-read-repository.spec.ts) | [`product-read-repository.integration-spec.ts`](../test/contracts/product-read-repository.integration-spec.ts) |
-
-The fake bindings construct an
-[`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts)
-(and, for the read contract, an
-[`InMemoryProductReadRepository`](../test/fakes/in-memory-product-read.repository.ts)
-wrapping it) with `reset` clearing in-memory state. The adapter bindings
-construct the Drizzle repositories against a real connection, with `reset`
-truncating the table and `close` ending the connection. Adapter-only failure
-modes that a fake has no way to reproduce, such as a column type rejecting a
-value Postgres cannot store, are covered separately, outside the shared
-contract; see
-[`drizzle-product-write.integration-spec.ts`](../test/contracts/drizzle-product-write.integration-spec.ts)
-for an example (an out-of-range stock value tripping a different Postgres
-error code than a duplicate SKU).
+Each context lists its own contracts and their two bindings under
+`## Ports and adapters` on its page in [`docs/contexts/`](./contexts/).
 
 Adding a new adapter and wiring it in through this same mechanism is a fork
 operation; see the numbered procedure and its harness requirements in

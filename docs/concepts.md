@@ -130,7 +130,7 @@ identify the result, never the aggregate itself.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field |
+| product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts), [`UpdateProductCommand`](../src/product/application/use-cases/commands/update-product/update-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field; `UpdateProductCommand` carries its six fields as one `ProductInput` object rather than positionally, because five of seven positional parameters would be strings |
 
 Canonical source: Martin Fowler, "CQRS" (bliki).
 

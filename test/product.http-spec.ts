@@ -19,6 +19,7 @@ const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
  */
 interface ResponseBody {
   id?: string;
+  name?: string;
   code?: string;
   price?: number;
   currency?: string;
@@ -299,6 +300,99 @@ describe('products HTTP contract', () => {
 
       expect(response.status).toBe(404);
       expect(bodyOf(response).code).toBe('PRODUCT_NOT_FOUND');
+    });
+  });
+
+  describe('PUT /products/:id', () => {
+    const replacement = (
+      overrides: Record<string, unknown> = {},
+    ): Record<string, unknown> => ({
+      name: 'Espresso Machine II',
+      description: 'Makes more espresso.',
+      price: 199.5,
+      sku: 'ESP-002',
+      stock: 3,
+      currency: 'EUR',
+      ...overrides,
+    });
+
+    const put = (id: string, body: Record<string, unknown>): request.Test =>
+      request(app.getHttpServer()).put(`/products/${id}`).send(body);
+
+    const createdId = async (): Promise<string> =>
+      bodyOf(await create()).id ?? '';
+
+    it('returns 204 with no body and replaces every field', async () => {
+      const id = await createdId();
+
+      const response = await put(id, replacement());
+
+      expect(response.status).toBe(204);
+      expect(response.text).toBe('');
+      expect(bodyOf(await get(`/products/${id}`))).toMatchObject({
+        name: 'Espresso Machine II',
+        price: 199.5,
+        sku: 'ESP-002',
+        stock: 3,
+      });
+    });
+
+    it('returns 400 when currency is omitted, rather than resetting it to EUR', async () => {
+      // Create defaults the currency; replace must not, or a PUT without it
+      // would silently convert a product's currency.
+      const id = await createdId();
+
+      expect((await put(id, replacement({ currency: undefined }))).status).toBe(
+        400,
+      );
+    });
+
+    it('returns 400 when a required field is missing', async () => {
+      const id = await createdId();
+
+      expect((await put(id, replacement({ stock: undefined }))).status).toBe(
+        400,
+      );
+    });
+
+    it('returns 400 for an unknown property', async () => {
+      const id = await createdId();
+
+      expect((await put(id, replacement({ isAdmin: true }))).status).toBe(400);
+    });
+
+    it('returns 400 for a malformed id', async () => {
+      expect((await put('nope', replacement())).status).toBe(400);
+    });
+
+    it('returns 404 when no product holds the id', async () => {
+      const response = await put(MISSING_ID, replacement());
+
+      expect(response.status).toBe(404);
+      expect(bodyOf(response).code).toBe('PRODUCT_NOT_FOUND');
+    });
+
+    it('reports a broken invariant before a missing product', async () => {
+      const response = await put(MISSING_ID, replacement({ name: 'a' }));
+
+      expect(response.status).toBe(422);
+      expect(bodyOf(response).code).toBe('PRODUCT_NAME_INVALID');
+    });
+
+    it('returns 409 when another product holds the sku', async () => {
+      await create({ sku: 'TAKEN-1' });
+      const id = bodyOf(await create({ sku: 'TARGET-1' })).id ?? '';
+
+      const response = await put(id, replacement({ sku: 'TAKEN-1' }));
+
+      expect(response.status).toBe(409);
+      expect(bodyOf(response).code).toBe('PRODUCT_SKU_DUPLICATE');
+    });
+
+    it('accepts a replacement that keeps the product its own sku', async () => {
+      const id = await createdId();
+
+      expect((await put(id, replacement({ sku: 'ESP-001' }))).status).toBe(204);
     });
   });
 });

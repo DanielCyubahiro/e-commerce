@@ -24,10 +24,10 @@ export const products = pgTable(
     sku: varchar('sku', { length: 50 }).notNull().unique(),
     stock: integer('stock').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at')
-      .notNull()
-      .defaultNow()
-      .$onUpdate(() => new Date()),
+    // The products_set_updated_at trigger owns this on update, so both
+    // timestamps come from the database clock. See ADR 0009; a `$onUpdate`
+    // hook here would write the host process clock instead.
+    updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => [
     // Serves the price filters in DrizzleProductReadRepository.findMany.

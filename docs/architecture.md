@@ -127,7 +127,10 @@ migrations and their `meta/` snapshots), and
 belong to Drizzle and drizzle-kit specifically. A fork that keeps Drizzle but
 targets a different database engine still needs new migrations for that
 engine. A fork that drops Drizzle for another ORM replaces all three outright
-with that ORM's own schema definition and migration format.
+with that ORM's own schema definition and migration format. Migrations now
+carry behaviour and not only structure, so `products.schema.ts` no longer
+fully describes the database, and a fork that regenerates DDL from the schema
+alone loses the `updated_at` trigger.
 
 The procedure:
 

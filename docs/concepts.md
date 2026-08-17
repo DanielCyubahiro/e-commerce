@@ -233,7 +233,7 @@ drifting.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete |
+| product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete; the row also carries a create and a write sequence, which is how the fake reproduces the adapter's `updated_at` movement on replace rather than diverging from it silently |
 
 Canonical source: Martin Fowler, "Mocks Aren't Stubs".
 

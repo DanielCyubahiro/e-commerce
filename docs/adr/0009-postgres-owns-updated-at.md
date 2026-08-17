@@ -59,3 +59,7 @@ uniqueness.
 - A fork that keeps the `updated_at` column but omits the trigger, whether by
   forking the ORM or the database engine, leaves it frozen at insert time,
   with no error anywhere to surface the gap.
+- [`0002_updated_at_trigger.sql`](../../drizzle/0002_updated_at_trigger.sql)
+  uses `CREATE OR REPLACE TRIGGER`, which requires Postgres 14 or later; a
+  fork onto an older Postgres must rewrite it as `DROP TRIGGER IF EXISTS`
+  followed by `CREATE TRIGGER`.

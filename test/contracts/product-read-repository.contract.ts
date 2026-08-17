@@ -54,7 +54,7 @@ export function productReadRepositoryContract(
         name: 'Replaced Machine',
         description: 'Now with more steam.',
         price: 149.5,
-        currency: 'EUR',
+        currency: 'USD',
         sku: 'ESP-002',
         stock: 3,
       });
@@ -124,7 +124,7 @@ export function productReadRepositoryContract(
           name: 'Replaced Machine',
           description: 'Now with more steam.',
           priceMinorUnits: 14950,
-          priceCurrency: 'EUR',
+          priceCurrency: 'USD',
           sku: 'ESP-002',
           stock: 3,
         });

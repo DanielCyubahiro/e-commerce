@@ -325,7 +325,7 @@ describe('products HTTP contract', () => {
     it('returns 204 with no body and replaces every field', async () => {
       const id = await createdId();
 
-      const response = await put(id, replacement());
+      const response = await put(id, replacement({ currency: 'USD' }));
 
       expect(response.status).toBe(204);
       expect(response.text).toBe('');
@@ -334,6 +334,7 @@ describe('products HTTP contract', () => {
         price: 199.5,
         sku: 'ESP-002',
         stock: 3,
+        currency: 'USD',
       });
     });
 

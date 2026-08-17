@@ -8,10 +8,12 @@ import {
 
 /**
  * The replace payload: the same shape rules as `CreateProductDto`, with one
- * deliberate difference. `currency` is required here, because under replace
- * semantics an omitted optional field overwrites what is stored, so create's
- * EUR default would silently convert a USD product. A default that fills a
- * blank and a default that overwrites a value are not the same feature.
+ * deliberate difference. `currency` is required here: under replace, an
+ * omitted field overwrites what is stored, so create's EUR default would
+ * silently convert a USD product. See ADR 0008.
+ *
+ * The 1000/10000/200 ceilings on name, description, and sku duplicate
+ * `CreateProductDto`'s; nothing enforces the two stay equal.
  *
  * Not a subclass of `CreateProductDto`, and it must not become one:
  * class-validator dedups inherited metadata by (propertyName, type), and

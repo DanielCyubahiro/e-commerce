@@ -61,9 +61,8 @@ export class InMemoryProductWriteRepository implements ProductWriteRepository {
     }
 
     this.writes += 1;
-    // set, never delete-then-set: a Map keeps the original insertion position
-    // on overwrite, and `createdSeq` is carried over so the row keeps its place
-    // in created_at order exactly as the adapter's row does.
+    // `createdSeq` is carried over so the row keeps its place in created_at
+    // order exactly as the adapter's row does.
     this.rows.set(product.id.value, {
       product,
       createdSeq: existing.createdSeq,

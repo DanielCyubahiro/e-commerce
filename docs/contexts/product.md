@@ -134,12 +134,12 @@ Walking each hop:
 `PUT /products/:id` follows the same pipe and controller-to-bus path as
 create, but differs after that.
 [`ProductController.replace`](../../src/product/presentation/product.controller.ts)
+dispatches an `UpdateProductCommand`, and
+[`UpdateProductHandler`](../../src/product/application/use-cases/commands/update-product/update-product.handler.ts)
 builds the aggregate through
 [`Product.replace`](../../src/product/domain/entities/product.entity.ts)
 before the store is touched, so a request that breaks an invariant answers 422
-even when the id holds nothing.
-[`UpdateProductHandler`](../../src/product/application/use-cases/commands/update-product/update-product.handler.ts)
-then calls
+even when the id holds nothing. The handler then calls
 [`ProductWriteRepository.replace`](../../src/product/application/ports/product.write-repository.ts),
 which returns false rather than throwing when no row matched; the handler
 turns that into `PRODUCT_NOT_FOUND`. Neither the handler nor the adapter sets
@@ -155,9 +155,9 @@ error mechanism in
 
 | Code | Kind | Status | Raised by |
 | --- | --- | --- | --- |
-| `PRODUCT_NAME_INVALID` | `invariant` | 422 | [`Product.create`](../../src/product/domain/entities/product.entity.ts) |
-| `PRODUCT_DESCRIPTION_INVALID` | `invariant` | 422 | [`Product.create`](../../src/product/domain/entities/product.entity.ts) |
-| `PRODUCT_STOCK_INVALID` | `invariant` | 422 | [`Product.create`](../../src/product/domain/entities/product.entity.ts) |
+| `PRODUCT_NAME_INVALID` | `invariant` | 422 | [`Product`](../../src/product/domain/entities/product.entity.ts) |
+| `PRODUCT_DESCRIPTION_INVALID` | `invariant` | 422 | [`Product`](../../src/product/domain/entities/product.entity.ts) |
+| `PRODUCT_STOCK_INVALID` | `invariant` | 422 | [`Product`](../../src/product/domain/entities/product.entity.ts) |
 | `PRODUCT_SKU_INVALID` | `invariant` | 422 | [`Sku.create`](../../src/product/domain/value-objects/sku.vo.ts) |
 | `PRODUCT_SKU_DUPLICATE` | `conflict` | 409 | [`DuplicateSkuException`](../../src/product/application/exceptions/duplicate-sku.exception.ts) |
 | `PRODUCT_NOT_FOUND` | `not-found` | 404 | [`GetProductHandler`](../../src/product/application/use-cases/queries/get-product/get-product.handler.ts), [`DeleteProductHandler`](../../src/product/application/use-cases/commands/delete-product/delete-product.handler.ts), [`UpdateProductHandler`](../../src/product/application/use-cases/commands/update-product/update-product.handler.ts) |

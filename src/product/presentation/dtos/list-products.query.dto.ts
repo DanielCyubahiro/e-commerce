@@ -12,11 +12,11 @@ import {
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT } from '@/shared/application';
 
 /**
- * Nest already coerces a `Number`-typed query parameter through
- * `transformPrimitive`, so the value arriving as a number is not what this DTO
- * adds. What it adds is validation: without it `?minPrice=abc` coerces to `NaN`
- * and only fails later as a 422 from the domain, and `?limit=abc` reaches
- * pagination unchecked.
+ * `@Type` is what coerces the string query values: the pipe in `app.config.ts`
+ * enables no implicit conversion, and `transformPrimitive` only fires for a
+ * primitive-typed parameter, not for a DTO. `Number` is lenient though, so the
+ * validators are what turn `?minPrice=abc` into a 400 at the edge rather than a
+ * 422 from the domain, and keep `?limit=abc` out of pagination.
  *
  * Pagination bounds have no domain counterpart, so they are enforced here.
  * Currency format does have one, so it is left to `Money` and reported as 422,

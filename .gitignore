@@ -53,9 +53,6 @@ lerna-debug.log*
 .superpowers/
 TODO.md
 
-# authored docs, deliberately untracked (not build output)
-/docs
-
 # Runtime data
 pids
 *.pid

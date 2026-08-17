@@ -13,9 +13,6 @@ export class EnvSchema {
   @IsNotEmpty()
   POSTGRES_DB_URI!: string;
 
-  // Reserved for an upcoming bounded context: MongoClientProvider connects at
-  // boot (mongo.provider.ts), so this must be reachable even though nothing
-  // queries it yet.
   @IsString()
   @IsNotEmpty()
   MONGO_DB_URI!: string;

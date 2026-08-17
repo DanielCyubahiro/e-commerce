@@ -19,4 +19,5 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0005](0005-contract-tests-bind-to-every-adapter.md) | One contract suite runs against every implementation | Accepted |
 | [0006](0006-validation-at-the-edge-versus-the-domain.md) | DTOs check shape; the domain owns rules | Accepted |
 | [0007](0007-hard-delete-over-soft-delete.md) | Deleting a product removes the row | Accepted |
+| [0008](0008-update-replaces-without-rehydration.md) | Updating a product replaces it, without rehydration | Accepted |
 | [0009](0009-postgres-owns-updated-at.md) | Postgres owns `updated_at` | Accepted |

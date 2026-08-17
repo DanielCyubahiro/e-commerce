@@ -4,11 +4,10 @@ import { InvalidProductDescriptionException } from '../exceptions/invalid-produc
 import { InvalidProductNameException } from '../exceptions/invalid-product-name.exception';
 import { InvalidSkuException } from '../exceptions/invalid-sku.exception';
 import { InvalidStockException } from '../exceptions/invalid-stock.exception';
-import { type CreateProductInput, Product } from './product.entity';
+import { ProductId } from '../value-objects/product-id.vo';
+import { Product, type ProductInput } from './product.entity';
 
-const input = (
-  overrides: Partial<CreateProductInput> = {},
-): CreateProductInput => ({
+const input = (overrides: Partial<ProductInput> = {}): ProductInput => ({
   name: 'Espresso Machine',
   description: 'A machine that makes espresso.',
   price: 249.99,
@@ -156,5 +155,71 @@ describe('Product.create', () => {
 
       expect(product.equals(product)).toBe(true);
     });
+  });
+});
+
+describe('Product.replace', () => {
+  it('keeps the identifier it was given', () => {
+    const existing = ProductId.create();
+
+    expect(Product.replace(existing, input()).id.equals(existing)).toBe(true);
+  });
+
+  it('normalises the same way create does', () => {
+    const product = Product.replace(
+      ProductId.create(),
+      input({ name: '  Kettle  ', sku: 'esp-001' }),
+    );
+
+    expect(product.name).toBe('Kettle');
+    expect(product.sku.value).toBe('ESP-001');
+  });
+
+  // One case per rule rather than trusting delegation: a refactor that routed
+  // `replace` around the shared validation would otherwise break nothing.
+  it('rejects a name shorter than 2 characters', () => {
+    expect(
+      catchError(
+        () => Product.replace(ProductId.create(), input({ name: ' a ' })),
+        InvalidProductNameException,
+      ).code,
+    ).toBe('PRODUCT_NAME_INVALID');
+  });
+
+  it('rejects a description that is empty after trimming', () => {
+    expect(
+      catchError(
+        () =>
+          Product.replace(ProductId.create(), input({ description: '   ' })),
+        InvalidProductDescriptionException,
+      ).code,
+    ).toBe('PRODUCT_DESCRIPTION_INVALID');
+  });
+
+  it('rejects a negative stock', () => {
+    expect(
+      catchError(
+        () => Product.replace(ProductId.create(), input({ stock: -1 })),
+        InvalidStockException,
+      ).code,
+    ).toBe('PRODUCT_STOCK_INVALID');
+  });
+
+  it('rejects a malformed sku', () => {
+    expect(
+      catchError(
+        () => Product.replace(ProductId.create(), input({ sku: 'a b' })),
+        InvalidSkuException,
+      ).code,
+    ).toBe('PRODUCT_SKU_INVALID');
+  });
+
+  it('rejects a price with more than two decimal places', () => {
+    expect(
+      catchError(
+        () => Product.replace(ProductId.create(), input({ price: 19.999 })),
+        InvalidMoneyException,
+      ).code,
+    ).toBe('MONEY_INVALID');
   });
 });

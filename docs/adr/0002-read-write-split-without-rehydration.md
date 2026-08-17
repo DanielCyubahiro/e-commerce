@@ -27,6 +27,12 @@ Because no query needs a way to reconstruct a `Product` from stored data, the
 aggregate never has to expose one, and its persistence factory (were one ever
 added) would not need to be public either.
 
+`Product.create` is no longer the *only* constructor: [ADR 0008](0008-update-replaces-without-rehydration.md)
+adds `Product.replace` for the write path, under an id the caller already
+holds instead of one `create` mints. Both validate identically through the
+same shared path, so the property this record relies on, that nothing gets
+into a `Product` without passing validation first, is unchanged.
+
 ## Alternatives considered
 
 - **Rehydrate a `Product` for every read.** Every query would then depend on

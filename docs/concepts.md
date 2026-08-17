@@ -35,7 +35,7 @@ that validates first.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`Product`](../src/product/domain/entities/product.entity.ts) | `create` validates name, description, and stock before an instance exists |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | both `create` and `replace` validate through one path before an instance exists |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6, "The Life Cycle
 of a Domain Object".
@@ -91,7 +91,7 @@ actually reject a value.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`Product.create`](../src/product/domain/entities/product.entity.ts) | enforces the name, description, and stock invariants; [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts) deliberately does not repeat them |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | owns the name, description, and stock invariants; neither [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts) nor the update DTO repeats them |
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants as part of
 Aggregate consistency).

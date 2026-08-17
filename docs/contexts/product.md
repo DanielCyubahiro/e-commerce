@@ -9,8 +9,11 @@ specific to `src/product/`.
 
 [`Product`](../../src/product/domain/entities/product.entity.ts) is the
 aggregate and the whole consistency boundary.
-[`Product.create`](../../src/product/domain/entities/product.entity.ts) is the
-only way to construct one, so an invalid `Product` is never representable:
+[`Product.create`](../../src/product/domain/entities/product.entity.ts) and
+[`Product.replace`](../../src/product/domain/entities/product.entity.ts) are
+the only ways to construct one, over one shared validation path, `create`
+minting an identity and `replace` taking one the caller already holds, so an
+invalid `Product` is still never representable:
 
 - Name: 2 to 255 characters after trimming.
 - Description: non-empty after trimming.

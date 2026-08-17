@@ -29,6 +29,26 @@ export class InMemoryProductWriteRepository implements ProductWriteRepository {
     return Promise.resolve();
   }
 
+  replace(product: Product): Promise<boolean> {
+    if (!this.rows.has(product.id.value)) {
+      return Promise.resolve(false);
+    }
+
+    const skuTaken = [...this.rows.values()].some(
+      (stored) =>
+        stored.sku.equals(product.sku) && !stored.id.equals(product.id),
+    );
+
+    if (skuTaken) {
+      return Promise.reject(new DuplicateSkuException(product.sku.value));
+    }
+
+    // set, never delete-then-set: a Map keeps the original insertion position
+    // on overwrite, and the read fake derives created_at ordering from it.
+    this.rows.set(product.id.value, product);
+    return Promise.resolve(true);
+  }
+
   delete(id: ProductId): Promise<boolean> {
     return Promise.resolve(this.rows.delete(id.value));
   }

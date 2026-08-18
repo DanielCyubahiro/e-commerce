@@ -20,7 +20,9 @@ export function testDb(): TestDb {
 }
 
 export async function truncateAll(db: TestDb): Promise<void> {
-  await db.execute(sql`TRUNCATE TABLE products RESTART IDENTITY CASCADE`);
+  await db.execute(
+    sql`TRUNCATE TABLE products, users RESTART IDENTITY CASCADE`,
+  );
 }
 
 export async function closeTestDb(): Promise<void> {

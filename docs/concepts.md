@@ -139,7 +139,7 @@ identify the result, never the aggregate itself.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts), [`UpdateProductCommand`](../src/product/application/use-cases/commands/update-product/update-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field; `UpdateProductCommand` carries its six fields as one `ProductInput` object rather than positionally, because five of seven positional parameters would be strings |
-| user | none | Not modelled yet |
+| user | [`CreateUserCommand`](../src/user/application/use-cases/commands/create-user/create-user.command.ts), [`DeleteUserCommand`](../src/user/application/use-cases/commands/delete-user/delete-user.command.ts), [`UpdateUserCommand`](../src/user/application/use-cases/commands/update-user/update-user.command.ts) | `CreateUserCommand` and `UpdateUserCommand` both carry their fields as one `UserInput` object rather than positionally, because four of five fields are strings |
 
 Canonical source: Martin Fowler, "CQRS" (bliki).
 
@@ -152,7 +152,7 @@ nothing ever rehydrated into a domain object.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`ListProductsQuery`](../src/product/application/use-cases/queries/list-products/list-products.query.ts), [`GetProductQuery`](../src/product/application/use-cases/queries/get-product/get-product.query.ts) | `ListProductsQuery` carries decimal price bounds; conversion to minor units happens only in the handler |
-| user | none | Not modelled yet |
+| user | [`ListUsersQuery`](../src/user/application/use-cases/queries/list-users/list-users.query.ts), [`GetUserQuery`](../src/user/application/use-cases/queries/get-user/get-user.query.ts) | `ListUsersQuery` carries the role filter as the caller's raw string; parsing it through `UserRole` happens only in the handler |
 
 Canonical source: Martin Fowler, "CQRS" (bliki).
 
@@ -166,7 +166,7 @@ reason to know how a conversion works.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts) | the only layer entitled to know both a decimal price and its minor-unit form; see [ADR 0001](./adr/0001-money-as-integer-minor-units.md) |
-| user | none | Not modelled yet |
+| user | [`ListUsersHandler`](../src/user/application/use-cases/queries/list-users/list-users.handler.ts) | the only layer entitled to know both the wire string and the domain `UserRole` value |
 
 Canonical source: Greg Young, "CQRS Documents".
 

@@ -153,20 +153,24 @@ export function userWriteRepositoryContract(
       await expect(harness.repository.delete(user.id)).resolves.toBe(false);
     });
 
-    it('leaves a co-existing user untouched when an add is rejected as a duplicate', async () => {
+    it('an add rejected as a duplicate email leaves no row for it, and leaves the other user in place', async () => {
       const kept = aUser('keep@example.com');
       await harness.repository.add(kept);
 
+      const rejected = aUser('keep@example.com');
       const error = await catchRejection(
-        () => harness.repository.add(aUser('keep@example.com')),
+        () => harness.repository.add(rejected),
         DuplicateEmailException,
       );
       expect(error.code).toBe('USER_EMAIL_DUPLICATE');
 
+      // The row a partial write would land: proves nothing was inserted for
+      // the rejected user, not just that the pre-existing one survived.
+      await expect(harness.repository.delete(rejected.id)).resolves.toBe(false);
       await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
     });
 
-    it('leaves a co-existing user untouched when a replace is rejected as a duplicate', async () => {
+    it('a replace rejected as a duplicate email leaves the target user and its email intact', async () => {
       const kept = aUser('keep@example.com');
       const target = aUser('target@example.com');
       await harness.repository.add(kept);
@@ -181,7 +185,15 @@ export function userWriteRepositoryContract(
       );
       expect(error.code).toBe('USER_EMAIL_DUPLICATE');
 
-      await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
+      // This write-only harness has no read path, so the only way to show
+      // target's email was not overwritten is that it is still taken.
+      const stillTaken = await catchRejection(
+        () => harness.repository.add(aUser('target@example.com')),
+        DuplicateEmailException,
+      );
+      expect(stillTaken.code).toBe('USER_EMAIL_DUPLICATE');
+
+      await expect(harness.repository.delete(target.id)).resolves.toBe(true);
     });
   });
 }

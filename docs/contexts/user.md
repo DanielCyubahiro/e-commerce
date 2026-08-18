@@ -1,6 +1,6 @@
 # User
 
-The user context: one aggregate, no endpoints yet. Layer rules, the error
+The user context: one aggregate, five endpoints, two ports. Layer rules, the error
 mechanism, and the generic fork procedure live in
 [`docs/architecture.md`](../architecture.md); this file carries only what is
 specific to `src/user/`.
@@ -22,13 +22,23 @@ only ways to construct one, over one shared validation path:
 
 ## Endpoints
 
-none
+All five live on
+[`UserController`](../../src/user/presentation/user.controller.ts) at the
+`users` root.
+
+| Method | Path | Success | Request DTO |
+| --- | --- | --- | --- |
+| POST | `/users` | 201, `Location: /users/{id}` | [`UserPayloadDto`](../../src/user/presentation/dtos/user-payload.dto.ts) |
+| GET | `/users` | 200, paginated | [`ListUsersQueryDto`](../../src/user/presentation/dtos/list-users.query.dto.ts) |
+| GET | `/users/:id` | 200 | [`UserIdParamDto`](../../src/user/presentation/dtos/user-id.param.dto.ts) |
+| PUT | `/users/:id` | 204, no body | [`UserIdParamDto`](../../src/user/presentation/dtos/user-id.param.dto.ts), [`UserPayloadDto`](../../src/user/presentation/dtos/user-payload.dto.ts) |
+| DELETE | `/users/:id` | 204, no body | [`UserIdParamDto`](../../src/user/presentation/dtos/user-id.param.dto.ts) |
 
 ## Ports and adapters
 
 Ports are declared in
-[`src/user/application/ports/`](../../src/user/application/ports/). No
-module binds them to an adapter yet; that lands in Task 6.
+[`src/user/application/ports/`](../../src/user/application/ports/) and bound
+to adapters in [`user.module.ts`](../../src/user/user.module.ts).
 
 | Token | Interface | Adapter |
 | --- | --- | --- |
@@ -61,7 +71,76 @@ shared contract in
 
 ## Request lifecycle
 
-none
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant V as ValidationPipe + DTO
+    participant Ctl as UserController
+    participant B as CommandBus / QueryBus
+    participant H as Handler
+    participant P as Port
+    participant A as Drizzle adapter
+    participant DB as Postgres
+
+    C->>V: POST /users
+    V->>V: type, presence, ceilings only
+    V->>Ctl: UserPayloadDto
+    Ctl->>B: CreateUserCommand
+    B->>H: CreateUserHandler
+    H->>H: User.create validates invariants
+    H->>P: add(user)
+    P->>A: DrizzleUserWriteRepository
+    A->>DB: INSERT
+    alt email already exists
+        DB-->>A: 23505 on duplicate email
+        A-->>H: DuplicateEmailException
+        H-->>Ctl: exception propagates
+        Ctl-->>C: 409 Conflict
+    else no conflict
+        DB-->>A: row inserted
+        A-->>H: id
+        H-->>Ctl: id
+        Ctl-->>C: 201 + Location header
+    end
+```
+
+Walking each hop:
+
+- The client posts to `/users`. `configureApp` in
+  [`app.config.ts`](../../src/app.config.ts) installs a global `ValidationPipe`
+  that runs before any handler sees the request.
+- The pipe validates the body against
+  [`UserPayloadDto`](../../src/user/presentation/dtos/user-payload.dto.ts) and,
+  only on success, hands an instance to
+  [`UserController.create`](../../src/user/presentation/user.controller.ts).
+- The controller dispatches a `CreateUserCommand` on Nest CQRS's `CommandBus`,
+  which routes it to
+  [`CreateUserHandler`](../../src/user/application/use-cases/commands/create-user/create-user.handler.ts).
+- The handler calls `User.create`, which validates the name, email, role, and
+  phone before an instance exists, then calls `add` on the
+  `UserWriteRepository` port.
+- [`DrizzleUserWriteRepository`](../../src/user/infrastructure/adapters/drizzle-user.write-repository.ts)
+  inserts the row. A duplicate email raises `DuplicateEmailException` rather
+  than letting the driver error escape; see [Fork notes](#fork-notes) for the
+  constraint name that detection depends on.
+- On the success path the handler returns only the new id, never the
+  aggregate, and the controller sets a `Location` header before the framework
+  serialises a 201.
+
+`PUT /users/:id` follows the same pipe and controller-to-bus path as create,
+but differs after that.
+[`UserController.replace`](../../src/user/presentation/user.controller.ts)
+dispatches an `UpdateUserCommand`, and
+[`UpdateUserHandler`](../../src/user/application/use-cases/commands/update-user/update-user.handler.ts)
+builds the aggregate through
+[`User.replace`](../../src/user/domain/entities/user.entity.ts) before the
+store is touched, so a request that breaks an invariant answers 422 even when
+the id holds nothing. The handler then calls
+[`UserWriteRepository.replace`](../../src/user/application/ports/user.write-repository.ts),
+which returns false rather than throwing when no row matched; the handler
+turns that into `USER_NOT_FOUND`. Neither the handler nor the adapter sets
+`updated_at`; the `users_set_updated_at` trigger moves it on every write,
+including this one.
 
 ## Error codes
 
@@ -73,3 +152,34 @@ Codes raised by `src/user/`.
 | `USER_EMAIL_INVALID` | `invariant` | 422 | [`Email.create`](../../src/user/domain/value-objects/email.vo.ts) |
 | `USER_PHONE_INVALID` | `invariant` | 422 | [`Phone.create`](../../src/user/domain/value-objects/phone.vo.ts) |
 | `USER_ROLE_INVALID` | `invariant` | 422 | [`UserRole.create`](../../src/user/domain/value-objects/user-role.vo.ts) |
+| `USER_EMAIL_DUPLICATE` | `conflict` | 409 | [`DuplicateEmailException`](../../src/user/application/exceptions/duplicate-email.exception.ts) |
+| `USER_NOT_FOUND` | `not-found` | 404 | [`GetUserHandler`](../../src/user/application/use-cases/queries/get-user/get-user.handler.ts), [`DeleteUserHandler`](../../src/user/application/use-cases/commands/delete-user/delete-user.handler.ts), [`UpdateUserHandler`](../../src/user/application/use-cases/commands/update-user/update-user.handler.ts) |
+
+## Fork notes
+
+One coupling fails silently rather than loudly. The `email` column's
+`.unique()` call in
+[`users.schema.ts`](../../src/shared/infrastructure/database/postgres/schema/users.schema.ts)
+produces `CONSTRAINT "users_email_unique" UNIQUE("email")` in
+[`drizzle/0003_users_table.sql`](../../drizzle/0003_users_table.sql), Drizzle's
+naming convention for an unnamed unique constraint.
+[`isDuplicateEmail`](../../src/user/infrastructure/adapters/drizzle-user.write-repository.ts)
+matches that exact string against the constraint name on a `23505` error.
+
+A new adapter that keeps a unique constraint on `email` but lets its own
+schema tool name it anything else still rejects the duplicate insert at the
+database; the duplicate-detection code just stops recognising it, so the raw
+driver error escapes. The client gets a 500 from `UnhandledExceptionFilter`
+where it should get a 409, and the gap only shows up under concurrent writes,
+the same failure shape [ADR 0003](../adr/0003-sku-uniqueness-arbitrated-by-the-database.md)
+records for SKU.
+
+A second coupling fails just as silently. `updated_at` is moved by the
+`users_set_updated_at` trigger in
+[`0004_users_updated_at_trigger.sql`](../../drizzle/0004_users_updated_at_trigger.sql),
+not by application code, and no snapshot or schema file records that the
+trigger exists. A fork that keeps the `updated_at` column but omits the
+trigger leaves it frozen at insert time: no error anywhere, the same failure
+shape as the constraint-name coupling above.
+[ADR 0009](../adr/0009-postgres-owns-updated-at.md) records why the database
+owns the column instead of the write adapter.

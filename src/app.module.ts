@@ -5,6 +5,7 @@ import { validateEnv } from '@/config/env.schema';
 import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module';
 import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle.module';
 import { ProductModule } from './product/product.module';
+import { UserModule } from './user/user.module';
 
 /**
  * `validate: validateEnv` is what makes a malformed environment abort at
@@ -21,6 +22,7 @@ import { ProductModule } from './product/product.module';
     DrizzleModule,
     CqrsModule,
     ProductModule,
+    UserModule,
   ],
   controllers: [],
   providers: [],

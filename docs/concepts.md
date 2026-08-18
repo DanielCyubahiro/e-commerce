@@ -22,6 +22,7 @@ context needs.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`src/product/`](../src/product/) | owns one aggregate, `Product` |
+| user | [`src/user/`](../src/user/) | owns one aggregate, `User` |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Part IV, "Strategic
 Design".
@@ -36,6 +37,7 @@ that validates first.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`Product`](../src/product/domain/entities/product.entity.ts) | both `create` and `replace` validate through one path before an instance exists |
+| user | [`User`](../src/user/domain/entities/user.entity.ts) | both `create` and `replace` validate through one path before an instance exists |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6, "The Life Cycle
 of a Domain Object".
@@ -50,6 +52,7 @@ would not already have.
 | --- | --- | --- |
 | shared | [`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts) | stays empty on purpose; see [ADR 0004](./adr/0004-no-nest-aggregate-root-base-class.md) for why it does not extend Nest CQRS's own `AggregateRoot` |
 | product | [`Product`](../src/product/domain/entities/product.entity.ts) | extends the empty `AggregateRoot` |
+| user | [`User`](../src/user/domain/entities/user.entity.ts) | extends the empty `AggregateRoot` |
 
 Canonical source: Vaughn Vernon, "Effective Aggregate Design" (a three part
 paper).
@@ -64,6 +67,7 @@ share an id but come from different classes still are not equal.
 | --- | --- | --- |
 | shared | [`Entity`](../src/shared/domain/entity.base.ts) | the abstract base; every entity extends it directly or via `AggregateRoot` |
 | product | [`Product`](../src/product/domain/entities/product.entity.ts) | inherits `equals` unmodified |
+| user | [`User`](../src/user/domain/entities/user.entity.ts) | inherits `equals` unmodified |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
 Expressed in Software," section "Entities".
@@ -78,6 +82,7 @@ is still one; `ProductId` is that case.
 | --- | --- | --- |
 | shared | [`Money`](../src/shared/domain/value-objects/money.vo.ts) | `fromDecimal` normalises decimals to minor units |
 | product | [`Sku`](../src/product/domain/value-objects/sku.vo.ts) | `create` uppercases on construction |
+| user | [`Email`](../src/user/domain/value-objects/email.vo.ts), [`Phone`](../src/user/domain/value-objects/phone.vo.ts), [`UserRole`](../src/user/domain/value-objects/user-role.vo.ts), [`UserId`](../src/user/domain/value-objects/user-id.vo.ts) | `Email` lowercases and bounds length, `Phone` normalises to E.164, `UserRole` closes the set to two values |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
 Expressed in Software," section "Value Objects".
@@ -92,6 +97,7 @@ actually reject a value.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`Product`](../src/product/domain/entities/product.entity.ts) | owns the name, description, and stock invariants; neither [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts) nor the update DTO repeats them |
+| user | [`User`](../src/user/domain/entities/user.entity.ts) | owns the name invariant directly; email, role, and phone invariants are owned by their value objects |
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants as part of
 Aggregate consistency).
@@ -105,6 +111,7 @@ class.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts), [`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts) | write's `add` throws `DuplicateSkuException` rather than pre-checking; `replace` returns false rather than throwing when no product holds the id; read's `findById` returns null on a miss |
+| user | none | Not modelled yet |
 
 Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
 Ports and Adapters.
@@ -118,6 +125,7 @@ application exception; nothing above it should ever see a raw driver error.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`DrizzleProductWriteRepository`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts) | `isDuplicateSku` walks Drizzle's wrapped error cause chain to find the Postgres unique violation |
+| user | none | Not modelled yet |
 
 Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
 Ports and Adapters.
@@ -131,6 +139,7 @@ identify the result, never the aggregate itself.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts), [`UpdateProductCommand`](../src/product/application/use-cases/commands/update-product/update-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field; `UpdateProductCommand` carries its six fields as one `ProductInput` object rather than positionally, because five of seven positional parameters would be strings |
+| user | none | Not modelled yet |
 
 Canonical source: Martin Fowler, "CQRS" (bliki).
 
@@ -143,6 +152,7 @@ nothing ever rehydrated into a domain object.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`ListProductsQuery`](../src/product/application/use-cases/queries/list-products/list-products.query.ts), [`GetProductQuery`](../src/product/application/use-cases/queries/get-product/get-product.query.ts) | `ListProductsQuery` carries decimal price bounds; conversion to minor units happens only in the handler |
+| user | none | Not modelled yet |
 
 Canonical source: Martin Fowler, "CQRS" (bliki).
 
@@ -156,6 +166,7 @@ reason to know how a conversion works.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`ListProductsHandler`](../src/product/application/use-cases/queries/list-products/list-products.handler.ts) | the only layer entitled to know both a decimal price and its minor-unit form; see [ADR 0001](./adr/0001-money-as-integer-minor-units.md) |
+| user | none | Not modelled yet |
 
 Canonical source: Greg Young, "CQRS Documents".
 
@@ -168,6 +179,7 @@ aggregate's persistence factory can stay private.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`ProductReadModel`](../src/product/application/read-models/product.read-model.ts) | `priceMinorUnits` is the stored integer; presentation converts it to a decimal |
+| user | none | Not modelled yet |
 
 Canonical source: Greg Young, "CQRS Documents".
 
@@ -179,6 +191,7 @@ adapter, so no other layer ever learns the row's shape.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`DrizzleProductReadRepository.project`](../src/product/infrastructure/adapters/drizzle-product.read-repository.ts) | renames the row's `priceAmount` column to `priceMinorUnits` |
+| user | none | Not modelled yet |
 
 Canonical source: Greg Young, "CQRS Documents".
 
@@ -220,6 +233,7 @@ between them is a test failure rather than a surprise later.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts), [`productReadRepositoryContract`](../test/contracts/product-read-repository.contract.ts) | each takes a `makeHarness` factory, so the same suite runs unmodified against any binding |
+| user | none | Not modelled yet |
 
 Canonical source: Martin Fowler, "Contract Test" (bliki).
 
@@ -234,6 +248,7 @@ drifting.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete; the row also carries a create and a write sequence, which is how the fake reproduces the adapter's `updated_at` movement on replace rather than diverging from it silently |
+| user | none | Not modelled yet |
 
 Canonical source: Martin Fowler, "Mocks Aren't Stubs".
 
@@ -252,6 +267,7 @@ status code by accident.
 | --- | --- | --- |
 | shared | [`IDENTIFIER_INVALID`](../src/shared/domain/exceptions/invalid-identifier.exception.ts) (malformed-identifier, 400), [`MONEY_INVALID`](../src/shared/domain/exceptions/invalid-money.exception.ts) (invariant, 422) | contrasts the two domain-exception kinds against each other |
 | product | [`PRODUCT_SKU_INVALID`](../src/product/domain/exceptions/invalid-sku.exception.ts) (invariant, 422) against [`PRODUCT_SKU_DUPLICATE`](../src/product/application/exceptions/duplicate-sku.exception.ts) (conflict, 409) | contrasts a domain exception against an application exception |
+| user | [`USER_NAME_INVALID`](../src/user/domain/exceptions/invalid-user-name.exception.ts), [`USER_EMAIL_INVALID`](../src/user/domain/exceptions/invalid-email.exception.ts), [`USER_PHONE_INVALID`](../src/user/domain/exceptions/invalid-phone.exception.ts), [`USER_ROLE_INVALID`](../src/user/domain/exceptions/invalid-user-role.exception.ts) (all invariant, 422) | four domain exceptions so far; no application exception in this context yet |
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants); on mapping
 errors by architectural layer, Robert C. Martin, *Clean Architecture*.

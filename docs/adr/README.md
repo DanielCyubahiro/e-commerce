@@ -21,3 +21,5 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0007](0007-hard-delete-over-soft-delete.md) | Deleting a product removes the row | Accepted |
 | [0008](0008-update-replaces-without-rehydration.md) | Updating a product replaces it, without rehydration | Accepted |
 | [0009](0009-postgres-owns-updated-at.md) | Postgres owns `updated_at` | Accepted |
+| [0010](0010-one-user-aggregate-with-a-role.md) | One `User` aggregate carries a role | Accepted |
+| [0011](0011-absence-has-one-spelling.md) | Absence is `null` from the aggregate outward | Accepted |

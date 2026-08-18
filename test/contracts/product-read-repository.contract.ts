@@ -49,6 +49,16 @@ export function productReadRepositoryContract(
     const allOf = (): Promise<Page<ProductReadModel>> =>
       harness.read.findMany({}, { limit: 100, offset: 0 });
 
+    const replacementFor = (id: ProductId): Product =>
+      Product.replace(id, {
+        name: 'Replaced Machine',
+        description: 'Now with more steam.',
+        price: 149.5,
+        currency: 'USD',
+        sku: 'ESP-002',
+        stock: 3,
+      });
+
     beforeAll(async () => {
       harness = await makeHarness();
     });
@@ -100,6 +110,51 @@ export function productReadRepositoryContract(
         expect(await harness.read.findById(product.id)).not.toBeInstanceOf(
           Product,
         );
+      });
+    });
+
+    describe('after a replace', () => {
+      it('projects the replaced values', async () => {
+        const product = await store({});
+
+        await harness.write.replace(replacementFor(product.id));
+
+        expect(await harness.read.findById(product.id)).toMatchObject({
+          id: product.id.value,
+          name: 'Replaced Machine',
+          description: 'Now with more steam.',
+          priceMinorUnits: 14950,
+          priceCurrency: 'USD',
+          sku: 'ESP-002',
+          stock: 3,
+        });
+      });
+
+      it('moves updatedAt without moving createdAt', async () => {
+        const product = await store({});
+        const before = await harness.read.findById(product.id);
+
+        await harness.write.replace(replacementFor(product.id));
+
+        const after = await harness.read.findById(product.id);
+        expect(after?.createdAt).toEqual(before?.createdAt);
+        expect(after?.updatedAt.getTime()).toBeGreaterThan(
+          before?.updatedAt.getTime() ?? 0,
+        );
+      });
+
+      it('keeps its position in the newest-first order', async () => {
+        const older = await store({ sku: 'ORDER-1' });
+        const newer = await store({ sku: 'ORDER-2' });
+
+        await harness.write.replace(replacementFor(older.id));
+
+        const page = await allOf();
+
+        expect(page.items.map((item) => item.id)).toEqual([
+          newer.id.value,
+          older.id.value,
+        ]);
       });
     });
 

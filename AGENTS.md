@@ -51,8 +51,9 @@ and no factory, so `toThrow` would actually compile against it, but
 
 ## Where things live
 
-- **Invariants live on the aggregate.** `Product.create` validates name,
-  description, and stock. A handler never re-checks them.
+- **Invariants live on the aggregate.** `Product` validates name, description,
+  and stock in the private `build` both `create` and `replace` call. A handler
+  never re-checks them.
 - **Representation conversion lives in the application layer.** It is the only
   layer entitled to know both a decimal and its minor-unit form. See
   `ListProductsHandler.toMinorUnits`.

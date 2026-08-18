@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Post,
+  Put,
   Query,
   Res,
 } from '@nestjs/common';
@@ -19,12 +20,14 @@ import {
   GetProductQuery,
   ListProductsQuery,
   type ProductReadModel,
+  UpdateProductCommand,
 } from '../application';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { ListProductsQueryDto } from './dtos/list-products.query.dto';
 import type { PaginatedResponse } from './dtos/paginated-response.dto';
 import { ProductIdParamDto } from './dtos/product-id.param.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
+import { UpdateProductDto } from './dtos/update-product.dto';
 
 /**
  * Translates HTTP to a command or query and back; holds no logic of its own,
@@ -103,6 +106,29 @@ export class ProductController {
     >(new GetProductQuery(params.id));
 
     return ProductResponseDto.fromReadModel(product);
+  }
+
+  /**
+   * Replaces every field; there is no merge with what is stored, which is why
+   * the body carries all six. Returns no body, so a client that needs the new
+   * `updatedAt` re-reads the product.
+   */
+  @Put(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async replace(
+    @Param() params: ProductIdParamDto,
+    @Body() body: UpdateProductDto,
+  ): Promise<void> {
+    await this.commandBus.execute<UpdateProductCommand, void>(
+      new UpdateProductCommand(params.id, {
+        name: body.name,
+        description: body.description,
+        price: body.price,
+        currency: body.currency,
+        sku: body.sku,
+        stock: body.stock,
+      }),
+    );
   }
 
   @Delete(':id')

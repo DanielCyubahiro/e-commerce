@@ -13,4 +13,14 @@ export interface ProductWriteRepository {
 
   /** @returns false when no product held that id */
   delete(id: ProductId): Promise<boolean>;
+
+  /**
+   * Replaces every field of the product holding `product.id`; there is no way
+   * to merge a subset. SKU uniqueness is arbitrated by the store exactly as in
+   * `add`, so rewriting a product's own SKU is never a conflict.
+   *
+   * @returns false when no product held that id
+   * @throws DuplicateSkuException when another product already holds this SKU
+   */
+  replace(product: Product): Promise<boolean>;
 }

@@ -5,7 +5,7 @@ import { InvalidStockException } from '../exceptions/invalid-stock.exception';
 import { ProductId } from '../value-objects/product-id.vo';
 import { Sku } from '../value-objects/sku.vo';
 
-export interface CreateProductInput {
+export interface ProductInput {
   name: string;
   description: string;
   price: number;
@@ -25,8 +25,8 @@ interface ProductState {
 
 /**
  * The consistency boundary for a product: every invariant (name, description,
- * stock) is validated once, in `create`, and is never re-checked by callers
- * downstream.
+ * stock) is validated in `build`, the one path both `create` and `replace`
+ * take, and is never re-checked by callers downstream.
  */
 export class Product extends AggregateRoot<ProductId> {
   private static readonly MIN_NAME_LENGTH = 2;
@@ -52,7 +52,21 @@ export class Product extends AggregateRoot<ProductId> {
    * fields are strings, so `create(name, description, price, currency, sku,
    * stock)` accepts `sku` and `currency` transposed without complaint.
    */
-  static create(input: CreateProductInput): Product {
+  static create(input: ProductInput): Product {
+    return Product.build(ProductId.create(), input);
+  }
+
+  /**
+   * Full replacement of a product's state under an identity the caller already
+   * holds, for example one parsed from a request path. Validates exactly what
+   * `create` validates, so no unvalidated `Product` becomes representable.
+   * Constructs a replacement; it does not persist one.
+   */
+  static replace(id: ProductId, input: ProductInput): Product {
+    return Product.build(id, input);
+  }
+
+  private static build(id: ProductId, input: ProductInput): Product {
     const name = input.name.trim();
     const description = input.description.trim();
 
@@ -61,7 +75,7 @@ export class Product extends AggregateRoot<ProductId> {
     Product.validateStock(input.stock);
 
     return new Product({
-      id: ProductId.create(),
+      id,
       name,
       description,
       price: Money.fromDecimal(input.price, input.currency),

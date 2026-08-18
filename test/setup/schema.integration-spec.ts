@@ -62,4 +62,36 @@ describe('migrated test database', () => {
       'products_sku_unique',
     ]);
   });
+
+  it('carries the trigger that owns updated_at', async () => {
+    const rows = await testDb().execute<{ tgname: string }>(sql`
+      SELECT tgname FROM pg_trigger
+      WHERE tgrelid = 'products'::regclass AND NOT tgisinternal
+      ORDER BY tgname
+    `);
+
+    expect(rows.map((row) => row.tgname)).toEqual(['products_set_updated_at']);
+  });
+
+  it('moves updated_at on an update, from the database clock', async () => {
+    // Both timestamps have to come from one clock for this comparison to mean
+    // anything, which is the whole point of ADR 0009.
+    const db = testDb();
+    await db.execute(sql`
+      INSERT INTO products (id, name, description, price_amount, sku)
+      VALUES (gen_random_uuid(), 'Trigger Probe', 'Probes the trigger.', 1, 'TRIG-PROBE')
+    `);
+
+    await db.execute(
+      sql`UPDATE products SET stock = 5 WHERE sku = 'TRIG-PROBE'`,
+    );
+
+    const rows = await db.execute<{ moved: boolean }>(sql`
+      SELECT updated_at > created_at AS moved
+      FROM products WHERE sku = 'TRIG-PROBE'
+    `);
+    await db.execute(sql`DELETE FROM products WHERE sku = 'TRIG-PROBE'`);
+
+    expect(rows[0]?.moved).toBe(true);
+  });
 });

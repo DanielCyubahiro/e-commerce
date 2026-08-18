@@ -33,6 +33,16 @@ export function productWriteRepositoryContract(
         stock: 12,
       });
 
+    const replacementFor = (id: ProductId, sku: string): Product =>
+      Product.replace(id, {
+        name: 'Replaced Machine',
+        description: 'Replaced.',
+        price: 99.95,
+        currency: 'EUR',
+        sku,
+        stock: 1,
+      });
+
     beforeAll(async () => {
       harness = await makeHarness();
     });
@@ -104,6 +114,57 @@ export function productWriteRepositoryContract(
       await harness.repository.add(removed);
 
       await harness.repository.delete(removed.id);
+
+      await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
+    });
+
+    it('reports true when a product held that id', async () => {
+      const product = aProduct();
+      await harness.repository.add(product);
+
+      await expect(
+        harness.repository.replace(replacementFor(product.id, 'ESP-002')),
+      ).resolves.toBe(true);
+    });
+
+    it('reports false when no product holds that id', async () => {
+      await expect(
+        harness.repository.replace(
+          replacementFor(ProductId.create(), 'ESP-003'),
+        ),
+      ).resolves.toBe(false);
+    });
+
+    it('rejects a sku another product already holds', async () => {
+      const other = aProduct('TAKEN-1');
+      const target = aProduct('TARGET-1');
+      await harness.repository.add(other);
+      await harness.repository.add(target);
+
+      const error = await catchRejection(
+        () => harness.repository.replace(replacementFor(target.id, 'TAKEN-1')),
+        DuplicateSkuException,
+      );
+
+      expect(error.code).toBe('PRODUCT_SKU_DUPLICATE');
+    });
+
+    it('accepts a replacement that keeps the product its own sku', async () => {
+      const product = aProduct('SAME-1');
+      await harness.repository.add(product);
+
+      await expect(
+        harness.repository.replace(replacementFor(product.id, 'SAME-1')),
+      ).resolves.toBe(true);
+    });
+
+    it('leaves other products alone when one is replaced', async () => {
+      const kept = aProduct('KEEP-2');
+      const target = aProduct('TARGET-2');
+      await harness.repository.add(kept);
+      await harness.repository.add(target);
+
+      await harness.repository.replace(replacementFor(target.id, 'TARGET-2B'));
 
       await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
     });

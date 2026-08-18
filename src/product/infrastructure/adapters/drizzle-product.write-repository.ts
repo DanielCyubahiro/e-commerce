@@ -42,6 +42,34 @@ export class DrizzleProductWriteRepository implements ProductWriteRepository {
     }
   }
 
+  async replace(product: Product): Promise<boolean> {
+    try {
+      const updated = await this.db
+        .update(products)
+        .set({
+          name: product.name,
+          description: product.description,
+          priceAmount: product.price.minorUnits,
+          priceCurrency: product.price.currency,
+          sku: product.sku.value,
+          stock: product.stock,
+          // updatedAt is absent deliberately: the products_set_updated_at
+          // trigger from drizzle/0002_updated_at_trigger.sql owns it, so both
+          // timestamps come from the database clock. Setting it here would
+          // reintroduce the host clock. See ADR 0009.
+        })
+        .where(eq(products.id, product.id.value))
+        .returning({ id: products.id });
+
+      return updated.length > 0;
+    } catch (error) {
+      if (DrizzleProductWriteRepository.isDuplicateSku(error)) {
+        throw new DuplicateSkuException(product.sku.value);
+      }
+      throw error;
+    }
+  }
+
   async delete(id: ProductId): Promise<boolean> {
     const removed = await this.db
       .delete(products)

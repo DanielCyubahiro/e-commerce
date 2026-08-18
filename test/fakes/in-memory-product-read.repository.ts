@@ -59,26 +59,23 @@ export class InMemoryProductReadRepository implements ProductReadRepository {
   }
 
   /**
-   * The aggregate no longer carries timestamps and this fake has no column
-   * defaults, so insertion order stands in for `created_at`. A Map preserves
-   * insertion order, and sequential inserts give the adapter an increasing
-   * `now()` for the same reason, so both order identically.
+   * The aggregate carries no timestamps and this fake has no column defaults,
+   * so the write fake's sequences stand in for the clock: `createdSeq` for
+   * `created_at`, `updatedSeq` for `updated_at`. Sequential adds give the
+   * adapter an increasing `now()` for the same reason, and on the adapter a
+   * trigger moves `updated_at` on every update, so both order identically.
    */
   private projectAll(): ProductReadModel[] {
-    return this.writes.snapshot().map((product, index) => {
-      const at = new Date(EPOCH + index * 1000);
-
-      return {
-        id: product.id.value,
-        name: product.name,
-        description: product.description,
-        priceMinorUnits: product.price.minorUnits,
-        priceCurrency: product.price.currency,
-        sku: product.sku.value,
-        stock: product.stock,
-        createdAt: at,
-        updatedAt: at,
-      };
-    });
+    return this.writes.stored().map(({ product, createdSeq, updatedSeq }) => ({
+      id: product.id.value,
+      name: product.name,
+      description: product.description,
+      priceMinorUnits: product.price.minorUnits,
+      priceCurrency: product.price.currency,
+      sku: product.sku.value,
+      stock: product.stock,
+      createdAt: new Date(EPOCH + createdSeq * 1000),
+      updatedAt: new Date(EPOCH + updatedSeq * 1000),
+    }));
   }
 }

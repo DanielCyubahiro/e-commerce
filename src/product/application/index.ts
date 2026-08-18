@@ -18,11 +18,14 @@ export { GetProductHandler } from './use-cases/queries/get-product/get-product.h
 export { GetProductQuery } from './use-cases/queries/get-product/get-product.query';
 export { ListProductsHandler } from './use-cases/queries/list-products/list-products.handler';
 export { ListProductsQuery } from './use-cases/queries/list-products/list-products.query';
+export { UpdateProductCommand } from './use-cases/commands/update-product/update-product.command';
+export { UpdateProductHandler } from './use-cases/commands/update-product/update-product.handler';
 
 import { CreateProductHandler as CreateProduct } from './use-cases/commands/create-product/create-product.handler';
 import { DeleteProductHandler as DeleteProduct } from './use-cases/commands/delete-product/delete-product.handler';
+import { UpdateProductHandler as UpdateProduct } from './use-cases/commands/update-product/update-product.handler';
 import { GetProductHandler as GetProduct } from './use-cases/queries/get-product/get-product.handler';
 import { ListProductsHandler as ListProducts } from './use-cases/queries/list-products/list-products.handler';
 
-export const commandHandlers = [CreateProduct, DeleteProduct];
+export const commandHandlers = [CreateProduct, DeleteProduct, UpdateProduct];
 export const queryHandlers = [ListProducts, GetProduct];

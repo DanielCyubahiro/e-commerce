@@ -35,7 +35,7 @@ that validates first.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`Product`](../src/product/domain/entities/product.entity.ts) | `create` validates name, description, and stock before an instance exists |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | both `create` and `replace` validate through one path before an instance exists |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6, "The Life Cycle
 of a Domain Object".
@@ -91,7 +91,7 @@ actually reject a value.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`Product.create`](../src/product/domain/entities/product.entity.ts) | enforces the name, description, and stock invariants; [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts) deliberately does not repeat them |
+| product | [`Product`](../src/product/domain/entities/product.entity.ts) | owns the name, description, and stock invariants; neither [`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts) nor the update DTO repeats them |
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants as part of
 Aggregate consistency).
@@ -104,7 +104,7 @@ class.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts), [`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts) | write's `add` throws `DuplicateSkuException` rather than pre-checking; read's `findById` returns null on a miss |
+| product | [`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts), [`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts) | write's `add` throws `DuplicateSkuException` rather than pre-checking; `replace` returns false rather than throwing when no product holds the id; read's `findById` returns null on a miss |
 
 Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
 Ports and Adapters.
@@ -130,7 +130,7 @@ identify the result, never the aggregate itself.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field |
+| product | [`CreateProductCommand`](../src/product/application/use-cases/commands/create-product/create-product.command.ts), [`DeleteProductCommand`](../src/product/application/use-cases/commands/delete-product/delete-product.command.ts), [`UpdateProductCommand`](../src/product/application/use-cases/commands/update-product/update-product.command.ts) | `CreateProductCommand` carries `currency` last, mirroring the DTO's only optional field; `UpdateProductCommand` carries its six fields as one `ProductInput` object rather than positionally, because five of seven positional parameters would be strings |
 
 Canonical source: Martin Fowler, "CQRS" (bliki).
 
@@ -233,7 +233,7 @@ drifting.
 
 | Location | Instance | What's specific here |
 | --- | --- | --- |
-| product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete |
+| product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete; the row also carries a create and a write sequence, which is how the fake reproduces the adapter's `updated_at` movement on replace rather than diverging from it silently |
 
 Canonical source: Martin Fowler, "Mocks Aren't Stubs".
 

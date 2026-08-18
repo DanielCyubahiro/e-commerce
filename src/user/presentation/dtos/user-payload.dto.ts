@@ -39,5 +39,6 @@ export class UserPayloadDto {
    */
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   phone?: string | null;
 }

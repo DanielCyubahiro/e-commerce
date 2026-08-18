@@ -105,6 +105,19 @@ describe('users HTTP contract', () => {
       expect(bodyOf(response).code).toBe('USER_PHONE_INVALID');
     });
 
+    it('accepts an explicit null phone the same as an absent key', async () => {
+      // `@IsOptional` short-circuits validation for both an absent key and an
+      // explicit JSON `null`; the absent-key path is covered by GET's "null
+      // phone" test, so this covers the other half of that claim.
+      const created = await create({ phone: null }).expect(201);
+
+      const response = await request(app.getHttpServer())
+        .get(`/users/${bodyOf(created).id}`)
+        .expect(200);
+
+      expect(bodyOf(response).phone).toBeNull();
+    });
+
     it('returns 409 for a duplicate email, case-insensitively', async () => {
       await create().expect(201);
 

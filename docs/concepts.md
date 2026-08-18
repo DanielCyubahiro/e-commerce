@@ -111,7 +111,7 @@ class.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`PRODUCT_READ_REPOSITORY`](../src/product/application/ports/product.read-repository.ts), [`PRODUCT_WRITE_REPOSITORY`](../src/product/application/ports/product.write-repository.ts) | write's `add` throws `DuplicateSkuException` rather than pre-checking; `replace` returns false rather than throwing when no product holds the id; read's `findById` returns null on a miss |
-| user | none | Not modelled yet |
+| user | [`USER_READ_REPOSITORY`](../src/user/application/ports/user.read-repository.ts), [`USER_WRITE_REPOSITORY`](../src/user/application/ports/user.write-repository.ts) | write's `add` throws `DuplicateEmailException` rather than pre-checking; `replace` returns false rather than throwing when no user holds the id; read's `findById` returns null on a miss |
 
 Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
 Ports and Adapters.
@@ -179,7 +179,7 @@ aggregate's persistence factory can stay private.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`ProductReadModel`](../src/product/application/read-models/product.read-model.ts) | `priceMinorUnits` is the stored integer; presentation converts it to a decimal |
-| user | none | Not modelled yet |
+| user | [`UserReadModel`](../src/user/application/read-models/user.read-model.ts) | `phone` is `null`, never `undefined`, when the user has no phone, the one spelling of absence the aggregate itself carries |
 
 Canonical source: Greg Young, "CQRS Documents".
 
@@ -233,7 +233,7 @@ between them is a test failure rather than a surprise later.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts), [`productReadRepositoryContract`](../test/contracts/product-read-repository.contract.ts) | each takes a `makeHarness` factory, so the same suite runs unmodified against any binding |
-| user | none | Not modelled yet |
+| user | [`userWriteRepositoryContract`](../test/contracts/user-write-repository.contract.ts), [`userReadRepositoryContract`](../test/contracts/user-read-repository.contract.ts) | only a fake binding exists so far; the adapter binding this same suite will run against arrives in Task 5 |
 
 Canonical source: Martin Fowler, "Contract Test" (bliki).
 
@@ -248,7 +248,7 @@ drifting.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete; the row also carries a create and a write sequence, which is how the fake reproduces the adapter's `updated_at` movement on replace rather than diverging from it silently |
-| user | none | Not modelled yet |
+| user | [`InMemoryUserWriteRepository`](../test/fakes/in-memory-user-write.repository.ts) | the same `createdSeq`/`updatedSeq` pair as product's fake, so it reproduces the trigger-driven `updated_at` movement Task 5's adapter will exhibit rather than diverging silently |
 
 Canonical source: Martin Fowler, "Mocks Aren't Stubs".
 
@@ -267,7 +267,7 @@ status code by accident.
 | --- | --- | --- |
 | shared | [`IDENTIFIER_INVALID`](../src/shared/domain/exceptions/invalid-identifier.exception.ts) (malformed-identifier, 400), [`MONEY_INVALID`](../src/shared/domain/exceptions/invalid-money.exception.ts) (invariant, 422) | contrasts the two domain-exception kinds against each other |
 | product | [`PRODUCT_SKU_INVALID`](../src/product/domain/exceptions/invalid-sku.exception.ts) (invariant, 422) against [`PRODUCT_SKU_DUPLICATE`](../src/product/application/exceptions/duplicate-sku.exception.ts) (conflict, 409) | contrasts a domain exception against an application exception |
-| user | [`USER_NAME_INVALID`](../src/user/domain/exceptions/invalid-user-name.exception.ts), [`USER_EMAIL_INVALID`](../src/user/domain/exceptions/invalid-email.exception.ts), [`USER_PHONE_INVALID`](../src/user/domain/exceptions/invalid-phone.exception.ts), [`USER_ROLE_INVALID`](../src/user/domain/exceptions/invalid-user-role.exception.ts) (all invariant, 422) | four domain exceptions so far; no application exception in this context yet |
+| user | [`USER_EMAIL_INVALID`](../src/user/domain/exceptions/invalid-email.exception.ts) (invariant, 422) against [`USER_EMAIL_DUPLICATE`](../src/user/application/exceptions/duplicate-email.exception.ts) (conflict, 409) | contrasts a domain exception against an application exception; malformed email shape and a store collision are never the same status |
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants); on mapping
 errors by architectural layer, Robert C. Martin, *Clean Architecture*.

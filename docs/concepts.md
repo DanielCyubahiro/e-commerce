@@ -125,7 +125,7 @@ application exception; nothing above it should ever see a raw driver error.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`DrizzleProductWriteRepository`](../src/product/infrastructure/adapters/drizzle-product.write-repository.ts) | `isDuplicateSku` walks Drizzle's wrapped error cause chain to find the Postgres unique violation |
-| user | none | Not modelled yet |
+| user | [`DrizzleUserWriteRepository.isDuplicateEmail`](../src/user/infrastructure/adapters/drizzle-user.write-repository.ts) | walks the same wrapped error cause chain, matching both the `23505` code and the `users_email_unique` constraint name, so a primary-key collision is never misreported as a duplicate email |
 
 Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
 Ports and Adapters.
@@ -191,7 +191,7 @@ adapter, so no other layer ever learns the row's shape.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`DrizzleProductReadRepository.project`](../src/product/infrastructure/adapters/drizzle-product.read-repository.ts) | renames the row's `priceAmount` column to `priceMinorUnits` |
-| user | none | Not modelled yet |
+| user | [`DrizzleUserReadRepository.project`](../src/user/infrastructure/adapters/drizzle-user.read-repository.ts) | passes every column through unrenamed; `phone` stays `null`, never `undefined` |
 
 Canonical source: Greg Young, "CQRS Documents".
 

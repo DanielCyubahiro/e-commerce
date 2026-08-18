@@ -28,21 +28,21 @@ none
 
 Ports are declared in
 [`src/user/application/ports/`](../../src/user/application/ports/). No
-module binds them to an adapter yet; that lands in Task 5.
+module binds them to an adapter yet; that lands in Task 6.
 
 | Token | Interface | Adapter |
 | --- | --- | --- |
-| [`USER_READ_REPOSITORY`](../../src/user/application/ports/user.read-repository.ts) | `UserReadRepository` | none |
-| [`USER_WRITE_REPOSITORY`](../../src/user/application/ports/user.write-repository.ts) | `UserWriteRepository` | none |
+| [`USER_READ_REPOSITORY`](../../src/user/application/ports/user.read-repository.ts) | `UserReadRepository` | [`DrizzleUserReadRepository`](../../src/user/infrastructure/adapters/drizzle-user.read-repository.ts) |
+| [`USER_WRITE_REPOSITORY`](../../src/user/application/ports/user.write-repository.ts) | `UserWriteRepository` | [`DrizzleUserWriteRepository`](../../src/user/infrastructure/adapters/drizzle-user.write-repository.ts) |
 
-Each port has one contract suite, run so far against a single binding. The
-mechanism, and why a fake is held to the same suite an adapter will be, is in
+Each port has one contract suite with two bindings, one per implementation. The
+mechanism, and why a fake is held to the same suite as the adapter, is in
 [`docs/testing.md`](../testing.md#the-contract-mechanism).
 
 | Contract | Fake binding, `unit` | Adapter binding, `integration` |
 | --- | --- | --- |
-| [`userWriteRepositoryContract`](../../test/contracts/user-write-repository.contract.ts) | [`user-write-repository.spec.ts`](../../test/contracts/user-write-repository.spec.ts) | none |
-| [`userReadRepositoryContract`](../../test/contracts/user-read-repository.contract.ts) | [`user-read-repository.spec.ts`](../../test/contracts/user-read-repository.spec.ts) | none |
+| [`userWriteRepositoryContract`](../../test/contracts/user-write-repository.contract.ts) | [`user-write-repository.spec.ts`](../../test/contracts/user-write-repository.spec.ts) | [`user-write-repository.integration-spec.ts`](../../test/contracts/user-write-repository.integration-spec.ts) |
+| [`userReadRepositoryContract`](../../test/contracts/user-read-repository.contract.ts) | [`user-read-repository.spec.ts`](../../test/contracts/user-read-repository.spec.ts) | [`user-read-repository.integration-spec.ts`](../../test/contracts/user-read-repository.integration-spec.ts) |
 
 Each fake binding constructs one in-memory repository:
 [`InMemoryUserWriteRepository`](../../test/fakes/in-memory-user-write.repository.ts)
@@ -50,7 +50,14 @@ on the write side, and
 [`InMemoryUserReadRepository`](../../test/fakes/in-memory-user-read.repository.ts)
 on the read side, which projects from a write fake instance rather than
 holding rows of its own. `reset` clears that write fake's row map and `close`
-is a no-op, since neither fake acquires anything to release.
+is a no-op, since neither fake acquires anything to release. Each adapter
+binding reaches the same shared test Postgres connection; `reset` truncates
+the `users` table between tests and `close` ends that connection.
+
+Failure modes a fake cannot reproduce, such as the `users_set_updated_at`
+trigger moving `updated_at` on a real `replace`, are covered outside the
+shared contract in
+[`drizzle-user-write.integration-spec.ts`](../../test/contracts/drizzle-user-write.integration-spec.ts).
 
 ## Request lifecycle
 

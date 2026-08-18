@@ -144,5 +144,44 @@ export function userWriteRepositoryContract(
         false,
       );
     });
+
+    it('reports false on a second delete of the same id', async () => {
+      const user = aUser();
+      await harness.repository.add(user);
+      await harness.repository.delete(user.id);
+
+      await expect(harness.repository.delete(user.id)).resolves.toBe(false);
+    });
+
+    it('leaves a co-existing user untouched when an add is rejected as a duplicate', async () => {
+      const kept = aUser('keep@example.com');
+      await harness.repository.add(kept);
+
+      const error = await catchRejection(
+        () => harness.repository.add(aUser('keep@example.com')),
+        DuplicateEmailException,
+      );
+      expect(error.code).toBe('USER_EMAIL_DUPLICATE');
+
+      await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
+    });
+
+    it('leaves a co-existing user untouched when a replace is rejected as a duplicate', async () => {
+      const kept = aUser('keep@example.com');
+      const target = aUser('target@example.com');
+      await harness.repository.add(kept);
+      await harness.repository.add(target);
+
+      const error = await catchRejection(
+        () =>
+          harness.repository.replace(
+            replacementFor(target.id, 'keep@example.com'),
+          ),
+        DuplicateEmailException,
+      );
+      expect(error.code).toBe('USER_EMAIL_DUPLICATE');
+
+      await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
+    });
   });
 }

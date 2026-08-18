@@ -9,8 +9,8 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
  *
  * Every ceiling here is loose enough that the domain rule is still the one that
  * can reject a value: names against 100, email against 254, phone against its
- * E.164 bound. Precise rules belong to the domain and surface as 422 with a
- * typed code.
+ * leading-`+`-and-digit-count bound. Precise rules belong to the domain and
+ * surface as 422 with a typed code.
  */
 export class UserPayloadDto {
   @IsString()

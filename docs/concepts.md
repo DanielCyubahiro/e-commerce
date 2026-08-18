@@ -82,7 +82,7 @@ is still one; `ProductId` is that case.
 | --- | --- | --- |
 | shared | [`Money`](../src/shared/domain/value-objects/money.vo.ts) | `fromDecimal` normalises decimals to minor units |
 | product | [`Sku`](../src/product/domain/value-objects/sku.vo.ts) | `create` uppercases on construction |
-| user | [`Email`](../src/user/domain/value-objects/email.vo.ts), [`Phone`](../src/user/domain/value-objects/phone.vo.ts), [`UserRole`](../src/user/domain/value-objects/user-role.vo.ts), [`UserId`](../src/user/domain/value-objects/user-id.vo.ts) | `Email` lowercases and bounds length, `Phone` normalises to E.164, `UserRole` closes the set to two values |
+| user | [`Email`](../src/user/domain/value-objects/email.vo.ts), [`Phone`](../src/user/domain/value-objects/phone.vo.ts), [`UserRole`](../src/user/domain/value-objects/user-role.vo.ts), [`UserId`](../src/user/domain/value-objects/user-id.vo.ts) | `Email` lowercases and bounds length, `Phone` normalises to a leading `+` and 8 to 15 digits (not E.164: country code and trunk prefix are not checked), `UserRole` closes the set to two values |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
 Expressed in Software," section "Value Objects".
@@ -233,7 +233,7 @@ between them is a test failure rather than a surprise later.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`productWriteRepositoryContract`](../test/contracts/product-write-repository.contract.ts), [`productReadRepositoryContract`](../test/contracts/product-read-repository.contract.ts) | each takes a `makeHarness` factory, so the same suite runs unmodified against any binding |
-| user | [`userWriteRepositoryContract`](../test/contracts/user-write-repository.contract.ts), [`userReadRepositoryContract`](../test/contracts/user-read-repository.contract.ts) | only a fake binding exists so far; the adapter binding this same suite will run against arrives in Task 5 |
+| user | [`userWriteRepositoryContract`](../test/contracts/user-write-repository.contract.ts), [`userReadRepositoryContract`](../test/contracts/user-read-repository.contract.ts) | each takes a `makeHarness` factory, so the same suite runs unmodified against the in-memory fake and the Drizzle adapter alike |
 
 Canonical source: Martin Fowler, "Contract Test" (bliki).
 
@@ -248,7 +248,7 @@ drifting.
 | Location | Instance | What's specific here |
 | --- | --- | --- |
 | product | [`InMemoryProductWriteRepository`](../test/fakes/in-memory-product-write.repository.ts) | evidenced by a stored product being found by a later delete; the row also carries a create and a write sequence, which is how the fake reproduces the adapter's `updated_at` movement on replace rather than diverging from it silently |
-| user | [`InMemoryUserWriteRepository`](../test/fakes/in-memory-user-write.repository.ts) | the same `createdSeq`/`updatedSeq` pair as product's fake, so it reproduces the trigger-driven `updated_at` movement Task 5's adapter will exhibit rather than diverging silently |
+| user | [`InMemoryUserWriteRepository`](../test/fakes/in-memory-user-write.repository.ts) | the same `createdSeq`/`updatedSeq` pair as product's fake, so it reproduces the trigger-driven `updated_at` movement the Drizzle adapter exhibits rather than diverging silently |
 
 Canonical source: Martin Fowler, "Mocks Aren't Stubs".
 

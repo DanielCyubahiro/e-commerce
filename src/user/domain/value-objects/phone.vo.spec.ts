@@ -3,7 +3,7 @@ import { InvalidPhoneException } from '../exceptions/invalid-phone.exception';
 import { Phone } from './phone.vo';
 
 describe('Phone', () => {
-  it('strips separators and stores the E.164 form', () => {
+  it('strips separators and stores the normalised plus-and-digits form', () => {
     expect(Phone.create(' +32 (0)489-12.34.56 ').value).toBe('+320489123456');
   });
 

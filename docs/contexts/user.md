@@ -18,7 +18,8 @@ only ways to construct one, over one shared validation path:
 - Role: [`UserRole.create`](../../src/user/domain/value-objects/user-role.vo.ts)
   accepts only `customer` or `seller`.
 - Phone: [`Phone.create`](../../src/user/domain/value-objects/phone.vo.ts)
-  normalises to E.164. Optional; absent means `null`.
+  normalises to a leading `+` and 8 to 15 digits. This is not E.164: country
+  code and trunk prefix are not validated. Optional; absent means `null`.
 
 ## Endpoints
 

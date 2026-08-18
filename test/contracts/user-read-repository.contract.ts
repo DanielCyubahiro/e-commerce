@@ -42,6 +42,15 @@ export function userReadRepositoryContract(
       offset: 0,
     });
 
+    const replacementFor = (id: UserId): User =>
+      User.replace(id, {
+        firstName: 'Grace',
+        lastName: 'Hopper',
+        email: 'grace@example.com',
+        role: 'customer',
+        phone: '+15551234567',
+      });
+
     beforeAll(async () => {
       harness = await makeHarness();
     });
@@ -81,6 +90,50 @@ export function userReadRepositoryContract(
       const found = await harness.read.findById(user.id);
 
       expect(found?.phone).toBeNull();
+    });
+
+    describe('after a replace', () => {
+      it('projects the replaced values', async () => {
+        const user = await store({});
+
+        await harness.write.replace(replacementFor(user.id));
+
+        expect(await harness.read.findById(user.id)).toMatchObject({
+          id: user.id.value,
+          firstName: 'Grace',
+          lastName: 'Hopper',
+          email: 'grace@example.com',
+          role: 'customer',
+          phone: '+15551234567',
+        });
+      });
+
+      it('moves updatedAt without moving createdAt', async () => {
+        const user = await store({});
+        const before = await harness.read.findById(user.id);
+
+        await harness.write.replace(replacementFor(user.id));
+
+        const after = await harness.read.findById(user.id);
+        expect(after?.createdAt).toEqual(before?.createdAt);
+        expect(after?.updatedAt.getTime()).toBeGreaterThan(
+          before?.updatedAt.getTime() ?? 0,
+        );
+      });
+
+      it('keeps its position in the newest-first order', async () => {
+        const older = await store({ email: 'older@example.com' });
+        const newer = await store({ email: 'newer@example.com' });
+
+        await harness.write.replace(replacementFor(older.id));
+
+        const found = await harness.read.findMany({}, page());
+
+        expect(found.items.map((item) => item.id)).toEqual([
+          newer.id.value,
+          older.id.value,
+        ]);
+      });
     });
 
     it('filters by role', async () => {
@@ -136,6 +189,25 @@ export function userReadRepositoryContract(
       await store({ email: 'one@example.com' });
 
       const found = await harness.read.findMany({}, { limit: 10, offset: 10 });
+
+      expect(found.items).toHaveLength(0);
+      expect(found.total).toBe(1);
+    });
+
+    it('reports zero total on an empty store', async () => {
+      const found = await harness.read.findMany({}, page());
+
+      expect(found).toMatchObject({ items: [], total: 0 });
+    });
+
+    it('reports the filtered total past the end, not the total of every user', async () => {
+      await store({ email: 'seller@example.com', role: 'seller' });
+      await store({ email: 'customer@example.com', role: 'customer' });
+
+      const found = await harness.read.findMany(
+        { role: 'customer' },
+        { limit: 10, offset: 10 },
+      );
 
       expect(found.items).toHaveLength(0);
       expect(found.total).toBe(1);

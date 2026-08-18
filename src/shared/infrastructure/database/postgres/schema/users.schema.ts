@@ -23,8 +23,9 @@ export const users = pgTable(
     // Must stay equal to Email.MAX_LENGTH.
     email: varchar('email', { length: 254 }).notNull().unique(),
     role: userRole('role').notNull(),
-    // '+' plus up to 15 E.164 digits. NULL is the only spelling of absence;
-    // see ADR 0011.
+    // '+' plus up to 15 digits, the bound Phone.vo enforces (not E.164: no
+    // country-code or trunk-prefix check). NULL is the only spelling of
+    // absence; see ADR 0011.
     phone: varchar('phone', { length: 16 }),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     // The users_set_updated_at trigger owns this on update, so both timestamps

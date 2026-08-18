@@ -18,9 +18,11 @@ interface ResponseBody {
   code?: string;
   email?: string;
   firstName?: string;
+  lastName?: string;
   role?: string;
   phone?: string | null;
   createdAt?: string;
+  updatedAt?: string;
   items?: { email: string }[];
   total?: number;
   limit?: number;
@@ -128,16 +130,25 @@ describe('users HTTP contract', () => {
   });
 
   describe('GET /users/:id', () => {
-    it('returns the user with a null phone rather than an absent key', async () => {
+    it('returns every stored field, with a null phone rather than an absent key', async () => {
       const created = await create().expect(201);
+      const id = bodyOf(created).id;
 
       const response = await request(app.getHttpServer())
-        .get(`/users/${bodyOf(created).id}`)
+        .get(`/users/${id}`)
         .expect(200);
 
-      expect(bodyOf(response).phone).toBeNull();
+      expect(bodyOf(response)).toMatchObject({
+        id,
+        firstName: 'Ada',
+        lastName: 'Lovelace',
+        email: 'ada@example.com',
+        role: 'seller',
+        phone: null,
+      });
       expect(Object.keys(response.body as object)).toContain('phone');
       expect(bodyOf(response).createdAt).toEqual(expect.any(String));
+      expect(bodyOf(response).updatedAt).toEqual(expect.any(String));
     });
 
     it('returns 400 for a malformed id', async () => {
@@ -199,6 +210,13 @@ describe('users HTTP contract', () => {
       const created = await create({ phone: '+32489123456' }).expect(201);
       const id = bodyOf(created).id;
 
+      const beforePut = await request(app.getHttpServer())
+        .get(`/users/${id}`)
+        .expect(200);
+      // Proves there is a phone to clear, so "cleared" below cannot pass
+      // vacuously against a user that never had one.
+      expect(bodyOf(beforePut).phone).toBe('+32489123456');
+
       await request(app.getHttpServer())
         .put(`/users/${id}`)
         .send(validBody({ firstName: 'Grace' }))
@@ -207,8 +225,13 @@ describe('users HTTP contract', () => {
       const response = await request(app.getHttpServer())
         .get(`/users/${id}`)
         .expect(200);
-      expect(bodyOf(response).firstName).toBe('Grace');
-      expect(bodyOf(response).phone).toBeNull();
+      expect(bodyOf(response)).toMatchObject({
+        firstName: 'Grace',
+        lastName: 'Lovelace',
+        email: 'ada@example.com',
+        role: 'seller',
+        phone: null,
+      });
     });
 
     it('returns 404 when no user holds the id', async () => {

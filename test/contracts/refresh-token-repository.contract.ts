@@ -79,7 +79,8 @@ export function refreshTokenRepositoryContract(
     it('leaves the successor usable and the predecessor not', async () => {
       const secret = SecretToken.issue();
       const next = SecretToken.issue();
-      await issue(secret, SessionId.create());
+      const sessionId = SessionId.create();
+      await issue(secret, sessionId);
       await harness.repository.rotate(
         secret.hash,
         {
@@ -93,6 +94,12 @@ export function refreshTokenRepositoryContract(
       await expect(
         harness.repository.rotate(next.hash, successor(), now),
       ).resolves.toMatchObject({ outcome: 'rotated' });
+
+      // The predecessor half of the name: it was consumed, not revoked, so
+      // presenting it again is a replay rather than a miss.
+      await expect(
+        harness.repository.rotate(secret.hash, successor(), now),
+      ).resolves.toEqual({ outcome: 'replayed', sessionId: sessionId.value });
     });
 
     it('keeps the successor in the same chain, so revoking it kills both', async () => {
@@ -144,10 +151,19 @@ export function refreshTokenRepositoryContract(
     it('reports expired past the expiry, without minting a successor', async () => {
       const secret = SecretToken.issue();
       await issue(secret, SessionId.create(), past);
+      const attempted = successor();
 
       await expect(
-        harness.repository.rotate(secret.hash, successor(), now),
+        harness.repository.rotate(secret.hash, attempted, now),
       ).resolves.toEqual({ outcome: 'expired' });
+
+      // Proves nothing was written for the attempted successor, the same
+      // technique the replay case above uses for its own successor: a
+      // refactor that moved the insert outside the guard would leave this
+      // row present and this assertion would catch it.
+      await expect(
+        harness.repository.rotate(attempted.tokenHash, successor(), now),
+      ).resolves.toEqual({ outcome: 'unknown' });
     });
 
     it('reports unknown for a digest nobody issued', async () => {

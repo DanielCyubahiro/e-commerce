@@ -58,6 +58,8 @@ export class VerifyEmailHandler implements ICommandHandler<
       case 'unknown':
         throw InvalidVerificationTokenException.invalid();
 
+      /* istanbul ignore next -- unreachable by construction: this branch exists so
+       * that adding a member to the union is a compile error, never a runtime path. */
       default: {
         const unhandled: never = result;
         throw new Error(

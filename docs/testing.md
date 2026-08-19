@@ -154,6 +154,27 @@ way regardless of which one it is bound to.
 Each context lists its own contracts and their two bindings under
 `## Ports and adapters` on its page in [`docs/contexts/`](./contexts/).
 
+An adapter binding does not always live in `integration` because it needs a
+container; identity's
+[`passwordHasherContract`](../test/contracts/password-hasher.contract.ts)
+adapter binding runs there even though argon2 needs no container at all. It
+is placed there anyway because argon2 at its configured cost spends 19 MiB
+per call, and running that binding's several verifications in the `unit`
+project, which every other suite (including every handler spec) depends on
+staying fast and I/O-free, would noticeably slow the suite every developer
+runs most often. `unit`'s binding uses
+[`FakePasswordHasher`](../test/fakes/fake-password.hasher.ts) instead, which
+every handler spec and http-spec also depends on for the same reason.
+
+`jose`, the JWT library behind
+[`JoseAccessTokenIssuer`](../src/identity/infrastructure/adapters/jose-access-token.issuer.ts),
+is pinned in `package.json` to the exact version `4.15.9`, not the house
+style caret. `jose` 6.x ships ESM-only with no `require` export, which
+breaks every suite in this project's four Jest projects the moment it
+imports the identity infrastructure barrel, since this repository's Jest
+configuration runs on CommonJS. The pin is exact rather than a caret on the
+4.x line because a later 4.16 patch could still backport that same break.
+
 Adding a new adapter and wiring it in through this same mechanism is a fork
 operation; see the numbered procedure and its harness requirements in
 [the fork seam](./architecture.md#fork-seam) rather than repeating it here.

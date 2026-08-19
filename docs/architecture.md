@@ -70,6 +70,20 @@ divide that work in general, and
 [ADR 0006](./adr/0006-validation-at-the-edge-versus-the-domain.md) for why the
 split is drawn where it is.
 
+The pipeline itself is described in two files, not one.
+[`configureApp`](../src/app.config.ts) installs the global `ValidationPipe`
+and the three exception filters, and every context relies on it for those.
+Authentication's global guard is registered separately, as `APP_GUARD` in
+[`identity.module.ts`](../src/identity/identity.module.ts), because a guard
+handed to Nest's `useGlobalGuards` (which `configureApp` would have to call)
+is constructed outside the DI container and cannot inject a port; `APP_GUARD`
+is the one registration form Nest resolves through the container, so
+[`JwtAuthGuard`](../src/identity/presentation/guards/jwt-auth.guard.ts) can
+`@Inject(ACCESS_TOKEN_ISSUER)`. A request therefore passes through the guard
+before it reaches `configureApp`'s pipe: guards run before pipes, so a bad
+token on a protected endpoint answers 401 before a malformed body could
+answer 400.
+
 ## Error path
 
 | Failure | Base | Filter | Status |
@@ -94,7 +108,10 @@ for a genuinely unrecognised error. A framework exception, such as a
 passes through with Nest's own `{ statusCode, message, error }` body and no
 `code` at all, deliberately, so the pipe's per-field messages survive
 unedited. A client branching on `code` has to treat that response shape as a
-case of its own.
+case of its own. A 429 from `ThrottlerGuard`, on the six endpoints identity
+throttles, is a third case of the same shape: `ThrottlerException` also
+extends `HttpException`, so it takes the same framework-exception branch,
+with Nest's own `{ statusCode, message }` body and no `code`.
 
 `STATUS_BY_KIND` in
 [`domain-exception.filter.ts`](../src/shared/presentation/filters/domain-exception.filter.ts)
@@ -143,7 +160,16 @@ The procedure:
    detection is coupled to the constraint's *name*, which a different schema
    tool will not reproduce by accident. Each context page records its own
    couplings; catalogue's are in
-   [Fork notes](./contexts/catalogue.md#fork-notes).
+   [Fork notes](./contexts/catalogue.md#fork-notes), and identity's,
+   including three new to authentication, are in
+   [Fork notes](./contexts/identity.md#fork-notes). Identity's six ports
+   added by authentication, `PasswordHasher`, `CredentialRepository`,
+   `OneTimeTokenRepository`, `RefreshTokenRepository`, `AccessTokenIssuer`,
+   and `EmailSender`, are the sharper case for matching the contract rather
+   than the signature: a fork's `RefreshTokenRepository.rotate` has to
+   reproduce the guarded single-statement race behaviour
+   [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) documents, not
+   only return the same TypeScript shape.
 2. Provide your new database client and give it a Nest injection token,
    following
    [`drizzle.provider.ts`](../src/shared/infrastructure/database/postgres/drizzle.provider.ts).

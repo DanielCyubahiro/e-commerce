@@ -71,4 +71,9 @@ export class InMemoryOneTimeTokenRepository implements OneTimeTokenRepository {
   clear(): void {
     this.rows.clear();
   }
+
+  /** Test seam, not part of the port: proves a handler issued nothing. */
+  size(): number {
+    return this.rows.size;
+  }
 }

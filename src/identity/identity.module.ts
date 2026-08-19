@@ -6,6 +6,7 @@ import {
   commandHandlers,
   CREDENTIAL_REPOSITORY,
   EMAIL_SENDER,
+  ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
   queryHandlers,
   TOKEN_LIFETIMES,
@@ -16,11 +17,13 @@ import {
 import {
   Argon2PasswordHasher,
   DrizzleCredentialRepository,
+  DrizzleOneTimeTokenRepository,
   DrizzleUserReadRepository,
   DrizzleUserWriteRepository,
   JoseAccessTokenIssuer,
   SmtpEmailSender,
 } from './infrastructure';
+import { AuthController } from './presentation/auth.controller';
 import { UserController } from './presentation/user.controller';
 
 /**
@@ -33,7 +36,7 @@ import { UserController } from './presentation/user.controller';
  */
 @Module({
   imports: [CqrsModule],
-  controllers: [UserController],
+  controllers: [UserController, AuthController],
   providers: [
     ...commandHandlers,
     ...queryHandlers,
@@ -41,6 +44,10 @@ import { UserController } from './presentation/user.controller';
     { provide: USER_READ_REPOSITORY, useClass: DrizzleUserReadRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: CREDENTIAL_REPOSITORY, useClass: DrizzleCredentialRepository },
+    {
+      provide: ONE_TIME_TOKEN_REPOSITORY,
+      useClass: DrizzleOneTimeTokenRepository,
+    },
     {
       provide: ACCESS_TOKEN_ISSUER,
       useFactory: (config: ConfigService) =>

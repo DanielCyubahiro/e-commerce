@@ -7,6 +7,7 @@ import {
   ACCESS_TOKEN_ISSUER,
   CREDENTIAL_REPOSITORY,
   EMAIL_SENDER,
+  ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
   TOKEN_LIFETIMES,
   USER_READ_REPOSITORY,
@@ -16,6 +17,7 @@ import { IdentityModule } from '@/identity/identity.module';
 import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
+import { InMemoryOneTimeTokenRepository } from '@test/fakes/in-memory-one-time-token.repository';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
 import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
@@ -68,12 +70,12 @@ describe('users HTTP contract', () => {
   beforeEach(async () => {
     const writes = new InMemoryUserWriteRepository();
 
-    // The five providers `identity.module.ts` binds via `useFactory` need
-    // `ConfigService`, or reach a real Postgres/SMTP connection through
-    // `DRIZZLE`. This suite imports only `IdentityModule`, not `AppModule`,
-    // so none of that is available; every one of the five is overridden with
-    // the same fakes the unit suites use, exactly as the two repository
-    // ports already are below.
+    // The six providers `identity.module.ts` binds via `useFactory` or a
+    // Drizzle adapter need `ConfigService`, or reach a real Postgres/SMTP
+    // connection through `DRIZZLE`. This suite imports only `IdentityModule`,
+    // not `AppModule`, so none of that is available; every one of the six is
+    // overridden with the same fakes the unit suites use, exactly as the two
+    // repository ports already are below.
     const moduleRef = await Test.createTestingModule({
       imports: [IdentityModule],
     })
@@ -87,6 +89,8 @@ describe('users HTTP contract', () => {
       .useValue(new RecordingEmailSender())
       .overrideProvider(CREDENTIAL_REPOSITORY)
       .useValue(new InMemoryCredentialRepository())
+      .overrideProvider(ONE_TIME_TOKEN_REPOSITORY)
+      .useValue(new InMemoryOneTimeTokenRepository())
       .overrideProvider(ACCESS_TOKEN_ISSUER)
       .useValue(new FakeAccessTokenIssuer())
       .overrideProvider(TOKEN_LIFETIMES)

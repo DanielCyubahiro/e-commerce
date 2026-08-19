@@ -1,4 +1,5 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
+export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
 export {
   ACCESS_TOKEN_ISSUER,
@@ -41,8 +42,12 @@ export { DeleteUserCommand } from './use-cases/commands/delete-user/delete-user.
 export { DeleteUserHandler } from './use-cases/commands/delete-user/delete-user.handler';
 export { RegisterUserCommand } from './use-cases/commands/register-user/register-user.command';
 export { RegisterUserHandler } from './use-cases/commands/register-user/register-user.handler';
+export { ResendVerificationCommand } from './use-cases/commands/resend-verification/resend-verification.command';
+export { ResendVerificationHandler } from './use-cases/commands/resend-verification/resend-verification.handler';
 export { UpdateUserCommand } from './use-cases/commands/update-user/update-user.command';
 export { UpdateUserHandler } from './use-cases/commands/update-user/update-user.handler';
+export { VerifyEmailCommand } from './use-cases/commands/verify-email/verify-email.command';
+export { VerifyEmailHandler } from './use-cases/commands/verify-email/verify-email.handler';
 export { GetUserHandler } from './use-cases/queries/get-user/get-user.handler';
 export { GetUserQuery } from './use-cases/queries/get-user/get-user.query';
 export { ListUsersHandler } from './use-cases/queries/list-users/list-users.handler';
@@ -53,9 +58,17 @@ export {
 
 import { DeleteUserHandler as DeleteUser } from './use-cases/commands/delete-user/delete-user.handler';
 import { RegisterUserHandler as RegisterUser } from './use-cases/commands/register-user/register-user.handler';
+import { ResendVerificationHandler as ResendVerification } from './use-cases/commands/resend-verification/resend-verification.handler';
 import { UpdateUserHandler as UpdateUser } from './use-cases/commands/update-user/update-user.handler';
+import { VerifyEmailHandler as VerifyEmail } from './use-cases/commands/verify-email/verify-email.handler';
 import { GetUserHandler as GetUser } from './use-cases/queries/get-user/get-user.handler';
 import { ListUsersHandler as ListUsers } from './use-cases/queries/list-users/list-users.handler';
 
-export const commandHandlers = [RegisterUser, DeleteUser, UpdateUser];
+export const commandHandlers = [
+  RegisterUser,
+  DeleteUser,
+  UpdateUser,
+  VerifyEmail,
+  ResendVerification,
+];
 export const queryHandlers = [ListUsers, GetUser];

@@ -78,6 +78,8 @@ split is drawn where it is.
 | Malformed identifier | `DomainException`, kind `malformed-identifier` | `DomainExceptionFilter` | 400 |
 | Conflict, for example duplicate SKU | `ApplicationException`, kind `conflict` | `ApplicationExceptionFilter` | 409 |
 | Not found | `ApplicationException`, kind `not-found` | `ApplicationExceptionFilter` | 404 |
+| Unauthenticated, or a bad credential or token | `ApplicationException`, kind `unauthorized` | `ApplicationExceptionFilter` | 401 |
+| Authenticated but not permitted, for example an unverified email | `ApplicationException`, kind `forbidden` | `ApplicationExceptionFilter` | 403 |
 | Anything unrecognised | none | `UnhandledExceptionFilter` | 500, no driver detail |
 
 `DomainException` and `ApplicationException` both carry a stable,

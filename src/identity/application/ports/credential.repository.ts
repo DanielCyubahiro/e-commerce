@@ -32,7 +32,13 @@ export interface CredentialRepository {
    */
   findAuthentication(email: Email): Promise<AuthenticationRecord | null>;
 
-  /** @returns null when that user has no credential */
+  /**
+   * @returns null when that user has no credential. Registration writes both
+   * rows in one transaction, so this is an unrepresentable state rather than a
+   * normal miss: the change-password handler treats it as wrong credentials
+   * rather than surfacing a 500, and deciding that is the handler's job, not
+   * this port's.
+   */
   findPasswordHash(userId: UserId): Promise<PasswordHash | null>;
 
   /**

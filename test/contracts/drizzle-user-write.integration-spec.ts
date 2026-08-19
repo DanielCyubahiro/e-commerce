@@ -1,0 +1,70 @@
+import { sql } from 'drizzle-orm';
+import { DuplicateEmailException } from '@/user/application';
+import { DrizzleUserWriteRepository } from '@/user/infrastructure';
+import { User, UserId } from '@/user/domain';
+import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
+
+describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
+  const db = testDb();
+  const repository = new DrizzleUserWriteRepository(db);
+
+  beforeEach(async () => {
+    await truncateAll(db);
+  });
+
+  afterAll(async () => {
+    await closeTestDb();
+  });
+
+  it('leaves updated_at to the trigger, which moves it on replace', async () => {
+    const user = User.create({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      role: 'seller',
+    });
+    await repository.add(user);
+
+    await repository.replace(
+      User.replace(UserId.create(user.id.value), {
+        firstName: 'Grace',
+        lastName: 'Hopper',
+        email: 'grace@example.com',
+        role: 'customer',
+      }),
+    );
+
+    const rows = await db.execute<{ moved: boolean }>(sql`
+      SELECT updated_at > created_at AS moved FROM users WHERE id = ${user.id.value}
+    `);
+
+    // The adapter never sets updated_at; a fork that drops the trigger leaves
+    // it frozen here with no error anywhere. See ADR 0009.
+    expect(rows[0]?.moved).toBe(true);
+  });
+
+  it('propagates a database error that is not a duplicate email', async () => {
+    const first = User.create({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      role: 'seller',
+    });
+    await repository.add(first);
+
+    // Same id, different email: the only 23505 an insert can raise that is
+    // not on users_email_unique. If isDuplicateEmail matched on the code
+    // alone, this primary-key collision on `id` would be misreported as a
+    // duplicate email.
+    const collides = User.replace(UserId.create(first.id.value), {
+      firstName: 'Grace',
+      lastName: 'Hopper',
+      email: 'grace@example.com',
+      role: 'customer',
+    });
+
+    await expect(repository.add(collides)).rejects.not.toBeInstanceOf(
+      DuplicateEmailException,
+    );
+  });
+});

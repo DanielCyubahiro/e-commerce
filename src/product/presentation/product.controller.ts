@@ -24,7 +24,7 @@ import {
 } from '../application';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { ListProductsQueryDto } from './dtos/list-products.query.dto';
-import type { PaginatedResponse } from './dtos/paginated-response.dto';
+import type { PaginatedResponse } from '@/shared/presentation/dtos/paginated-response.dto';
 import { ProductIdParamDto } from './dtos/product-id.param.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
 import { UpdateProductDto } from './dtos/update-product.dto';

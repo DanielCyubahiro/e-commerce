@@ -1,5 +1,11 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
+export {
+  ACCESS_TOKEN_ISSUER,
+  type AccessClaims,
+  type AccessTokenIssuer,
+  type IssuedAccessToken,
+} from './ports/access-token.issuer';
 export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
 export {
   USER_READ_REPOSITORY,

@@ -25,7 +25,12 @@ pnpm db:migrate
 
 Every variable in `.env.example` is required at boot. A missing or malformed one
 aborts startup with a message naming it, rather than failing later on first
-query.
+query. `JWT_SECRET` is the one exception to having a usable default: generate
+it yourself and never commit the real value.
+
+```bash
+openssl rand -base64 48
+```
 
 ## Scripts
 

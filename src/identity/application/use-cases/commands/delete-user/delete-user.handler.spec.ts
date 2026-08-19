@@ -21,7 +21,7 @@ describe('DeleteUserHandler', () => {
       email: 'ada@example.com',
       role: 'seller',
     });
-    await repository.add(user);
+    repository.seed(user);
 
     await handler.execute(new DeleteUserCommand(user.id.value));
 

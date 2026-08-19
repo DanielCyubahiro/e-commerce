@@ -1,10 +1,18 @@
 import type { Page } from '@/shared/application';
 import type {
+  Registration,
   UserReadModel,
   UserReadRepository,
   UserWriteRepository,
 } from '@/identity/application';
-import { User, UserId, UserProfile } from '@/identity/domain';
+import {
+  OneTimeTokenId,
+  PasswordHash,
+  SecretToken,
+  User,
+  UserId,
+  UserProfile,
+} from '@/identity/domain';
 
 export interface ReadHarness {
   read: UserReadRepository;
@@ -21,6 +29,16 @@ export function userReadRepositoryContract(
   describe(`UserReadRepository contract (${name})`, () => {
     let harness: ReadHarness;
 
+    const aRegistration = (user: User): Registration => ({
+      user,
+      passwordHash: PasswordHash.create('hash-1'),
+      verification: {
+        id: OneTimeTokenId.create(),
+        tokenHash: SecretToken.issue().hash,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+
     const store = async (overrides: {
       email?: string;
       role?: string;
@@ -33,7 +51,7 @@ export function userReadRepositoryContract(
         role: overrides.role ?? 'seller',
         phone: overrides.phone ?? null,
       });
-      await harness.write.add(user);
+      await harness.write.register(aRegistration(user));
       return user;
     };
 

@@ -15,18 +15,18 @@ import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import type { Response } from 'express';
 import type { Page } from '@/shared/application';
 import {
-  CreateUserCommand,
   DeleteUserCommand,
   GetUserQuery,
   ListUsersQuery,
   type UserReadModel,
+  RegisterUserCommand,
   UpdateUserCommand,
 } from '../application';
 import type { PaginatedResponse } from '@/shared/presentation/dtos/paginated-response.dto';
 import { ListUsersQueryDto } from './dtos/list-users.query.dto';
+import { RegisterUserDto } from './dtos/register-user.dto';
 import { UpdateUserProfileDto } from './dtos/update-user-profile.dto';
 import { UserIdParamDto } from './dtos/user-id.param.dto';
-import { UserPayloadDto } from './dtos/user-payload.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
 
 /**
@@ -44,21 +44,27 @@ export class UserController {
    * `passthrough: true` is required: without it Nest hands over the raw
    * response and stops serialising the return value, so `return { id }` would
    * never send.
+   *
+   * This is registration: it stays public once a route guard lands elsewhere,
+   * since nobody can hold a token before an account exists.
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Body() body: UserPayloadDto,
+    @Body() body: RegisterUserDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ id: string }> {
-    const id = await this.commandBus.execute<CreateUserCommand, string>(
-      new CreateUserCommand({
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email,
-        role: body.role,
-        phone: body.phone,
-      }),
+    const id = await this.commandBus.execute<RegisterUserCommand, string>(
+      new RegisterUserCommand(
+        {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          role: body.role,
+          phone: body.phone,
+        },
+        body.password,
+      ),
     );
 
     response.setHeader('Location', `/users/${id}`);

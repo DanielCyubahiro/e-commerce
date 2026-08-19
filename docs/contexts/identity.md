@@ -28,10 +28,10 @@ All five live on
 
 | Method | Path | Success | Request DTO |
 | --- | --- | --- | --- |
-| POST | `/users` | 201, `Location: /users/{id}` | [`UserPayloadDto`](../../src/identity/presentation/dtos/user-payload.dto.ts) |
+| POST | `/users` | 201, `Location: /users/{id}` | [`RegisterUserDto`](../../src/identity/presentation/dtos/register-user.dto.ts) |
 | GET | `/users` | 200, paginated | [`ListUsersQueryDto`](../../src/identity/presentation/dtos/list-users.query.dto.ts) |
 | GET | `/users/:id` | 200 | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
-| PUT | `/users/:id` | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts), [`UserPayloadDto`](../../src/identity/presentation/dtos/user-payload.dto.ts) |
+| PUT | `/users/:id` | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts), [`UpdateUserProfileDto`](../../src/identity/presentation/dtos/update-user-profile.dto.ts) |
 | DELETE | `/users/:id` | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
 
 ## Ports and adapters
@@ -110,12 +110,12 @@ Walking each hop:
   [`app.config.ts`](../../src/app.config.ts) installs a global `ValidationPipe`
   that runs before any handler sees the request.
 - The pipe validates the body against
-  [`UserPayloadDto`](../../src/identity/presentation/dtos/user-payload.dto.ts) and,
+  [`RegisterUserDto`](../../src/identity/presentation/dtos/register-user.dto.ts) and,
   only on success, hands an instance to
   [`UserController.create`](../../src/identity/presentation/user.controller.ts).
 - The controller dispatches a `CreateUserCommand` on Nest CQRS's `CommandBus`,
   which routes it to
-  [`CreateUserHandler`](../../src/identity/application/use-cases/commands/create-user/create-user.handler.ts).
+  [`RegisterUserHandler`](../../src/identity/application/use-cases/commands/register-user/register-user.handler.ts).
 - The handler calls `User.create`, which validates the name, email, role, and
   phone before an instance exists, then calls `add` on the
   `UserWriteRepository` port.

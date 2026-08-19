@@ -11,10 +11,10 @@ describe('ListUsersHandler', () => {
 
   const pagination = { limit: 20, offset: 0 };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     writes = new InMemoryUserWriteRepository();
     handler = new ListUsersHandler(new InMemoryUserReadRepository(writes));
-    await writes.add(
+    writes.seed(
       User.create({
         firstName: 'Ada',
         lastName: 'Lovelace',
@@ -22,7 +22,7 @@ describe('ListUsersHandler', () => {
         role: 'seller',
       }),
     );
-    await writes.add(
+    writes.seed(
       User.create({
         firstName: 'Grace',
         lastName: 'Hopper',

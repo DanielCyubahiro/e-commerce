@@ -28,7 +28,7 @@ describe('UpdateUserHandler', () => {
       role: 'seller',
       phone: '+32489123456',
     });
-    await repository.add(stored);
+    repository.seed(stored);
 
     await handler.execute(new UpdateUserCommand(stored.id.value, fields));
 

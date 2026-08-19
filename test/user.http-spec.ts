@@ -4,12 +4,21 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { configureApp } from '@/app.config';
 import {
+  ACCESS_TOKEN_ISSUER,
+  CREDENTIAL_REPOSITORY,
+  EMAIL_SENDER,
+  PASSWORD_HASHER,
+  TOKEN_LIFETIMES,
   USER_READ_REPOSITORY,
   USER_WRITE_REPOSITORY,
 } from '@/identity/application';
 import { IdentityModule } from '@/identity/identity.module';
+import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
+import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
+import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
+import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
 
 const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
 
@@ -39,6 +48,7 @@ const validBody = (
   lastName: 'Lovelace',
   email: 'ada@example.com',
   role: 'seller',
+  password: 'correct horse battery',
   ...overrides,
 });
 
@@ -58,6 +68,12 @@ describe('users HTTP contract', () => {
   beforeEach(async () => {
     const writes = new InMemoryUserWriteRepository();
 
+    // The five providers `identity.module.ts` binds via `useFactory` need
+    // `ConfigService`, or reach a real Postgres/SMTP connection through
+    // `DRIZZLE`. This suite imports only `IdentityModule`, not `AppModule`,
+    // so none of that is available; every one of the five is overridden with
+    // the same fakes the unit suites use, exactly as the two repository
+    // ports already are below.
     const moduleRef = await Test.createTestingModule({
       imports: [IdentityModule],
     })
@@ -65,6 +81,20 @@ describe('users HTTP contract', () => {
       .useValue(writes)
       .overrideProvider(USER_READ_REPOSITORY)
       .useValue(new InMemoryUserReadRepository(writes))
+      .overrideProvider(PASSWORD_HASHER)
+      .useValue(new FakePasswordHasher())
+      .overrideProvider(EMAIL_SENDER)
+      .useValue(new RecordingEmailSender())
+      .overrideProvider(CREDENTIAL_REPOSITORY)
+      .useValue(new InMemoryCredentialRepository())
+      .overrideProvider(ACCESS_TOKEN_ISSUER)
+      .useValue(new FakeAccessTokenIssuer())
+      .overrideProvider(TOKEN_LIFETIMES)
+      .useValue({
+        refreshTokenDays: 30,
+        passwordResetMinutes: 60,
+        emailVerificationHours: 24,
+      })
       .compile();
 
     app = configureApp(
@@ -117,6 +147,20 @@ describe('users HTTP contract', () => {
       const response = await create({ phone: '0489123456' }).expect(422);
 
       expect(bodyOf(response).code).toBe('USER_PHONE_INVALID');
+    });
+
+    it('returns 400 when the password is missing', async () => {
+      // JSON.stringify drops an `undefined`-valued key, so this sends a body
+      // with no `password` at all, the same as an absent key from a client.
+      // `create(...)` does not itself match the `request.**.expect` pattern
+      // jest/expect-expect looks for, so the status is asserted explicitly.
+      expect((await create({ password: undefined })).status).toBe(400);
+    });
+
+    it('returns 422 with a typed code for a password below the minimum length', async () => {
+      const response = await create({ password: '12345678901' }).expect(422);
+
+      expect(bodyOf(response).code).toBe('USER_PASSWORD_INVALID');
     });
 
     it('accepts an explicit null phone the same as an absent key', async () => {

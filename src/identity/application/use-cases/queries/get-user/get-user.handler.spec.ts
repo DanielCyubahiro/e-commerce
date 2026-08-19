@@ -22,7 +22,7 @@ describe('GetUserHandler', () => {
       email: 'ada@example.com',
       role: 'seller',
     });
-    await writes.add(user);
+    writes.seed(user);
 
     const found = await handler.execute(new GetUserQuery(user.id.value));
 

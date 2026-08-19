@@ -1,5 +1,6 @@
 import {
   DuplicateEmailException,
+  type Registration,
   type UserWriteRepository,
 } from '@/identity/application';
 import type { Email, User, UserId, UserProfile } from '@/identity/domain';
@@ -8,7 +9,7 @@ export interface StoredUser {
   id: UserId;
   email: Email;
   profile: UserProfile;
-  /** Assigned once, on `add`; stands in for `created_at`. */
+  /** Assigned once, on `register`; stands in for `created_at`. */
   createdSeq: number;
   /** Bumped by every write to this row; stands in for `updated_at`. */
   updatedSeq: number;
@@ -29,17 +30,39 @@ export interface StoredUser {
  */
 export class InMemoryUserWriteRepository implements UserWriteRepository {
   private readonly rows = new Map<string, StoredUser>();
+  private readonly registered: Registration[] = [];
   private writes = 0;
 
-  add(user: User): Promise<void> {
+  register(registration: Registration): Promise<void> {
     const emailTaken = [...this.rows.values()].some((stored) =>
-      stored.email.equals(user.email),
+      stored.email.equals(registration.user.email),
     );
 
     if (emailTaken) {
-      return Promise.reject(new DuplicateEmailException(user.email.value));
+      return Promise.reject(
+        new DuplicateEmailException(registration.user.email.value),
+      );
     }
 
+    this.writes += 1;
+    this.rows.set(registration.user.id.value, {
+      id: registration.user.id,
+      email: registration.user.email,
+      profile: registration.user.profile,
+      createdSeq: this.writes,
+      updatedSeq: this.writes,
+    });
+    this.registered.push(registration);
+    return Promise.resolve();
+  }
+
+  /**
+   * Test-only seam: inserts a row directly, bypassing the credential and token
+   * bundle `register` requires. For specs seeding a user to exercise unrelated
+   * behaviour (list, get, update, delete), which would otherwise have to carry
+   * a password hash and a verification token they do not test.
+   */
+  seed(user: User): void {
     this.writes += 1;
     this.rows.set(user.id.value, {
       id: user.id,
@@ -48,7 +71,11 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
       createdSeq: this.writes,
       updatedSeq: this.writes,
     });
-    return Promise.resolve();
+  }
+
+  /** Test seam: the credential and token bundle each `register` call carried. */
+  registrations(): Registration[] {
+    return [...this.registered];
   }
 
   replaceProfile(id: UserId, profile: UserProfile): Promise<boolean> {
@@ -81,6 +108,7 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
 
   clear(): void {
     this.rows.clear();
+    this.registered.length = 0;
     this.writes = 0;
   }
 }

@@ -58,30 +58,54 @@ the `auth` root. The Guard column marks whether
 [`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts),
 registered as `APP_GUARD`, requires a valid access token; `Public` means the
 [`Public`](../../src/shared/presentation/decorators/public.decorator.ts)
-decorator opts the endpoint out.
+decorator opts the endpoint out. The Throttle column names the
+`ThrottlerGuard` limit a `@Throttle` decorator sets on that endpoint,
+`count/window`; `none` means no limit beyond `identity.module.ts`'s app-wide
+default of 60 requests per 60 seconds. A caller over a named limit gets a 429
+with no `code`, the same framework-exception shape
+[`architecture.md`](../architecture.md#error-path) describes.
 
-| Method | Path | Guard | Success | Request DTO |
-| --- | --- | --- | --- | --- |
-| POST | `/users` | Public | 201, `Location: /users/{id}` | [`RegisterUserDto`](../../src/identity/presentation/dtos/register-user.dto.ts) |
-| GET | `/users` | Protected | 200, paginated | [`ListUsersQueryDto`](../../src/identity/presentation/dtos/list-users.query.dto.ts) |
-| GET | `/users/:id` | Protected | 200 | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
-| PUT | `/users/:id` | Protected | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts), [`UpdateUserProfileDto`](../../src/identity/presentation/dtos/update-user-profile.dto.ts) |
-| DELETE | `/users/:id` | Protected | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
-| POST | `/auth/login` | Public | 200 | [`LoginDto`](../../src/identity/presentation/dtos/login.dto.ts) |
-| POST | `/auth/verify-email` | Public | 204, no body | [`VerifyEmailDto`](../../src/identity/presentation/dtos/verify-email.dto.ts) |
-| POST | `/auth/verify-email/resend` | Public | 202, no body | [`ResendVerificationDto`](../../src/identity/presentation/dtos/resend-verification.dto.ts) |
-| POST | `/auth/refresh` | Public | 200 | [`RefreshDto`](../../src/identity/presentation/dtos/refresh.dto.ts) |
-| POST | `/auth/logout` | Protected | 204, no body | none, the session comes from the access token's claim |
-| POST | `/auth/logout-all` | Protected | 204, no body | none, the user comes from the access token's claim |
-| POST | `/auth/forgot-password` | Public | 202, no body | [`ForgotPasswordDto`](../../src/identity/presentation/dtos/forgot-password.dto.ts) |
-| POST | `/auth/reset-password` | Public | 204, no body | [`ResetPasswordDto`](../../src/identity/presentation/dtos/reset-password.dto.ts) |
-| POST | `/auth/change-password` | Protected | 204, no body | [`ChangePasswordDto`](../../src/identity/presentation/dtos/change-password.dto.ts) |
+| Method | Path | Guard | Throttle | Success | Request DTO |
+| --- | --- | --- | --- | --- | --- |
+| POST | `/users` | Public | 5/hour | 201, `Location: /users/{id}` | [`RegisterUserDto`](../../src/identity/presentation/dtos/register-user.dto.ts) |
+| GET | `/users` | Protected | none | 200, paginated | [`ListUsersQueryDto`](../../src/identity/presentation/dtos/list-users.query.dto.ts) |
+| GET | `/users/:id` | Protected | none | 200 | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
+| PUT | `/users/:id` | Protected | none | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts), [`UpdateUserProfileDto`](../../src/identity/presentation/dtos/update-user-profile.dto.ts) |
+| DELETE | `/users/:id` | Protected | none | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
+| POST | `/auth/login` | Public | 10/60s | 200 | [`LoginDto`](../../src/identity/presentation/dtos/login.dto.ts) |
+| POST | `/auth/verify-email` | Public | none | 204, no body | [`VerifyEmailDto`](../../src/identity/presentation/dtos/verify-email.dto.ts) |
+| POST | `/auth/verify-email/resend` | Public | 5/hour | 202, no body | [`ResendVerificationDto`](../../src/identity/presentation/dtos/resend-verification.dto.ts) |
+| POST | `/auth/refresh` | Public | none | 200 | [`RefreshDto`](../../src/identity/presentation/dtos/refresh.dto.ts) |
+| POST | `/auth/logout` | Protected | none | 204, no body | none, the session comes from the access token's claim |
+| POST | `/auth/logout-all` | Protected | none | 204, no body | none, the user comes from the access token's claim |
+| POST | `/auth/forgot-password` | Public | 5/hour | 202, no body | [`ForgotPasswordDto`](../../src/identity/presentation/dtos/forgot-password.dto.ts) |
+| POST | `/auth/reset-password` | Public | 10/60s | 204, no body | [`ResetPasswordDto`](../../src/identity/presentation/dtos/reset-password.dto.ts) |
+| POST | `/auth/change-password` | Protected | 10/60s | 204, no body | [`ChangePasswordDto`](../../src/identity/presentation/dtos/change-password.dto.ts) |
 
 Authentication and authorization are different concerns here, and only the
 first is built: any authenticated caller may act on any user, and
 `GET /users` lists everyone with no ownership filter and no role check. See
 [ADR 0015](../adr/0015-authentication-without-authorization.md) for why, and
 what would change it.
+
+Two more things this table does not say by itself. `POST /users` answering
+409 on a duplicate email is an account-existence oracle: an unauthenticated
+caller learns an address is registered without ever presenting a password.
+That sits beside `POST /auth/login`, which answers a wrong password and an
+unknown address identically (see [Request lifecycle](#request-lifecycle)
+above), and `POST /auth/forgot-password`, which answers 202 regardless of
+whether the address exists, both built specifically to avoid being that
+oracle. The 409 is not a bug to fix: a clear "that email is taken" is what
+makes registration usable, and the endpoint's own throttle limits how many
+addresses a caller can probe. It is written here only so the system's
+posture is stated, not implied by omission.
+
+Second, no revocation path reaches a live access token. `POST /auth/logout`
+and `POST /auth/logout-all` both answer 204 by ending a refresh chain's
+ability to renew, not by invalidating the access token already issued: the
+token keeps working for whatever TTL remains, because `JwtAuthGuard` verifies
+a signature and an expiry, never a per-request revocation lookup. Shortening
+that window is what `ACCESS_TOKEN_TTL_SECONDS` is for.
 
 ## Ports and adapters
 
@@ -423,3 +447,16 @@ nothing reads a mutation timestamp for a credential, and the comment on
 states this directly so the missing trigger is not mistaken for the
 [ADR 0009](../adr/0009-postgres-owns-updated-at.md) hazard the two
 `updated_at` couplings above describe.
+
+`Password`, `PasswordAttempt`, and `SecretToken` redact themselves when
+serialised, which stops a logged aggregate or read model from carrying one in
+the clear. That protection stops at the presentation boundary: a command may
+not import a domain value object, so
+[`LoginCommand.password`](../../src/identity/application/use-cases/commands/login/login.command.ts),
+[`ChangePasswordCommand.currentPassword`](../../src/identity/application/use-cases/commands/change-password/change-password.command.ts)
+and `newPassword`, and
+[`ResetPasswordCommand.token`](../../src/identity/application/use-cases/commands/reset-password/reset-password.command.ts)
+are raw public strings, each carrying only its own interface comment as a
+warning. Nothing logs a command today, so there is no live leak, but a CQRS
+logging interceptor added later would put a plaintext password in every log
+line it touched, and no test here would go red to catch it.

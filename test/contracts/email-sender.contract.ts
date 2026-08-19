@@ -55,7 +55,7 @@ export function emailSenderContract(
       expect((await harness.sent())[0]?.body).toContain('token-abc');
     });
 
-    it('delivers a reset message distinguishable from a verification one', async () => {
+    it('delivers a reset message carrying its own token', async () => {
       await harness.sender.sendPasswordReset(recipient, 'token-xyz');
 
       const sent = await harness.sent();
@@ -73,9 +73,17 @@ export function emailSenderContract(
     });
 
     it('never puts one flow’s token in the other flow’s message', async () => {
+      // Both tokens have to be in play for this to mean anything: asserting
+      // that a token never handed to `sendEmailVerification` is absent from its
+      // message passes for every implementation, leaky ones included.
+      await harness.sender.sendPasswordReset(recipient, 'token-xyz');
       await harness.sender.sendEmailVerification(recipient, 'token-abc');
 
-      expect((await harness.sent())[0]?.body).not.toContain('token-xyz');
+      const [reset, verification] = await harness.sent();
+      expect(reset?.body).toContain('token-xyz');
+      expect(reset?.body).not.toContain('token-abc');
+      expect(verification?.body).toContain('token-abc');
+      expect(verification?.body).not.toContain('token-xyz');
     });
   });
 }

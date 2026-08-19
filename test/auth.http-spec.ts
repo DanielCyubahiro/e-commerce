@@ -101,6 +101,38 @@ describe('auth HTTP contract', () => {
     await app.close();
   });
 
+  // Shared by the refresh, logout, and logout-all suites below: each needs a
+  // real session minted through the actual login endpoint, not seeded
+  // directly, since what is under test is how the session responds to being
+  // presented back to the API.
+  const loginViaHttp = async (): Promise<{
+    accessToken: string;
+    refreshToken: string;
+  }> => {
+    const hash = await hasher.hash(Password.create('correct horse battery'));
+    credentials.seed({
+      userId: USER_ID,
+      email: 'ada@example.com',
+      role: 'seller',
+      passwordHash: hash.value,
+      emailVerifiedAt: new Date(),
+    });
+    // The fake models no `users` table, so `rotate` cannot join for a role;
+    // this seam stands in for that join.
+    refreshTokens.seedUserRole(USER_ID, 'seller');
+
+    const response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({ email: 'ada@example.com', password: 'correct horse battery' })
+      .expect(200);
+
+    const body = bodyOf(response);
+    return {
+      accessToken: body.accessToken as string,
+      refreshToken: body.refreshToken as string,
+    };
+  };
+
   describe('POST /auth/verify-email', () => {
     it('returns 204 for a valid, unexpired token', async () => {
       credentials.seed({
@@ -267,6 +299,75 @@ describe('auth HTTP contract', () => {
         .expect(400);
 
       expect(bodyOf(response).code).toBeUndefined();
+    });
+  });
+
+  describe('POST /auth/refresh', () => {
+    it('returns 200 with a refresh token different from the one presented', async () => {
+      const { refreshToken } = await loginViaHttp();
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(bodyOf(response).refreshToken).toEqual(expect.any(String));
+      expect(bodyOf(response).refreshToken).not.toBe(refreshToken);
+    });
+
+    it('answers a replayed refresh token, and the successor it issued before dying, both with 401', async () => {
+      const { refreshToken } = await loginViaHttp();
+
+      const rotated = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      const replay = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+      expect(bodyOf(replay).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
+
+      // The point of revoking the chain rather than the token: the successor,
+      // never presented by an attacker, is dead too.
+      const successor = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: bodyOf(rotated).refreshToken })
+        .expect(401);
+      expect(bodyOf(successor).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
+    });
+  });
+
+  describe('POST /auth/logout', () => {
+    it('returns 401 with no access token, since the endpoint is protected', async () => {
+      await request(app.getHttpServer()).post('/auth/logout').expect(401);
+    });
+
+    it('returns 204 and revokes the session, so its refresh token stops working', async () => {
+      const { accessToken, refreshToken } = await loginViaHttp();
+
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(204);
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+      expect(bodyOf(response).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
+    });
+  });
+
+  describe('POST /auth/logout-all', () => {
+    it('returns 204', async () => {
+      const { accessToken } = await loginViaHttp();
+
+      await request(app.getHttpServer())
+        .post('/auth/logout-all')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(204);
     });
   });
 });

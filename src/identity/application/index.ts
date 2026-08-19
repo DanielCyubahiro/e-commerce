@@ -1,6 +1,7 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
 export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
 export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
+export { InvalidRefreshTokenException } from './exceptions/invalid-refresh-token.exception';
 export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
 export { UnauthenticatedException } from './exceptions/unauthenticated.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
@@ -55,6 +56,12 @@ export {
   LoginHandler,
   type LoginResult,
 } from './use-cases/commands/login/login.handler';
+export { LogoutAllSessionsCommand } from './use-cases/commands/logout-all-sessions/logout-all-sessions.command';
+export { LogoutAllSessionsHandler } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
+export { LogoutCommand } from './use-cases/commands/logout/logout.command';
+export { LogoutHandler } from './use-cases/commands/logout/logout.handler';
+export { RefreshSessionCommand } from './use-cases/commands/refresh-session/refresh-session.command';
+export { RefreshSessionHandler } from './use-cases/commands/refresh-session/refresh-session.handler';
 export { RegisterUserCommand } from './use-cases/commands/register-user/register-user.command';
 export { RegisterUserHandler } from './use-cases/commands/register-user/register-user.handler';
 export { ResendVerificationCommand } from './use-cases/commands/resend-verification/resend-verification.command';
@@ -73,6 +80,9 @@ export {
 
 import { DeleteUserHandler as DeleteUser } from './use-cases/commands/delete-user/delete-user.handler';
 import { LoginHandler as Login } from './use-cases/commands/login/login.handler';
+import { LogoutAllSessionsHandler as LogoutAllSessions } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
+import { LogoutHandler as Logout } from './use-cases/commands/logout/logout.handler';
+import { RefreshSessionHandler as RefreshSession } from './use-cases/commands/refresh-session/refresh-session.handler';
 import { RegisterUserHandler as RegisterUser } from './use-cases/commands/register-user/register-user.handler';
 import { ResendVerificationHandler as ResendVerification } from './use-cases/commands/resend-verification/resend-verification.handler';
 import { UpdateUserHandler as UpdateUser } from './use-cases/commands/update-user/update-user.handler';
@@ -87,5 +97,8 @@ export const commandHandlers = [
   VerifyEmail,
   ResendVerification,
   Login,
+  RefreshSession,
+  Logout,
+  LogoutAllSessions,
 ];
 export const queryHandlers = [ListUsers, GetUser];

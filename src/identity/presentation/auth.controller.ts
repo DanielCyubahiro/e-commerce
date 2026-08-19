@@ -3,11 +3,17 @@ import { CommandBus } from '@nestjs/cqrs';
 import {
   LoginCommand,
   type LoginResult,
+  LogoutAllSessionsCommand,
+  LogoutCommand,
+  RefreshSessionCommand,
   ResendVerificationCommand,
   VerifyEmailCommand,
 } from '../application';
+import { CurrentUser } from '@/shared/presentation/decorators/current-user.decorator';
 import { Public } from '@/shared/presentation/decorators/public.decorator';
+import type { AuthenticatedUser } from '@/shared/presentation/authenticated-request';
 import { LoginDto } from './dtos/login.dto';
+import { RefreshDto } from './dtos/refresh.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
 import { SessionResponseDto } from './dtos/session-response.dto';
 import { VerifyEmailDto } from './dtos/verify-email.dto';
@@ -53,6 +59,40 @@ export class AuthController {
   async resendVerification(@Body() body: ResendVerificationDto): Promise<void> {
     await this.commandBus.execute<ResendVerificationCommand, void>(
       new ResendVerificationCommand(body.email),
+    );
+  }
+
+  /** Public: presenting the refresh token is the authentication. */
+  @Public()
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refresh(@Body() body: RefreshDto): Promise<SessionResponseDto> {
+    const result = await this.commandBus.execute<
+      RefreshSessionCommand,
+      LoginResult
+    >(new RefreshSessionCommand(body.refreshToken));
+
+    return SessionResponseDto.fromResult(result);
+  }
+
+  /**
+   * Takes no body: the session comes from the access token's `sid` claim, so
+   * a client that has lost its refresh token can still end the session.
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logout(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+    await this.commandBus.execute<LogoutCommand, void>(
+      new LogoutCommand(user.sessionId),
+    );
+  }
+
+  /** Revokes every chain of the caller's user, including the one it was called from. */
+  @Post('logout-all')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+    await this.commandBus.execute<LogoutAllSessionsCommand, void>(
+      new LogoutAllSessionsCommand(user.userId),
     );
   }
 }

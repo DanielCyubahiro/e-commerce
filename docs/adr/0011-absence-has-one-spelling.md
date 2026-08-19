@@ -13,9 +13,10 @@ and an omitted response key.
 ## Decision
 
 Absence is `null` from the aggregate outward.
-[`User.build`](../../src/identity/domain/entities/user.entity.ts) collapses an
-omitted key, `undefined`, and `null` into `null`; the column is nullable; the
-read model carries `string | null`; the response sends `"phone": null`.
+[`UserProfile.create`](../../src/identity/domain/value-objects/user-profile.vo.ts)
+collapses an omitted key, `undefined`, and `null` into `null`; the column is
+nullable; the read model carries `string | null`; the response sends
+`"phone": null`.
 
 ## Alternatives considered
 
@@ -29,9 +30,10 @@ read model carries `string | null`; the response sends `"phone": null`.
 
 ## Consequences
 
-- [`UserInput.phone`](../../src/identity/domain/entities/user.entity.ts) is `?:
-  string | null | undefined`, which looks permissive and is deliberate: it is
-  the only place three spellings are tolerated, and `exactOptionalPropertyTypes`
-  would otherwise force every caller to write `?? null`.
+- [`UserProfileInput.phone`](../../src/identity/domain/value-objects/user-profile.vo.ts)
+  is `?: string | null | undefined`, which looks permissive and is deliberate:
+  it is the only place three spellings are tolerated, and
+  `exactOptionalPropertyTypes` would otherwise force every caller to write
+  `?? null`.
 - The next optional field follows this rule rather than inventing a second
   one.

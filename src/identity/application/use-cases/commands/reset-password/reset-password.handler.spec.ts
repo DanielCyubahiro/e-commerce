@@ -102,6 +102,7 @@ describe('ResetPasswordHandler', () => {
   it('revokes every session, including the caller’s', async () => {
     const { secret } = await seedAccountWithResetToken();
     const callerSession = SessionId.create();
+    const otherSession = SessionId.create();
     await refreshTokens.issue({
       id: RefreshTokenId.create(),
       sessionId: callerSession,
@@ -109,15 +110,30 @@ describe('ResetPasswordHandler', () => {
       tokenHash: SecretToken.issue().hash,
       expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60_000),
     });
+    await refreshTokens.issue({
+      id: RefreshTokenId.create(),
+      sessionId: otherSession,
+      userId: UserId.create(userId),
+      tokenHash: SecretToken.issue().hash,
+      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60_000),
+    });
+    // Two distinct rows, so an assertion that both are revoked afterward
+    // cannot be satisfied by a fake that only ever revoked one.
+    expect(refreshTokens.rows()).toHaveLength(2);
 
     // The premise of a reset is that someone else may hold a session.
     await handler.execute(
       new ResetPasswordCommand(secret.plaintext, 'a new long password'),
     );
 
-    expect(refreshTokens.rows().every((row) => row.revokedAt !== null)).toBe(
-      true,
-    );
+    const caller = refreshTokens
+      .rows()
+      .find((row) => row.sessionId === callerSession.value);
+    const other = refreshTokens
+      .rows()
+      .find((row) => row.sessionId === otherSession.value);
+    expect(caller?.revokedAt).not.toBeNull();
+    expect(other?.revokedAt).not.toBeNull();
   });
 
   it('rejects a weak new password before the token is spent', async () => {

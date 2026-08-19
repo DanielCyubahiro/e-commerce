@@ -43,11 +43,12 @@ export class ChangePasswordHandler implements ICommandHandler<
     const userId = UserId.create(command.userId);
     const attempt = PasswordAttempt.create(command.currentPassword);
 
-    // The new password is validated before the current one is checked, so a
-    // policy failure does not depend on getting the old password right.
-    const newHash = await this.hasher.hash(
-      Password.create(command.newPassword),
-    );
+    // Validated before the current password is checked, so a policy failure
+    // does not depend on getting the old password right. Only *validated*
+    // here, not hashed: `Password.create` is a length check costing nothing,
+    // while hashing spends 19 MiB of argon2, and a hash computed before the
+    // check below is discarded with certainty on the failure path.
+    const password = Password.create(command.newPassword);
 
     const stored = await this.credentials.findPasswordHash(userId);
 
@@ -61,6 +62,10 @@ export class ChangePasswordHandler implements ICommandHandler<
     if (!matches) {
       throw new InvalidCredentialsException();
     }
+
+    // Hashed only now that the caller has proven they know the current
+    // password.
+    const newHash = await this.hasher.hash(password);
 
     const now = new Date();
     await this.credentials.changePassword(userId, newHash);

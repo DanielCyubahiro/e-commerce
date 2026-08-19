@@ -6,6 +6,11 @@ export {
   type AccessTokenIssuer,
   type IssuedAccessToken,
 } from './ports/access-token.issuer';
+export {
+  CREDENTIAL_REPOSITORY,
+  type AuthenticationRecord,
+  type CredentialRepository,
+} from './ports/credential.repository';
 export { EMAIL_SENDER, type EmailSender } from './ports/email.sender';
 export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
 export {

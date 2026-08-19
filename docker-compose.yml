@@ -11,6 +11,19 @@ services:
       timeout: 5s
       retries: 5
 
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      # 1025 is SMTP, what the adapter connects to. 8025 is the web UI and the
+      # HTTP API the integration binding reads messages back through.
+      - '1025:1025'
+      - '8025:8025'
+    healthcheck:
+      test: ['CMD', '/mailpit', 'readyz']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:18
     environment:

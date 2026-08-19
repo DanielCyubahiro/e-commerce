@@ -46,7 +46,7 @@ test needs rather than by which of the five layers above it belongs to:
 | Project | Needs | Layers it runs |
 | --- | --- | --- |
 | `unit` | Nothing, no I/O | Unit, Application, and the fake half of Contract |
-| `integration` | Docker, one Postgres container per run | Integration, and the Drizzle half of Contract |
+| `integration` | Docker, one Postgres container per run, plus a Mailpit container for the SMTP email-sender binding | Integration, and the Drizzle and SMTP halves of Contract |
 | `http` | Nothing, no database | HTTP |
 | `docs` | Nothing, no database | The markdown tree, checked against `src/` |
 
@@ -106,6 +106,13 @@ what stops a fake from drifting away from the real adapter unnoticed. See
 counts as a contract test rather than an ordinary shared test helper, and
 [ADR 0005](./adr/0005-contract-tests-bind-to-every-adapter.md) for why the
 mechanism exists at all.
+
+The email-sender contract's adapter binding starts its own Mailpit container
+in a `beforeAll` rather than in the `integration` project's `globalSetup`
+([`mailpit-container.ts`](../test/setup/mailpit-container.ts)): that binding is
+the only test that needs Mailpit, and provisioning it globally would make
+every other integration suite pay a second container's startup cost for a
+dependency it never touches.
 
 Harness shape follows what a contract's own port needs, not a shape every
 contract shares. A write harness needs only one repository:

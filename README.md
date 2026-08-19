@@ -20,6 +20,7 @@ is worth learning, not to serve real users.
 pnpm install
 cp .env.example .env
 pnpm db:up
+pnpm db:migrate
 ```
 
 Every variable in `.env.example` is required at boot. A missing or malformed one
@@ -41,6 +42,12 @@ query.
 | `pnpm test:cov` | Coverage |
 | `pnpm lint` | ESLint with type-aware rules |
 | `pnpm db:up` / `db:down` / `db:logs` | Local Postgres and Mongo |
+| `pnpm db:migrate` | Apply pending Drizzle migrations to that Postgres |
+
+`start:dev` migrates before it starts watching. `start` and `start:prod` do
+not, so a database left behind a new migration answers with a 500 from the
+first query against the missing table. The integration suite migrates a fresh
+container of its own and so stays green either way.
 
 ## Where to go next
 

@@ -456,6 +456,7 @@ not import a domain value object, so
 [`ChangePasswordCommand.currentPassword`](../../src/identity/application/use-cases/commands/change-password/change-password.command.ts)
 and `newPassword`, and
 [`ResetPasswordCommand.token`](../../src/identity/application/use-cases/commands/reset-password/reset-password.command.ts)
+and `newPassword`
 are raw public strings, each carrying only its own interface comment as a
 warning. Nothing logs a command today, so there is no live leak, but a CQRS
 logging interceptor added later would put a plaintext password in every log

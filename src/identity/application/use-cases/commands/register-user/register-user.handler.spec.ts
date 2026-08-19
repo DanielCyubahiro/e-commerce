@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { catchRejection } from '@test/support/catch-error';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
@@ -8,6 +9,12 @@ import { RegisterUserCommand } from './register-user.command';
 import { RegisterUserHandler } from './register-user.handler';
 
 describe('RegisterUserHandler', () => {
+  // The handler constructs its own `Logger`, outside any Nest app context, so
+  // the two send-failure cases below would otherwise print a real ERROR line:
+  // expected, since that is exactly what they assert happened, but silenced so
+  // a green run stays quiet.
+  Logger.overrideLogger(false);
+
   let users: InMemoryUserWriteRepository;
   let hasher: FakePasswordHasher;
   let email: RecordingEmailSender;

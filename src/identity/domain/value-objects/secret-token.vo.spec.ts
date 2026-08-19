@@ -35,11 +35,10 @@ describe('SecretToken', () => {
   it('redacts itself when serialised, so a logged command leaks nothing', () => {
     const token = SecretToken.issue();
 
+    // JSON.stringify calls toJSON; String() calls toString. Template
+    // interpolation also calls toString, so it is not a third path and gets
+    // no separate assertion here.
     expect(JSON.stringify({ token })).toBe('{"token":"[REDACTED]"}');
     expect(String(token)).toBe('[REDACTED]');
-    // Interpolation is a second, distinct call path to the same override;
-    // asserting on it is the point, regardless of the operand's own type.
-    // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-    expect(`${token}`).not.toContain(token.plaintext);
   });
 });

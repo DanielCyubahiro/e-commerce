@@ -17,8 +17,10 @@ function entityNames(context: string): string[] {
   return readdirSync(dir)
     .filter((name) => name.endsWith('.entity.ts'))
     .flatMap((name) => {
-      const match = ENTITY_CLASS.exec(readFileSync(join(dir, name), 'utf8'));
-      return match ? [match[1]] : [];
+      const captured = ENTITY_CLASS.exec(
+        readFileSync(join(dir, name), 'utf8'),
+      )?.[1];
+      return captured ? [captured] : [];
     });
 }
 

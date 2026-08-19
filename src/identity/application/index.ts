@@ -21,6 +21,13 @@ export {
 } from './ports/one-time-token.repository';
 export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
 export {
+  REFRESH_TOKEN_REPOSITORY,
+  type IssuedRefreshToken,
+  type RefreshSuccessor,
+  type RefreshTokenRepository,
+  type RotationOutcome,
+} from './ports/refresh-token.repository';
+export {
   USER_READ_REPOSITORY,
   type UserFilters,
   type UserReadRepository,

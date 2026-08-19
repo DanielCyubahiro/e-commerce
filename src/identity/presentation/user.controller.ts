@@ -10,8 +10,10 @@ import {
   Put,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Response } from 'express';
 import type { Page } from '@/shared/application';
 import { Public } from '@/shared/presentation/decorators/public.decorator';
@@ -47,9 +49,13 @@ export class UserController {
    * never send.
    *
    * This is registration: it stays public, since nobody can hold a token
-   * before an account exists.
+   * before an account exists. Throttled because it hashes the submitted
+   * password: every attempt costs 19 MiB of argon2 whether or not it results
+   * in an account.
    */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 3_600_000 } })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(

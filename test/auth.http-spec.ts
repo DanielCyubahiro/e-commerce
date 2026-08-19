@@ -300,6 +300,26 @@ describe('auth HTTP contract', () => {
 
       expect(bodyOf(response).code).toBeUndefined();
     });
+
+    it('throttles repeated login attempts', async () => {
+      // Not only about guessing: every attempt costs the server 19 MiB in
+      // argon2, so an unthrottled login endpoint is a memory amplification
+      // vector that needs no correct password to exploit. `beforeEach`
+      // rebuilds the whole testing module per test, which is also what gives
+      // this test its own throttler counter rather than one shared with its
+      // neighbours.
+      const attempt = () =>
+        request(app.getHttpServer())
+          .post('/auth/login')
+          .send({ email: 'ada@example.com', password: 'wrong password here' });
+
+      for (let i = 0; i < 10; i += 1) {
+        await attempt();
+      }
+
+      const response = await attempt().expect(429);
+      expect(bodyOf(response).code).toBeUndefined();
+    });
   });
 
   describe('POST /auth/refresh', () => {
@@ -336,6 +356,18 @@ describe('auth HTTP contract', () => {
         .send({ refreshToken: bodyOf(rotated).refreshToken })
         .expect(401);
       expect(bodyOf(successor).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
+    });
+
+    it('does not throttle refresh, which neither hashes nor mails', async () => {
+      // 20 exceeds every limit set elsewhere in this file (10 or 5), so a
+      // 429 here would prove a limit leaked onto this route rather than
+      // proving anything about refresh itself.
+      for (let i = 0; i < 20; i += 1) {
+        await request(app.getHttpServer())
+          .post('/auth/refresh')
+          .send({ refreshToken: 'not-a-real-token' })
+          .expect(401);
+      }
     });
   });
 

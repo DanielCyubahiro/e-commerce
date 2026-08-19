@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
+import { ThrottlerModule } from '@nestjs/throttler';
 import {
   ACCESS_TOKEN_ISSUER,
   commandHandlers,
@@ -37,9 +38,32 @@ import { UserController } from './presentation/user.controller';
  * not imported here: `ConfigModule.forRoot({ isGlobal: true })` in
  * `app.module.ts` is what makes it available, so nothing is added to
  * `imports` for it either. See the fork seam in docs/architecture.md.
+ *
+ * `ThrottlerModule` is the one exception to that pattern: it is imported
+ * here, not in `app.module.ts`, because `AuthController` and `UserController`
+ * are the only consumers of `ThrottlerGuard`, and every http-spec test
+ * bootstraps this module directly rather than through `AppModule`. Being
+ * `@Global()`, registering it here still makes it available app-wide once
+ * `AppModule` imports this module, exactly as `ConfigModule` does the other
+ * way round.
  */
 @Module({
-  imports: [CqrsModule],
+  imports: [
+    CqrsModule,
+    // A default the per-endpoint `@Throttle` decorators tighten. Not
+    // registered as a global guard: only six endpoints need a limit, so
+    // ThrottlerGuard is applied per controller method instead, which also
+    // keeps guard ordering out of play.
+    //
+    // Storage is the in-process default: with more than one instance each
+    // gets its own counter, so the effective limit multiplies across the
+    // fleet. Redis-backed storage fixes that and belongs with a later spec.
+    // In production, IP throttling like this usually lives at the edge, in a
+    // gateway or CDN, with the application keeping only the limits that need
+    // to know about accounts; these six are a stand-in until that split
+    // happens.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
+  ],
   controllers: [UserController, AuthController],
   providers: [
     ...commandHandlers,

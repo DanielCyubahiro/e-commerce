@@ -1,5 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import {
   ChangePasswordCommand,
   LoginCommand,
@@ -32,7 +40,15 @@ import { VerifyEmailDto } from './dtos/verify-email.dto';
 export class AuthController {
   constructor(private readonly commandBus: CommandBus) {}
 
+  /**
+   * Every attempt costs the server 19 MiB in argon2, correct password or not,
+   * so this needs a limit even though argon2id already makes guessing
+   * expensive for the attacker: it is paying for that cost decision, not
+   * just guarding against brute force.
+   */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() body: LoginDto): Promise<SessionResponseDto> {
@@ -58,8 +74,14 @@ export class AuthController {
     );
   }
 
-  /** 202 whether or not the address exists, so it cannot be used to probe. */
+  /**
+   * 202 whether or not the address exists, so it cannot be used to probe.
+   * Throttled because a hit spends someone else's inbox, not the caller's
+   * own resource.
+   */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 3_600_000 } })
   @Post('verify-email/resend')
   @HttpCode(HttpStatus.ACCEPTED)
   async resendVerification(@Body() body: ResendVerificationDto): Promise<void> {
@@ -102,8 +124,14 @@ export class AuthController {
     );
   }
 
-  /** 202 whether or not the address exists, so it cannot be used to probe. */
+  /**
+   * 202 whether or not the address exists, so it cannot be used to probe.
+   * Throttled because a hit spends someone else's inbox, not the caller's
+   * own resource.
+   */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 3_600_000 } })
   @Post('forgot-password')
   @HttpCode(HttpStatus.ACCEPTED)
   async forgotPassword(@Body() body: ForgotPasswordDto): Promise<void> {
@@ -112,8 +140,16 @@ export class AuthController {
     );
   }
 
-  /** Public: presenting the reset token is the authentication. */
+  /**
+   * Public: presenting the reset token is the authentication. Throttled
+   * because `ResetPasswordHandler` hashes the new password before the token
+   * is even checked (deliberately, so a policy rejection does not burn the
+   * user's link), so without a limit a garbage token costs nothing to send
+   * and buys a full argon2 hash every time regardless.
+   */
   @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('reset-password')
   @HttpCode(HttpStatus.NO_CONTENT)
   async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {
@@ -125,8 +161,12 @@ export class AuthController {
   /**
    * Protected: a bearer token alone is not proof of the account owner, which
    * is why the command still carries the current password for the handler to
-   * check.
+   * check. Throttled because that check is an argon2 verify against a
+   * caller-supplied guess: a stolen access token would otherwise buy an
+   * attacker one guess per request for the token's whole life.
    */
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('change-password')
   @HttpCode(HttpStatus.NO_CONTENT)
   async changePassword(

@@ -3,8 +3,8 @@ import type {
   UserReadModel,
   UserReadRepository,
   UserWriteRepository,
-} from '@/user/application';
-import { User, UserId } from '@/user/domain';
+} from '@/identity/application';
+import { User, UserId } from '@/identity/domain';
 
 export interface ReadHarness {
   read: UserReadRepository;

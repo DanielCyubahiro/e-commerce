@@ -1,7 +1,7 @@
 import {
   DrizzleUserReadRepository,
   DrizzleUserWriteRepository,
-} from '@/user/infrastructure';
+} from '@/identity/infrastructure';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 import { userReadRepositoryContract } from './user-read-repository.contract';
 

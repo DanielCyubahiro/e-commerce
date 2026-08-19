@@ -1,8 +1,8 @@
 import {
   DuplicateEmailException,
   type UserWriteRepository,
-} from '@/user/application';
-import type { User, UserId } from '@/user/domain';
+} from '@/identity/application';
+import type { User, UserId } from '@/identity/domain';
 
 export interface StoredUser {
   user: User;

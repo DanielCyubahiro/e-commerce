@@ -6,8 +6,8 @@ Accepted.
 
 ## Context
 
-The write side of the product context exposes exactly two operations on
-[`ProductWriteRepository`](../../src/product/application/ports/product.write-repository.ts),
+The write side of the catalogue context exposes exactly two operations on
+[`ProductWriteRepository`](../../src/catalogue/application/ports/product.write-repository.ts),
 `add` and `delete`. `Product.create` is the aggregate's only constructor, and
 [ADR 0002](0002-read-write-split-without-rehydration.md) leans on that fact
 directly: because nothing needs to build a `Product` from stored data, the
@@ -30,7 +30,7 @@ others.
 `PUT /products/:id` replaces every field, name, description, price,
 currency, SKU, and stock, in one request; there is no partial form. The
 handler builds a complete, validated `Product` under the caller's own id,
-via [`Product.replace`](../../src/product/domain/entities/product.entity.ts),
+via [`Product.replace`](../../src/catalogue/domain/entities/product.entity.ts),
 and hands it to the write adapter, which issues a single `UPDATE` matched on
 that id. Nothing is loaded first: the handler never calls `findById`, because
 a full replacement needs nothing from the row it overwrites. Success returns
@@ -39,7 +39,7 @@ nothing the client does not already have, so there is nothing worth
 returning.
 
 `currency` is required on the update DTO, even though
-[`CreateProductDto`](../../src/product/presentation/dtos/create-product.dto.ts)
+[`CreateProductDto`](../../src/catalogue/presentation/dtos/create-product.dto.ts)
 defaults it on create. Under create, an omitted `currency` fills a blank;
 under replace, an omitted `currency` would overwrite a stored value with a
 default the client never chose. A default that fills a blank and a default

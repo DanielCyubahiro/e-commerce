@@ -3,8 +3,8 @@ import type {
   UserFilters,
   UserReadModel,
   UserReadRepository,
-} from '@/user/application';
-import type { UserId } from '@/user/domain';
+} from '@/identity/application';
+import type { UserId } from '@/identity/domain';
 import type { InMemoryUserWriteRepository } from './in-memory-user-write.repository';
 
 const EPOCH = Date.parse('2026-01-01T00:00:00.000Z');

@@ -13,7 +13,7 @@ and an omitted response key.
 ## Decision
 
 Absence is `null` from the aggregate outward.
-[`User.build`](../../src/user/domain/entities/user.entity.ts) collapses an
+[`User.build`](../../src/identity/domain/entities/user.entity.ts) collapses an
 omitted key, `undefined`, and `null` into `null`; the column is nullable; the
 read model carries `string | null`; the response sends `"phone": null`.
 
@@ -29,7 +29,7 @@ read model carries `string | null`; the response sends `"phone": null`.
 
 ## Consequences
 
-- [`UserInput.phone`](../../src/user/domain/entities/user.entity.ts) is `?:
+- [`UserInput.phone`](../../src/identity/domain/entities/user.entity.ts) is `?:
   string | null | undefined`, which looks permissive and is deliberate: it is
   the only place three spellings are tolerated, and `exactOptionalPropertyTypes`
   would otherwise force every caller to write `?? null`.

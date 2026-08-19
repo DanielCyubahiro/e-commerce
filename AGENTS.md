@@ -72,7 +72,7 @@ discipline alone, because no check here reads a sentence for staleness.
 
 | When you | Update | Checked by `pnpm test`? |
 | --- | --- | --- |
-| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list | Yes: the page, its headings, the glossary row, and README's link to the page (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). |
+| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list. Name it for the capability, not the entity; see docs/concepts.md's Bounded context entry. | Yes: the page, its headings, the glossary row, and README's link to the page (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). |
 | Add or change a port | That context's `## Ports and adapters`, both tables | No |
 | Add an endpoint, or change its status | That context's `## Endpoints` | No |
 | Add an exception | That context's `## Error codes`, plus the `## Error path` table in `docs/architecture.md` (columns Failure, Base, Filter, Status) if the *kind* is new | No |
@@ -89,7 +89,7 @@ exactly what `glossary.docs-spec.ts` catches.
 The five required headings a context page must carry are named nowhere but
 `CONTEXT_PAGE_HEADINGS` in `test/docs/docs-model.ts`; that constant is the
 authority, not this file, so the two cannot drift apart. Copy
-`docs/contexts/product.md` as the template rather than retyping the headings
+`docs/contexts/catalogue.md` as the template rather than retyping the headings
 by hand. A required section with nothing to write yet, `## Endpoints` on a
 context with no controller, say, still gets written, holding the word `none`,
 the same convention as an empty glossary cell.

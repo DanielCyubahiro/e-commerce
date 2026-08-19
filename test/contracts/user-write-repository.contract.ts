@@ -1,8 +1,8 @@
 import {
   DuplicateEmailException,
   type UserWriteRepository,
-} from '@/user/application';
-import { User, UserId } from '@/user/domain';
+} from '@/identity/application';
+import { User, UserId } from '@/identity/domain';
 import { catchRejection } from '@test/support/catch-error';
 
 export interface WriteHarness {

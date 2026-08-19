@@ -2,8 +2,8 @@ import type {
   ProductFilters,
   ProductReadModel,
   ProductReadRepository,
-} from '@/product/application';
-import type { ProductId } from '@/product/domain';
+} from '@/catalogue/application';
+import type { ProductId } from '@/catalogue/domain';
 import type { Page, Pagination } from '@/shared/application';
 import type { InMemoryProductWriteRepository } from './in-memory-product-write.repository';
 

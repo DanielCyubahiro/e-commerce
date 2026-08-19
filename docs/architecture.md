@@ -25,7 +25,7 @@ Commands operate on a context's aggregate. Queries never touch it; they
 project rows into read models.
 
 Most layers expose a barrel (`index.ts`) as their public surface;
-`src/product/presentation/`, `src/shared/presentation/`, and
+`src/catalogue/presentation/`, `src/shared/presentation/`, and
 `src/shared/infrastructure/` do not yet have one. Code inside a layer that has
 a barrel imports by relative path, never through its own barrel: that cycle
 makes a Nest injection token resolve to `undefined` and surfaces at boot as an
@@ -60,9 +60,9 @@ diagram, with its endpoints and exceptions named, is on its page under
 [`docs/contexts/`](./contexts/).
 
 Validation splits across two places on purpose:
-[`CreateProductDto`](../src/product/presentation/dtos/create-product.dto.ts)
+[`CreateProductDto`](../src/catalogue/presentation/dtos/create-product.dto.ts)
 checks type, presence, and generous size ceilings, while
-[`Product.create`](../src/product/domain/entities/product.entity.ts)
+[`Product.create`](../src/catalogue/domain/entities/product.entity.ts)
 owns the rules (name length, non-empty description, integer non-negative
 stock), so a rule is never written twice. See
 [Invariant](./concepts.md#invariant) in the glossary for how the two layers
@@ -85,7 +85,7 @@ machine-readable `code`, distinct from the status above.
 `DomainExceptionFilter` and `ApplicationExceptionFilter` emit
 `{ statusCode, code, message }`, where `code` is `exception.code`.
 Each context lists the codes it raises on its own page; see
-[product's](./contexts/product.md#error-codes) for a worked set.
+[catalogue's](./contexts/catalogue.md#error-codes) for a worked set.
 `UnhandledExceptionFilter` sets the same fixed code, `'INTERNAL_ERROR'`, only
 for a genuinely unrecognised error. A framework exception, such as a
 `ValidationPipe` rejection, takes a different branch of that same filter and
@@ -112,10 +112,10 @@ Each context defines its own ports under `src/<context>/application/ports/`.
 Everything above them, controllers, DTOs, command and query handlers, is
 written against these interfaces and knows nothing about Drizzle or Postgres.
 The ports a context actually has are listed under `## Ports and adapters` on
-its page in [`docs/contexts/`](./contexts/); product's are
-[`ProductReadRepository`](../src/product/application/ports/product.read-repository.ts)
+its page in [`docs/contexts/`](./contexts/); catalogue's are
+[`ProductReadRepository`](../src/catalogue/application/ports/product.read-repository.ts)
 and
-[`ProductWriteRepository`](../src/product/application/ports/product.write-repository.ts).
+[`ProductWriteRepository`](../src/catalogue/application/ports/product.write-repository.ts).
 Forking this repo onto a different database or ORM touches more than the two
 adapters. It also replaces the module that provides their client and closes it
 on shutdown, and it leaves behind a handful of files that are Drizzle-specific
@@ -140,8 +140,8 @@ The procedure:
    database constraint violation and maps it to an application exception, that
    detection is coupled to the constraint's *name*, which a different schema
    tool will not reproduce by accident. Each context page records its own
-   couplings; product's are in
-   [Fork notes](./contexts/product.md#fork-notes).
+   couplings; catalogue's are in
+   [Fork notes](./contexts/catalogue.md#fork-notes).
 2. Provide your new database client and give it a Nest injection token,
    following
    [`drizzle.provider.ts`](../src/shared/infrastructure/database/postgres/drizzle.provider.ts).
@@ -158,9 +158,9 @@ The procedure:
    connection leaks on shutdown instead of closing.
 4. Import the new module in
    [`app.module.ts`](../src/app.module.ts), which is where `DrizzleModule`
-   itself is wired in today, not `product.module.ts`. `product.module.ts` only
-   binds ports to adapters; it has no visibility into what those adapters need
-   injected, and it is not where the client comes from.
+   itself is wired in today, not `catalogue.module.ts`. `catalogue.module.ts`
+   only binds ports to adapters; it has no visibility into what those adapters
+   need injected, and it is not where the client comes from.
 5. Register each context's adapters against its port tokens in that context's
    `<context>.module.ts`, replacing the `useClass` providers. No command or
    query handler needs to change.

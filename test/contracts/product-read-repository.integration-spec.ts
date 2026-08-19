@@ -1,7 +1,7 @@
 import {
   DrizzleProductReadRepository,
   DrizzleProductWriteRepository,
-} from '@/product/infrastructure';
+} from '@/catalogue/infrastructure';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 import { productReadRepositoryContract } from './product-read-repository.contract';
 

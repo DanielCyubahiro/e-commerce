@@ -1,4 +1,4 @@
-import { DrizzleProductWriteRepository } from '@/product/infrastructure';
+import { DrizzleProductWriteRepository } from '@/catalogue/infrastructure';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 import { productWriteRepositoryContract } from './product-write-repository.contract';
 

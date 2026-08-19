@@ -6,8 +6,8 @@ import { configureApp } from '@/app.config';
 import {
   USER_READ_REPOSITORY,
   USER_WRITE_REPOSITORY,
-} from '@/user/application';
-import { UserModule } from '@/user/user.module';
+} from '@/identity/application';
+import { IdentityModule } from '@/identity/identity.module';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
 
@@ -48,7 +48,9 @@ describe('users HTTP contract', () => {
   beforeEach(async () => {
     const writes = new InMemoryUserWriteRepository();
 
-    const moduleRef = await Test.createTestingModule({ imports: [UserModule] })
+    const moduleRef = await Test.createTestingModule({
+      imports: [IdentityModule],
+    })
       .overrideProvider(USER_WRITE_REPOSITORY)
       .useValue(writes)
       .overrideProvider(USER_READ_REPOSITORY)

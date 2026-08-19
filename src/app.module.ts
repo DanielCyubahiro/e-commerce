@@ -4,8 +4,8 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { validateEnv } from '@/config/env.schema';
 import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module';
 import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle.module';
-import { ProductModule } from './product/product.module';
-import { UserModule } from './user/user.module';
+import { CatalogueModule } from './catalogue/catalogue.module';
+import { IdentityModule } from './identity/identity.module';
 
 /**
  * `validate: validateEnv` is what makes a malformed environment abort at
@@ -21,8 +21,8 @@ import { UserModule } from './user/user.module';
     MongoModule,
     DrizzleModule,
     CqrsModule,
-    ProductModule,
-    UserModule,
+    CatalogueModule,
+    IdentityModule,
   ],
   controllers: [],
   providers: [],

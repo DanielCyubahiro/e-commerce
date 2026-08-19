@@ -1,4 +1,4 @@
-import { InvalidSkuException } from '@/product/domain/exceptions/invalid-sku.exception';
+import { InvalidSkuException } from '@/catalogue/domain/exceptions/invalid-sku.exception';
 import { InvalidMoneyException } from '@/shared/domain/exceptions/invalid-money.exception';
 import { catchError, catchRejection } from './catch-error';
 

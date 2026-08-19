@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
-import { DuplicateEmailException } from '@/user/application';
-import { DrizzleUserWriteRepository } from '@/user/infrastructure';
-import { User, UserId } from '@/user/domain';
+import { DuplicateEmailException } from '@/identity/application';
+import { DrizzleUserWriteRepository } from '@/identity/infrastructure';
+import { User, UserId } from '@/identity/domain';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 
 describe('DrizzleUserWriteRepository, beyond the shared contract', () => {

@@ -4,8 +4,8 @@ A NestJS learning project exploring DDD, CQRS, and hexagonal architecture.
 Bounded contexts sit on a shared kernel, one directory under `src/` each, one
 page under [docs/contexts/](docs/contexts/) each:
 
-- [product](docs/contexts/product.md)
-- [user](docs/contexts/user.md)
+- [identity](docs/contexts/identity.md)
+- [catalogue](docs/contexts/catalogue.md)
 
 It is deliberately architected to be forked onto new infrastructure when that
 is worth learning, not to serve real users.

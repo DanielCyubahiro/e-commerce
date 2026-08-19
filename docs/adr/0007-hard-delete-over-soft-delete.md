@@ -15,7 +15,7 @@ stands today, has no such referent: nothing in the codebase points at a
 
 ## Decision
 
-[`DrizzleProductWriteRepository.delete`](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts)
+[`DrizzleProductWriteRepository.delete`](../../src/catalogue/infrastructure/adapters/drizzle-product.write-repository.ts)
 issues a real `DELETE`, removing the row outright, and returns whether
 anything was actually removed, so a caller can distinguish "deleted" from
 "there was nothing to delete" without a separate existence check.

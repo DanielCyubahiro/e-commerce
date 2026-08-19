@@ -1,6 +1,6 @@
-import { DuplicateSkuException } from '@/product/application';
-import { Product } from '@/product/domain';
-import { DrizzleProductWriteRepository } from '@/product/infrastructure';
+import { DuplicateSkuException } from '@/catalogue/application';
+import { Product } from '@/catalogue/domain';
+import { DrizzleProductWriteRepository } from '@/catalogue/infrastructure';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 
 /**

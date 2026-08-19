@@ -23,3 +23,4 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0009](0009-postgres-owns-updated-at.md) | Postgres owns `updated_at` | Accepted |
 | [0010](0010-one-user-aggregate-with-a-role.md) | One `User` aggregate carries a role | Accepted |
 | [0011](0011-absence-has-one-spelling.md) | Absence is `null` from the aggregate outward | Accepted |
+| [0012](0012-contexts-are-named-for-capabilities.md) | Contexts are named for capabilities, not entities | Accepted |

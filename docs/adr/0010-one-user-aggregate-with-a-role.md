@@ -12,11 +12,11 @@ products have no owner.
 
 ## Decision
 
-One [`User`](../../src/user/domain/entities/user.entity.ts) aggregate
-carrying a [`UserRole`](../../src/user/domain/value-objects/user-role.vo.ts)
+One [`User`](../../src/identity/domain/entities/user.entity.ts) aggregate
+carrying a [`UserRole`](../../src/identity/domain/value-objects/user-role.vo.ts)
 value object, one `users` table, one `role` column of Postgres enum type
 `user_role`. The closed set is a domain rule, so
-[`UserRole.create`](../../src/user/domain/value-objects/user-role.vo.ts) owns
+[`UserRole.create`](../../src/identity/domain/value-objects/user-role.vo.ts) owns
 it and a bad value surfaces as 422, while the enum column stops a writer that
 bypasses the domain.
 
@@ -36,7 +36,7 @@ bypasses the domain.
 - A role is replaceable through `PUT /users/:id` like any other field, which
   is harmless while nothing depends on it.
 - Two copies of the role list exist, in
-  [`ROLES`](../../src/user/domain/value-objects/user-role.vo.ts) and in the
+  [`ROLES`](../../src/identity/domain/value-objects/user-role.vo.ts) and in the
   `user_role` pgEnum, and nothing enforces their agreement.
 - The decision must be revisited when a role gains data or behaviour, in
   particular when sellers own products, since a seller holding a catalogue

@@ -6,8 +6,8 @@ import { configureApp } from '@/app.config';
 import {
   PRODUCT_READ_REPOSITORY,
   PRODUCT_WRITE_REPOSITORY,
-} from '@/product/application';
-import { ProductModule } from '@/product/product.module';
+} from '@/catalogue/application';
+import { CatalogueModule } from '@/catalogue/catalogue.module';
 import { InMemoryProductReadRepository } from '@test/fakes/in-memory-product-read.repository';
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
 
@@ -55,7 +55,7 @@ describe('products HTTP contract', () => {
     const writes = new InMemoryProductWriteRepository();
 
     const moduleRef = await Test.createTestingModule({
-      imports: [ProductModule],
+      imports: [CatalogueModule],
     })
       .overrideProvider(PRODUCT_WRITE_REPOSITORY)
       .useValue(writes)

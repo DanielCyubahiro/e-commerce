@@ -31,7 +31,7 @@ describe('CreateUserHandler', () => {
   it('stores a user with no phone as null', async () => {
     await handler.execute(command());
 
-    expect(repository.snapshot()[0]?.phone).toBeNull();
+    expect(repository.snapshot()[0]?.profile.phone).toBeNull();
   });
 
   it('lets a duplicate email surface from the port rather than pre-checking', async () => {

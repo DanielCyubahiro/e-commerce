@@ -24,6 +24,7 @@ import {
 } from '../application';
 import type { PaginatedResponse } from '@/shared/presentation/dtos/paginated-response.dto';
 import { ListUsersQueryDto } from './dtos/list-users.query.dto';
+import { UpdateUserProfileDto } from './dtos/update-user-profile.dto';
 import { UserIdParamDto } from './dtos/user-id.param.dto';
 import { UserPayloadDto } from './dtos/user-payload.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
@@ -105,13 +106,12 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async replace(
     @Param() params: UserIdParamDto,
-    @Body() body: UserPayloadDto,
+    @Body() body: UpdateUserProfileDto,
   ): Promise<void> {
     await this.commandBus.execute<UpdateUserCommand, void>(
       new UpdateUserCommand(params.id, {
         firstName: body.firstName,
         lastName: body.lastName,
-        email: body.email,
         role: body.role,
         phone: body.phone,
       }),

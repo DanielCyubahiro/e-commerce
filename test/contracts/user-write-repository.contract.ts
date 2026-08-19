@@ -2,7 +2,7 @@ import {
   DuplicateEmailException,
   type UserWriteRepository,
 } from '@/identity/application';
-import { User, UserId } from '@/identity/domain';
+import { User, UserId, UserProfile } from '@/identity/domain';
 import { catchRejection } from '@test/support/catch-error';
 
 export interface WriteHarness {
@@ -35,11 +35,10 @@ export function userWriteRepositoryContract(
         phone,
       });
 
-    const replacementFor = (id: UserId, email: string): User =>
-      User.replace(id, {
+    const aProfile = (): UserProfile =>
+      UserProfile.create({
         firstName: 'Grace',
         lastName: 'Hopper',
-        email,
         role: 'customer',
         phone: '+32489123456',
       });
@@ -94,49 +93,34 @@ export function userWriteRepositoryContract(
       expect(error.code).toBe('USER_EMAIL_DUPLICATE');
     });
 
-    it('replaces every field under an id that exists', async () => {
+    it('replaces every mutable field under an id that exists', async () => {
       const user = aUser();
       await harness.repository.add(user);
 
       await expect(
-        harness.repository.replace(
-          replacementFor(user.id, 'grace@example.com'),
-        ),
+        harness.repository.replaceProfile(user.id, aProfile()),
       ).resolves.toBe(true);
     });
 
     it('reports false rather than throwing when replacing an unknown id', async () => {
-      const replacement = replacementFor(UserId.create(), 'nobody@example.com');
-
-      await expect(harness.repository.replace(replacement)).resolves.toBe(
-        false,
-      );
+      await expect(
+        harness.repository.replaceProfile(UserId.create(), aProfile()),
+      ).resolves.toBe(false);
     });
 
-    it('lets a user keep its own email through a replace', async () => {
-      const user = aUser();
+    it('leaves the email untouched by a profile replacement', async () => {
+      const user = aUser('ada@example.com');
       await harness.repository.add(user);
 
-      await expect(
-        harness.repository.replace(replacementFor(user.id, 'ada@example.com')),
-      ).resolves.toBe(true);
-    });
+      await harness.repository.replaceProfile(user.id, aProfile());
 
-    it('rejects a replace onto an email another user holds', async () => {
-      const first = aUser('ada@example.com');
-      const second = aUser('grace@example.com');
-      await harness.repository.add(first);
-      await harness.repository.add(second);
-
-      const error = await catchRejection(
-        () =>
-          harness.repository.replace(
-            replacementFor(second.id, 'ada@example.com'),
-          ),
+      // This write-only harness has no read path, so the only way to show the
+      // email survived is that it is still taken.
+      const stillTaken = await catchRejection(
+        () => harness.repository.add(aUser('ada@example.com')),
         DuplicateEmailException,
       );
-
-      expect(error.code).toBe('USER_EMAIL_DUPLICATE');
+      expect(stillTaken.code).toBe('USER_EMAIL_DUPLICATE');
     });
 
     it('reports false rather than throwing when deleting an unknown id', async () => {
@@ -168,32 +152,6 @@ export function userWriteRepositoryContract(
       // the rejected user, not just that the pre-existing one survived.
       await expect(harness.repository.delete(rejected.id)).resolves.toBe(false);
       await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
-    });
-
-    it('a replace rejected as a duplicate email leaves the target user and its email intact', async () => {
-      const kept = aUser('keep@example.com');
-      const target = aUser('target@example.com');
-      await harness.repository.add(kept);
-      await harness.repository.add(target);
-
-      const error = await catchRejection(
-        () =>
-          harness.repository.replace(
-            replacementFor(target.id, 'keep@example.com'),
-          ),
-        DuplicateEmailException,
-      );
-      expect(error.code).toBe('USER_EMAIL_DUPLICATE');
-
-      // This write-only harness has no read path, so the only way to show
-      // target's email was not overwritten is that it is still taken.
-      const stillTaken = await catchRejection(
-        () => harness.repository.add(aUser('target@example.com')),
-        DuplicateEmailException,
-      );
-      expect(stillTaken.code).toBe('USER_EMAIL_DUPLICATE');
-
-      await expect(harness.repository.delete(target.id)).resolves.toBe(true);
     });
   });
 }

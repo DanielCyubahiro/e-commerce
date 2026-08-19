@@ -20,4 +20,8 @@ export {
   type TokenPurposeValue,
 } from './value-objects/token-purpose.vo';
 export { UserId } from './value-objects/user-id.vo';
+export {
+  UserProfile,
+  type UserProfileInput,
+} from './value-objects/user-profile.vo';
 export { UserRole, type UserRoleValue } from './value-objects/user-role.vo';

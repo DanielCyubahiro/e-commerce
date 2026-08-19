@@ -42,6 +42,16 @@ const validBody = (
   ...overrides,
 });
 
+/** No `email`: it is immutable after registration, so `PUT` never accepts it. */
+const updateBody = (
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> => ({
+  firstName: 'Ada',
+  lastName: 'Lovelace',
+  role: 'seller',
+  ...overrides,
+});
+
 describe('users HTTP contract', () => {
   let app: INestApplication<App>;
 
@@ -221,7 +231,7 @@ describe('users HTTP contract', () => {
 
       await request(app.getHttpServer())
         .put(`/users/${id}`)
-        .send(validBody({ firstName: 'Grace' }))
+        .send(updateBody({ firstName: 'Grace' }))
         .expect(204);
 
       const response = await request(app.getHttpServer())
@@ -239,17 +249,27 @@ describe('users HTTP contract', () => {
     it('returns 404 when no user holds the id', async () => {
       await request(app.getHttpServer())
         .put(`/users/${MISSING_ID}`)
-        .send(validBody())
+        .send(updateBody())
         .expect(404);
     });
 
     it('returns 422 for a broken invariant even when the id holds nothing', async () => {
       const response = await request(app.getHttpServer())
         .put(`/users/${MISSING_ID}`)
-        .send(validBody({ role: 'admin' }))
+        .send(updateBody({ role: 'admin' }))
         .expect(422);
 
       expect(bodyOf(response).code).toBe('USER_ROLE_INVALID');
+    });
+
+    it('returns 400 when the payload carries an email, since it is immutable after registration', async () => {
+      const created = await create().expect(201);
+      const id = bodyOf(created).id;
+
+      await request(app.getHttpServer())
+        .put(`/users/${id}`)
+        .send(updateBody({ email: 'new@example.com' }))
+        .expect(400);
     });
   });
 

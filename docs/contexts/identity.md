@@ -9,8 +9,7 @@ specific to `src/identity/`.
 
 [`User`](../../src/identity/domain/entities/user.entity.ts) is the aggregate and
 the whole consistency boundary. [`User.create`](../../src/identity/domain/entities/user.entity.ts)
-and [`User.replace`](../../src/identity/domain/entities/user.entity.ts) are the
-only ways to construct one, over one shared validation path:
+is the only way to construct one, over one shared validation path:
 
 - First and last name: 1 to 100 characters after trimming.
 - Email: [`Email.create`](../../src/identity/domain/value-objects/email.vo.ts)
@@ -66,7 +65,7 @@ binding reaches the same shared test Postgres connection; `reset` truncates
 the `users` table between tests and `close` ends that connection.
 
 Failure modes a fake cannot reproduce, such as the `users_set_updated_at`
-trigger moving `updated_at` on a real `replace`, are covered outside the
+trigger moving `updated_at` on a real `replaceProfile`, are covered outside the
 shared contract in
 [`drizzle-user-write.integration-spec.ts`](../../test/contracts/drizzle-user-write.integration-spec.ts).
 
@@ -133,11 +132,11 @@ but differs after that.
 [`UserController.replace`](../../src/identity/presentation/user.controller.ts)
 dispatches an `UpdateUserCommand`, and
 [`UpdateUserHandler`](../../src/identity/application/use-cases/commands/update-user/update-user.handler.ts)
-builds the aggregate through
-[`User.replace`](../../src/identity/domain/entities/user.entity.ts) before the
+builds a profile through
+[`UserProfile.create`](../../src/identity/domain/value-objects/user-profile.vo.ts) before the
 store is touched, so a request that breaks an invariant answers 422 even when
 the id holds nothing. The handler then calls
-[`UserWriteRepository.replace`](../../src/identity/application/ports/user.write-repository.ts),
+[`UserWriteRepository.replaceProfile`](../../src/identity/application/ports/user.write-repository.ts),
 which returns false rather than throwing when no row matched; the handler
 turns that into `USER_NOT_FOUND`. Neither the handler nor the adapter sets
 `updated_at`; the `users_set_updated_at` trigger moves it on every write,

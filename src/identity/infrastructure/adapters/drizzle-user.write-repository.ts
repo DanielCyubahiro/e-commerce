@@ -4,7 +4,7 @@ import {
   DuplicateEmailException,
   type UserWriteRepository,
 } from '@/identity/application';
-import type { User, UserId } from '@/identity/domain';
+import type { User, UserId, UserProfile } from '@/identity/domain';
 import {
   DRIZZLE,
   type DrizzleDB,
@@ -31,11 +31,11 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
     try {
       await this.db.insert(users).values({
         id: user.id.value,
-        firstName: user.firstName,
-        lastName: user.lastName,
+        firstName: user.profile.firstName,
+        lastName: user.profile.lastName,
         email: user.email.value,
-        role: user.role.value,
-        phone: user.phone?.value ?? null,
+        role: user.profile.role.value,
+        phone: user.profile.phone?.value ?? null,
       });
     } catch (error) {
       if (DrizzleUserWriteRepository.isDuplicateEmail(error)) {
@@ -45,30 +45,23 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
     }
   }
 
-  async replace(user: User): Promise<boolean> {
-    try {
-      const updated = await this.db
-        .update(users)
-        .set({
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email.value,
-          role: user.role.value,
-          phone: user.phone?.value ?? null,
-          // updatedAt is absent deliberately: the users_set_updated_at trigger
-          // owns it, so both timestamps come from the database clock. Setting
-          // it here would reintroduce the host clock. See ADR 0009.
-        })
-        .where(eq(users.id, user.id.value))
-        .returning({ id: users.id });
+  async replaceProfile(id: UserId, profile: UserProfile): Promise<boolean> {
+    // No try/catch and no duplicate-email branch: email is not in the SET list,
+    // so this statement cannot raise a unique violation.
+    const updated = await this.db
+      .update(users)
+      .set({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        role: profile.role.value,
+        phone: profile.phone?.value ?? null,
+        // updatedAt is absent deliberately: the users_set_updated_at trigger
+        // owns it, so both timestamps come from the database clock. See ADR 0009.
+      })
+      .where(eq(users.id, id.value))
+      .returning({ id: users.id });
 
-      return updated.length > 0;
-    } catch (error) {
-      if (DrizzleUserWriteRepository.isDuplicateEmail(error)) {
-        throw new DuplicateEmailException(user.email.value);
-      }
-      throw error;
-    }
+    return updated.length > 0;
   }
 
   async delete(id: UserId): Promise<boolean> {

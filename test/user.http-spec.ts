@@ -123,7 +123,10 @@ describe('users HTTP contract', () => {
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
     );
-    await app.init();
+    // Listening on an OS-assigned port, rather than app.init(), stops
+    // supertest from opening and closing an ephemeral listener on every
+    // request across this suite's many cases.
+    await app.listen(0);
   });
 
   afterEach(async () => {
@@ -215,6 +218,21 @@ describe('users HTTP contract', () => {
       const response = await create({ email: 'ADA@Example.com' }).expect(409);
 
       expect(bodyOf(response).code).toBe('USER_EMAIL_DUPLICATE');
+    });
+
+    it('throttles repeated registration attempts', async () => {
+      // Distinct emails per call: a repeat would answer 409 from the handler,
+      // which would leave this test unable to tell a real 429 from the
+      // limiter apart from one that never ran because the guard sits ahead of
+      // it either way.
+      for (let i = 0; i < 5; i += 1) {
+        await create({ email: `user-${i}@example.com` }).expect(201);
+      }
+
+      const response = await create({ email: 'user-5@example.com' }).expect(
+        429,
+      );
+      expect(bodyOf(response).code).toBeUndefined();
     });
   });
 
@@ -348,6 +366,18 @@ describe('users HTTP contract', () => {
 
   it('refuses a protected endpoint with no token', async () => {
     await request(app.getHttpServer()).get('/users').expect(401);
+  });
+
+  it('answers 401 rather than 400 when a missing token meets a malformed body', async () => {
+    // Asserts the guard-before-pipe ordering documented on JwtAuthGuard: a
+    // ValidationPipe running first would answer 400 for the unknown property
+    // before the guard ever saw the missing token.
+    const response = await request(app.getHttpServer())
+      .put(`/users/${MISSING_ID}`)
+      .send({ nickname: 'Ada' })
+      .expect(401);
+
+    expect(bodyOf(response).code).toBe('AUTH_UNAUTHENTICATED');
   });
 
   it('leaves the public endpoints reachable without a token', async () => {

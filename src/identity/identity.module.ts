@@ -62,6 +62,16 @@ import { UserController } from './presentation/user.controller';
     // gateway or CDN, with the application keeping only the limits that need
     // to know about accounts; these six are a stand-in until that split
     // happens.
+    //
+    // The limits also key on `req.ip`, and Express's `trust proxy` is off by
+    // default in main.ts, so that is the peer address, not a client IP a
+    // proxy forwarded. Behind any load balancer or CDN every caller shares
+    // the peer's one bucket, and the 5-per-hour registration limit becomes
+    // five per hour for the entire world. Do not flip `trust proxy` on to fix
+    // that without first deciding which hop is trusted: trusting
+    // `X-Forwarded-For` from an untrusted peer lets a caller spoof its
+    // address and bypass throttling entirely, which is worse than the
+    // collapsed-bucket problem it would solve.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
   ],
   controllers: [UserController, AuthController],

@@ -115,7 +115,12 @@ export class AuthController {
     );
   }
 
-  /** Revokes every chain of the caller's user, including the one it was called from. */
+  /**
+   * Revokes every refresh chain of the caller's user, including the one it was
+   * called from. That ends renewal, not access: the guard does no per-request
+   * revocation lookup, so the caller's current access token keeps working
+   * until it expires.
+   */
   @Post('logout-all')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {

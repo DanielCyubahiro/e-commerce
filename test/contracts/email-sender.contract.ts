@@ -15,6 +15,34 @@ export interface SenderHarness {
   close(): Promise<void>;
 }
 
+const POLL_INTERVAL_MS = 25;
+const POLL_TIMEOUT_MS = 2_000;
+
+/**
+ * `sendMail` resolves on SMTP acceptance (see the SMTP port's own comment),
+ * not on the message becoming visible through Mailpit's HTTP API, so a single
+ * read after `send` can observe zero or a partial set. Poll until the count
+ * this call expects shows up, or fail with a useful message once the deadline
+ * passes, rather than asserting on whatever happened to have landed yet.
+ */
+async function waitForMessages(
+  harness: SenderHarness,
+  expectedCount: number,
+): Promise<SentMessage[]> {
+  const deadline = Date.now() + POLL_TIMEOUT_MS;
+  let sent: SentMessage[] = [];
+
+  do {
+    sent = await harness.sent();
+    if (sent.length >= expectedCount) return sent;
+    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+  } while (Date.now() < deadline);
+
+  throw new Error(
+    `Expected at least ${expectedCount} sent message(s), found ${sent.length} after ${POLL_TIMEOUT_MS}ms`,
+  );
+}
+
 /**
  * Both implementations have to agree on what reaches the transport, not just
  * that `send` resolved. The fake records; the SMTP adapter's messages are read
@@ -44,7 +72,7 @@ export function emailSenderContract(
     it('delivers a verification message to the address given', async () => {
       await harness.sender.sendEmailVerification(recipient, 'token-abc');
 
-      const sent = await harness.sent();
+      const sent = await waitForMessages(harness, 1);
       expect(sent).toHaveLength(1);
       expect(sent[0]?.to).toBe('ada@example.com');
     });
@@ -52,13 +80,15 @@ export function emailSenderContract(
     it('puts the verification token in the body, so a user can act on it', async () => {
       await harness.sender.sendEmailVerification(recipient, 'token-abc');
 
-      expect((await harness.sent())[0]?.body).toContain('token-abc');
+      expect((await waitForMessages(harness, 1))[0]?.body).toContain(
+        'token-abc',
+      );
     });
 
     it('delivers a reset message carrying its own token', async () => {
       await harness.sender.sendPasswordReset(recipient, 'token-xyz');
 
-      const sent = await harness.sent();
+      const sent = await waitForMessages(harness, 1);
       expect(sent).toHaveLength(1);
       expect(sent[0]?.body).toContain('token-xyz');
       expect(sent[0]?.subject).not.toBe('');
@@ -68,7 +98,7 @@ export function emailSenderContract(
       await harness.sender.sendEmailVerification(recipient, 'token-abc');
       await harness.sender.sendPasswordReset(recipient, 'token-xyz');
 
-      const [verification, reset] = await harness.sent();
+      const [verification, reset] = await waitForMessages(harness, 2);
       expect(verification?.subject).not.toBe(reset?.subject);
     });
 
@@ -79,7 +109,7 @@ export function emailSenderContract(
       await harness.sender.sendPasswordReset(recipient, 'token-xyz');
       await harness.sender.sendEmailVerification(recipient, 'token-abc');
 
-      const [reset, verification] = await harness.sent();
+      const [reset, verification] = await waitForMessages(harness, 2);
       expect(reset?.body).toContain('token-xyz');
       expect(reset?.body).not.toContain('token-abc');
       expect(verification?.body).toContain('token-abc');

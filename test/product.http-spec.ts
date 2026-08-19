@@ -89,7 +89,10 @@ describe('products HTTP contract', () => {
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
     );
-    await app.init();
+    // Listening on an OS-assigned port, rather than app.init(), stops
+    // supertest from opening and closing an ephemeral listener on every
+    // request across this suite's many cases.
+    await app.listen(0);
   });
 
   afterEach(async () => {

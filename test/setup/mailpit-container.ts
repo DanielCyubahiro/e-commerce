@@ -23,8 +23,11 @@ interface MailpitMessage {
  * would slow suites that never send mail.
  */
 export async function startMailpit(): Promise<MailpitHandle> {
+  // Pinned like postgres-container.ts and docker-compose.yml's mongo service.
+  // Mailpit publishes no bare major tag, so v1.30 (the current minor line) is
+  // the closest equivalent to their major-only pins.
   const container: StartedTestContainer = await new GenericContainer(
-    'axllent/mailpit:latest',
+    'axllent/mailpit:v1.30',
   )
     .withExposedPorts(1025, 8025)
     .start();

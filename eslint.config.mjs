@@ -107,7 +107,7 @@ export default tseslint.config(
               // alongside exception base classes, so importing it whole
               // bypasses the group above. Match only the barrel path itself
               // (last segment "domain", or "domain/index" since
-              // '@/product/domain/index' resolves to the same file), so a
+              // '@/catalogue/domain/index' resolves to the same file), so a
               // direct file import like '../../domain/domain-exception.base'
               // keeps working.
               regex: '(^|/)domain(/index)?$',
@@ -137,7 +137,7 @@ export default tseslint.config(
               // blocks below: no-restricted-imports matches specifiers with
               // gitignore semantics, where a trailing /** matches paths
               // nested under a directory but not a bare barrel import of the
-              // directory itself (e.g. '@/product/application').
+              // directory itself (e.g. '@/catalogue/application').
               group: [
                 '**/application/**',
                 '**/application',

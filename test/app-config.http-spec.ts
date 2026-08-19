@@ -14,6 +14,11 @@ import {
 } from '@/shared/application';
 import { type DomainErrorKind, DomainException } from '@/shared/domain';
 
+// `configureApp` is not the whole request pipeline: `JwtAuthGuard` is global
+// too, but registered as `APP_GUARD` in `src/identity/identity.module.ts`
+// rather than here, because only that provider form gets dependency
+// injection. A reader wanting the full pipeline needs both files.
+
 class ProbeInvariantException extends DomainException {
   readonly code = 'PROBE_INVARIANT';
   readonly kind: DomainErrorKind = 'invariant';

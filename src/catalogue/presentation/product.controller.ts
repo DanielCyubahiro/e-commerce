@@ -24,6 +24,7 @@ import {
 } from '../application';
 import { CreateProductDto } from './dtos/create-product.dto';
 import { ListProductsQueryDto } from './dtos/list-products.query.dto';
+import { Public } from '@/shared/presentation/decorators/public.decorator';
 import type { PaginatedResponse } from '@/shared/presentation/dtos/paginated-response.dto';
 import { ProductIdParamDto } from './dtos/product-id.param.dto';
 import { ProductResponseDto } from './dtos/product-response.dto';
@@ -70,6 +71,7 @@ export class ProductController {
     return { id };
   }
 
+  @Public()
   @Get()
   async findAll(
     @Query() query: ListProductsQueryDto,
@@ -96,6 +98,7 @@ export class ProductController {
     };
   }
 
+  @Public()
   @Get(':id')
   async findOne(
     @Param() params: ProductIdParamDto,

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import {
   ACCESS_TOKEN_ISSUER,
@@ -26,6 +27,7 @@ import {
   SmtpEmailSender,
 } from './infrastructure';
 import { AuthController } from './presentation/auth.controller';
+import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard';
 import { UserController } from './presentation/user.controller';
 
 /**
@@ -42,6 +44,10 @@ import { UserController } from './presentation/user.controller';
   providers: [
     ...commandHandlers,
     ...queryHandlers,
+    // Global, so an endpoint added later is protected by default. Registered
+    // here rather than in configureApp because APP_GUARD is the only form that
+    // gets dependency injection.
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: USER_WRITE_REPOSITORY, useClass: DrizzleUserWriteRepository },
     { provide: USER_READ_REPOSITORY, useClass: DrizzleUserReadRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },

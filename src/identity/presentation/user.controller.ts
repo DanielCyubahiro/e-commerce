@@ -14,6 +14,7 @@ import {
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import type { Response } from 'express';
 import type { Page } from '@/shared/application';
+import { Public } from '@/shared/presentation/decorators/public.decorator';
 import {
   DeleteUserCommand,
   GetUserQuery,
@@ -45,9 +46,10 @@ export class UserController {
    * response and stops serialising the return value, so `return { id }` would
    * never send.
    *
-   * This is registration: it stays public once a route guard lands elsewhere,
-   * since nobody can hold a token before an account exists.
+   * This is registration: it stays public, since nobody can hold a token
+   * before an account exists.
    */
+  @Public()
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(

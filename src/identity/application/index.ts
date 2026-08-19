@@ -2,6 +2,7 @@ export { DuplicateEmailException } from './exceptions/duplicate-email.exception'
 export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
 export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
 export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
+export { UnauthenticatedException } from './exceptions/unauthenticated.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
 export {
   ACCESS_TOKEN_ISSUER,

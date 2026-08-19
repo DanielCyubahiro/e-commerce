@@ -43,6 +43,9 @@ interface ResponseBody {
 const bodyOf = (response: request.Response): ResponseBody =>
   response.body as ResponseBody;
 
+// No Authorization header anywhere below: login, verify-email, and
+// verify-email/resend are all marked @Public() (auth.controller.ts), since a
+// client cannot hold a token before any of them succeeds.
 describe('auth HTTP contract', () => {
   let app: INestApplication<App>;
   let tokens: InMemoryOneTimeTokenRepository;

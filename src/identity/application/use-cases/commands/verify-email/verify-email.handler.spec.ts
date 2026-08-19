@@ -63,7 +63,7 @@ describe('VerifyEmailHandler', () => {
     );
   });
 
-  it('succeeds again when the same link is followed twice', async () => {
+  it('succeeds again when the same link is followed twice, without rewriting the timestamp', async () => {
     // A double-clicked link, or a mail client that prefetches. The token was
     // already consumed, so verification already happened: reporting an error
     // would contradict the state.
@@ -71,9 +71,21 @@ describe('VerifyEmailHandler', () => {
     await issueToken(secret, new Date('2026-08-20T10:00:00.000Z'));
     await handler.execute(new VerifyEmailCommand(secret.plaintext));
 
+    // The clock has to move, or a regression that verified a second time
+    // would write an identical timestamp and this assertion would pass by
+    // coincidence.
+    jest.setSystemTime(new Date('2026-08-19T11:00:00.000Z'));
+
     await expect(
       handler.execute(new VerifyEmailCommand(secret.plaintext)),
     ).resolves.toBeUndefined();
+
+    const record = await credentials.findAuthentication(
+      Email.create('ada@example.com'),
+    );
+    expect(record?.emailVerifiedAt).toEqual(
+      new Date('2026-08-19T10:00:00.000Z'),
+    );
   });
 
   it('reports an expired link distinctly, so the user knows to ask for another', async () => {

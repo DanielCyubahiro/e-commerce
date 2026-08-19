@@ -1,13 +1,13 @@
 import { Inject } from '@nestjs/common';
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs';
 import { SecretToken, TokenPurpose, UserId } from '@/identity/domain';
-import type { ConsumeOutcome } from '../../../ports/one-time-token.repository';
 import {
   CREDENTIAL_REPOSITORY,
   type CredentialRepository,
 } from '../../../ports/credential.repository';
 import {
   ONE_TIME_TOKEN_REPOSITORY,
+  type ConsumeOutcome,
   type OneTimeTokenRepository,
 } from '../../../ports/one-time-token.repository';
 import { InvalidVerificationTokenException } from '../../../exceptions/invalid-verification-token.exception';

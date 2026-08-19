@@ -1,7 +1,14 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
-import { ResendVerificationCommand, VerifyEmailCommand } from '../application';
+import {
+  LoginCommand,
+  type LoginResult,
+  ResendVerificationCommand,
+  VerifyEmailCommand,
+} from '../application';
+import { LoginDto } from './dtos/login.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
+import { SessionResponseDto } from './dtos/session-response.dto';
 import { VerifyEmailDto } from './dtos/verify-email.dto';
 
 /**
@@ -11,6 +18,16 @@ import { VerifyEmailDto } from './dtos/verify-email.dto';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly commandBus: CommandBus) {}
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() body: LoginDto): Promise<SessionResponseDto> {
+    const result = await this.commandBus.execute<LoginCommand, LoginResult>(
+      new LoginCommand(body.email, body.password),
+    );
+
+    return SessionResponseDto.fromResult(result);
+  }
 
   /**
    * A POST carrying the token in the body, not a clickable GET. Link

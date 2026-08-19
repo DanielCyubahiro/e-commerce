@@ -9,6 +9,7 @@ import {
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
   queryHandlers,
+  REFRESH_TOKEN_REPOSITORY,
   TOKEN_LIFETIMES,
   type TokenLifetimes,
   USER_READ_REPOSITORY,
@@ -18,6 +19,7 @@ import {
   Argon2PasswordHasher,
   DrizzleCredentialRepository,
   DrizzleOneTimeTokenRepository,
+  DrizzleRefreshTokenRepository,
   DrizzleUserReadRepository,
   DrizzleUserWriteRepository,
   JoseAccessTokenIssuer,
@@ -47,6 +49,10 @@ import { UserController } from './presentation/user.controller';
     {
       provide: ONE_TIME_TOKEN_REPOSITORY,
       useClass: DrizzleOneTimeTokenRepository,
+    },
+    {
+      provide: REFRESH_TOKEN_REPOSITORY,
+      useClass: DrizzleRefreshTokenRepository,
     },
     {
       provide: ACCESS_TOKEN_ISSUER,

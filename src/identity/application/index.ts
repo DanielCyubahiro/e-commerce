@@ -1,4 +1,6 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
+export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
+export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
 export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
 export {
@@ -47,6 +49,11 @@ export {
 } from './token-lifetimes';
 export { DeleteUserCommand } from './use-cases/commands/delete-user/delete-user.command';
 export { DeleteUserHandler } from './use-cases/commands/delete-user/delete-user.handler';
+export { LoginCommand } from './use-cases/commands/login/login.command';
+export {
+  LoginHandler,
+  type LoginResult,
+} from './use-cases/commands/login/login.handler';
 export { RegisterUserCommand } from './use-cases/commands/register-user/register-user.command';
 export { RegisterUserHandler } from './use-cases/commands/register-user/register-user.handler';
 export { ResendVerificationCommand } from './use-cases/commands/resend-verification/resend-verification.command';
@@ -64,6 +71,7 @@ export {
 } from './use-cases/queries/list-users/list-users.query';
 
 import { DeleteUserHandler as DeleteUser } from './use-cases/commands/delete-user/delete-user.handler';
+import { LoginHandler as Login } from './use-cases/commands/login/login.handler';
 import { RegisterUserHandler as RegisterUser } from './use-cases/commands/register-user/register-user.handler';
 import { ResendVerificationHandler as ResendVerification } from './use-cases/commands/resend-verification/resend-verification.handler';
 import { UpdateUserHandler as UpdateUser } from './use-cases/commands/update-user/update-user.handler';
@@ -77,5 +85,6 @@ export const commandHandlers = [
   UpdateUser,
   VerifyEmail,
   ResendVerification,
+  Login,
 ];
 export const queryHandlers = [ListUsers, GetUser];

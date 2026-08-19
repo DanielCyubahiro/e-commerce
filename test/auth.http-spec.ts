@@ -9,6 +9,7 @@ import {
   EMAIL_SENDER,
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
+  REFRESH_TOKEN_REPOSITORY,
   TOKEN_LIFETIMES,
   USER_READ_REPOSITORY,
   USER_WRITE_REPOSITORY,
@@ -16,6 +17,7 @@ import {
 import { IdentityModule } from '@/identity/identity.module';
 import {
   OneTimeTokenId,
+  Password,
   SecretToken,
   TokenPurpose,
   UserId,
@@ -24,6 +26,7 @@ import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
 import { InMemoryOneTimeTokenRepository } from '@test/fakes/in-memory-one-time-token.repository';
+import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
 import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
@@ -32,6 +35,9 @@ const USER_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 
 interface ResponseBody {
   code?: string;
+  accessToken?: string;
+  tokenType?: string;
+  refreshToken?: string;
 }
 
 const bodyOf = (response: request.Response): ResponseBody =>
@@ -41,11 +47,15 @@ describe('auth HTTP contract', () => {
   let app: INestApplication<App>;
   let tokens: InMemoryOneTimeTokenRepository;
   let credentials: InMemoryCredentialRepository;
+  let refreshTokens: InMemoryRefreshTokenRepository;
+  let hasher: FakePasswordHasher;
 
   beforeEach(async () => {
     const writes = new InMemoryUserWriteRepository();
     tokens = new InMemoryOneTimeTokenRepository();
     credentials = new InMemoryCredentialRepository();
+    refreshTokens = new InMemoryRefreshTokenRepository();
+    hasher = new FakePasswordHasher();
 
     // Same rationale as user.http-spec.ts: this suite imports only
     // IdentityModule, so every provider identity.module.ts otherwise builds
@@ -59,13 +69,15 @@ describe('auth HTTP contract', () => {
       .overrideProvider(USER_READ_REPOSITORY)
       .useValue(new InMemoryUserReadRepository(writes))
       .overrideProvider(PASSWORD_HASHER)
-      .useValue(new FakePasswordHasher())
+      .useValue(hasher)
       .overrideProvider(EMAIL_SENDER)
       .useValue(new RecordingEmailSender())
       .overrideProvider(CREDENTIAL_REPOSITORY)
       .useValue(credentials)
       .overrideProvider(ONE_TIME_TOKEN_REPOSITORY)
       .useValue(tokens)
+      .overrideProvider(REFRESH_TOKEN_REPOSITORY)
+      .useValue(refreshTokens)
       .overrideProvider(ACCESS_TOKEN_ISSUER)
       .useValue(new FakeAccessTokenIssuer())
       .overrideProvider(TOKEN_LIFETIMES)
@@ -157,6 +169,101 @@ describe('auth HTTP contract', () => {
         .expect(422);
 
       expect(bodyOf(response).code).toBe('USER_EMAIL_INVALID');
+    });
+  });
+
+  describe('POST /auth/login', () => {
+    const seedAccount = async (
+      overrides: { emailVerifiedAt?: Date | null } = {},
+    ) => {
+      const hash = await hasher.hash(Password.create('correct horse battery'));
+      credentials.seed({
+        userId: USER_ID,
+        email: 'ada@example.com',
+        role: 'seller',
+        passwordHash: hash.value,
+        emailVerifiedAt:
+          overrides.emailVerifiedAt === undefined
+            ? new Date()
+            : overrides.emailVerifiedAt,
+      });
+    };
+
+    it('returns 200 with a bearer session for good credentials', async () => {
+      await seedAccount();
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'ada@example.com', password: 'correct horse battery' })
+        .expect(200);
+
+      const body = bodyOf(response);
+      expect(body.tokenType).toBe('Bearer');
+      expect(body.accessToken).toEqual(expect.any(String));
+      expect(body.refreshToken).toEqual(expect.any(String));
+    });
+
+    it('returns 401 with a typed code for a wrong password', async () => {
+      await seedAccount();
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'ada@example.com', password: 'wrong password' })
+        .expect(401);
+
+      expect(bodyOf(response).code).toBe('AUTH_INVALID_CREDENTIALS');
+    });
+
+    it('answers an unknown address with the same status and code as a wrong password', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'nobody@example.com', password: 'whatever password' })
+        .expect(401);
+
+      expect(bodyOf(response).code).toBe('AUTH_INVALID_CREDENTIALS');
+    });
+
+    it('returns 403 with a typed code for an unverified account', async () => {
+      await seedAccount({ emailVerifiedAt: null });
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'ada@example.com', password: 'correct horse battery' })
+        .expect(403);
+
+      expect(bodyOf(response).code).toBe('AUTH_EMAIL_NOT_VERIFIED');
+    });
+
+    it('returns 400 when the password is missing', async () => {
+      await seedAccount();
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'ada@example.com' })
+        .expect(400);
+    });
+
+    it('returns 422 with a typed code for a malformed email', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'not-an-email', password: 'whatever password' })
+        .expect(422);
+
+      expect(bodyOf(response).code).toBe('USER_EMAIL_INVALID');
+    });
+
+    it('returns 400 for a password over the DTO ceiling, before the domain is ever asked', async () => {
+      // LoginDto's password field is bounded at 128 to match PasswordAttempt's
+      // own ceiling, the same argon2 cost defence RegisterUserDto documents.
+      // The two ceilings coinciding means the DTO is always what catches an
+      // over-length attempt: ValidationPipe answers before the command bus
+      // ever dispatches, so this is 400 from the pipe, not 422 from the domain.
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'ada@example.com', password: 'a'.repeat(129) })
+        .expect(400);
+
+      expect(bodyOf(response).code).toBeUndefined();
     });
   });
 });

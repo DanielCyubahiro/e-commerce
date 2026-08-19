@@ -23,11 +23,11 @@ interface Row {
  * the join `rotate` needs to answer with a role.
  */
 export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
-  private readonly rows = new Map<string, Row>();
+  private readonly store = new Map<string, Row>();
   private readonly roles = new Map<string, string>();
 
   issue(token: IssuedRefreshToken): Promise<void> {
-    this.rows.set(token.tokenHash.value, {
+    this.store.set(token.tokenHash.value, {
       id: token.id.value,
       sessionId: token.sessionId.value,
       userId: token.userId.value,
@@ -45,7 +45,7 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
     successor: RefreshSuccessor,
     now: Date,
   ): Promise<RotationOutcome> {
-    const row = this.rows.get(presented.value);
+    const row = this.store.get(presented.value);
 
     if (!row) {
       return Promise.resolve({ outcome: 'unknown' });
@@ -70,7 +70,7 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
     }
 
     row.usedAt = now;
-    this.rows.set(successor.tokenHash.value, {
+    this.store.set(successor.tokenHash.value, {
       id: successor.id.value,
       sessionId: row.sessionId,
       userId: row.userId,
@@ -99,7 +99,7 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
   }
 
   revokeSession(sessionId: SessionId, now: Date): Promise<void> {
-    for (const row of this.rows.values()) {
+    for (const row of this.store.values()) {
       if (row.sessionId === sessionId.value && row.revokedAt === null) {
         row.revokedAt = now;
       }
@@ -113,7 +113,7 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
     now: Date,
     exceptSessionId?: SessionId,
   ): Promise<void> {
-    for (const row of this.rows.values()) {
+    for (const row of this.store.values()) {
       if (
         row.userId === userId.value &&
         row.revokedAt === null &&
@@ -131,8 +131,18 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
     this.roles.set(userId, role);
   }
 
+  /** Test seam, not part of the port: every digest currently stored, issue order. */
+  digests(): string[] {
+    return [...this.store.keys()];
+  }
+
+  /** Test seam, not part of the port: every row currently stored, issue order. */
+  rows(): Row[] {
+    return [...this.store.values()];
+  }
+
   clear(): void {
-    this.rows.clear();
+    this.store.clear();
     this.roles.clear();
   }
 }

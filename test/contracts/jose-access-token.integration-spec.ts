@@ -1,3 +1,4 @@
+import { SignJWT } from 'jose';
 import { JoseAccessTokenIssuer } from '@/identity/infrastructure';
 
 // Outside the shared contract, the same way drizzle-user-write.integration-spec
@@ -31,5 +32,28 @@ describe('JoseAccessTokenIssuer expiry', () => {
     const { token } = await issuer.issue(claims);
 
     await expect(issuer.verify(token)).resolves.toEqual(claims);
+  });
+});
+
+// Also outside the shared contract: the fake cannot produce a validly-signed
+// token missing a claim, since it only ever encodes what it was given. The
+// guard this covers exists for a token something other than this adapter
+// signed, not for anything issue() itself can produce.
+describe('JoseAccessTokenIssuer, a token this adapter did not shape', () => {
+  it('returns null for a validly-signed token missing a claim', async () => {
+    const secret = 'a'.repeat(32);
+    const issuer = new JoseAccessTokenIssuer(secret, 900);
+
+    // Bypasses issue(), which always sets all three claims, so the missing
+    // `sid` here could only come from something else that signed with the
+    // same secret.
+    const token = await new SignJWT({ role: 'customer' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('3f2504e0-4f89-41d3-9a0c-0305e82c3301')
+      .setIssuedAt()
+      .setExpirationTime('900s')
+      .sign(new TextEncoder().encode(secret));
+
+    await expect(issuer.verify(token)).resolves.toBeNull();
   });
 });

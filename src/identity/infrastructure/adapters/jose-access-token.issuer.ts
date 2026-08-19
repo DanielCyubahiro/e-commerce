@@ -1,3 +1,8 @@
+// jose is held on the 4.x line (see package.json) rather than the house-style
+// caret: 6.x ships ESM-only with no `require` export, which breaks this repo's
+// CommonJS Jest config across every suite that imports the identity
+// infrastructure barrel. The pin is exact because a 4.16 backport could
+// reintroduce that same break.
 import { SignJWT, jwtVerify } from 'jose';
 import type {
   AccessClaims,

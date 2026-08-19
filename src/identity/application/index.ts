@@ -1,5 +1,6 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
+export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
 export {
   USER_READ_REPOSITORY,
   type UserFilters,

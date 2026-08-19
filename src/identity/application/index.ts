@@ -12,6 +12,12 @@ export {
   type CredentialRepository,
 } from './ports/credential.repository';
 export { EMAIL_SENDER, type EmailSender } from './ports/email.sender';
+export {
+  ONE_TIME_TOKEN_REPOSITORY,
+  type ConsumeOutcome,
+  type IssuedOneTimeToken,
+  type OneTimeTokenRepository,
+} from './ports/one-time-token.repository';
 export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
 export {
   USER_READ_REPOSITORY,

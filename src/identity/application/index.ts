@@ -2,6 +2,7 @@ export { DuplicateEmailException } from './exceptions/duplicate-email.exception'
 export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
 export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
 export { InvalidRefreshTokenException } from './exceptions/invalid-refresh-token.exception';
+export { InvalidResetTokenException } from './exceptions/invalid-reset-token.exception';
 export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
 export { UnauthenticatedException } from './exceptions/unauthenticated.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
@@ -49,6 +50,8 @@ export {
   resetExpiry,
   verificationExpiry,
 } from './token-lifetimes';
+export { ChangePasswordCommand } from './use-cases/commands/change-password/change-password.command';
+export { ChangePasswordHandler } from './use-cases/commands/change-password/change-password.handler';
 export { DeleteUserCommand } from './use-cases/commands/delete-user/delete-user.command';
 export { DeleteUserHandler } from './use-cases/commands/delete-user/delete-user.handler';
 export { LoginCommand } from './use-cases/commands/login/login.command';
@@ -64,8 +67,12 @@ export { RefreshSessionCommand } from './use-cases/commands/refresh-session/refr
 export { RefreshSessionHandler } from './use-cases/commands/refresh-session/refresh-session.handler';
 export { RegisterUserCommand } from './use-cases/commands/register-user/register-user.command';
 export { RegisterUserHandler } from './use-cases/commands/register-user/register-user.handler';
+export { RequestPasswordResetCommand } from './use-cases/commands/request-password-reset/request-password-reset.command';
+export { RequestPasswordResetHandler } from './use-cases/commands/request-password-reset/request-password-reset.handler';
 export { ResendVerificationCommand } from './use-cases/commands/resend-verification/resend-verification.command';
 export { ResendVerificationHandler } from './use-cases/commands/resend-verification/resend-verification.handler';
+export { ResetPasswordCommand } from './use-cases/commands/reset-password/reset-password.command';
+export { ResetPasswordHandler } from './use-cases/commands/reset-password/reset-password.handler';
 export { UpdateUserCommand } from './use-cases/commands/update-user/update-user.command';
 export { UpdateUserHandler } from './use-cases/commands/update-user/update-user.handler';
 export { VerifyEmailCommand } from './use-cases/commands/verify-email/verify-email.command';
@@ -78,13 +85,16 @@ export {
   type ListUsersFilters,
 } from './use-cases/queries/list-users/list-users.query';
 
+import { ChangePasswordHandler as ChangePassword } from './use-cases/commands/change-password/change-password.handler';
 import { DeleteUserHandler as DeleteUser } from './use-cases/commands/delete-user/delete-user.handler';
 import { LoginHandler as Login } from './use-cases/commands/login/login.handler';
 import { LogoutAllSessionsHandler as LogoutAllSessions } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
 import { LogoutHandler as Logout } from './use-cases/commands/logout/logout.handler';
 import { RefreshSessionHandler as RefreshSession } from './use-cases/commands/refresh-session/refresh-session.handler';
 import { RegisterUserHandler as RegisterUser } from './use-cases/commands/register-user/register-user.handler';
+import { RequestPasswordResetHandler as RequestPasswordReset } from './use-cases/commands/request-password-reset/request-password-reset.handler';
 import { ResendVerificationHandler as ResendVerification } from './use-cases/commands/resend-verification/resend-verification.handler';
+import { ResetPasswordHandler as ResetPassword } from './use-cases/commands/reset-password/reset-password.handler';
 import { UpdateUserHandler as UpdateUser } from './use-cases/commands/update-user/update-user.handler';
 import { VerifyEmailHandler as VerifyEmail } from './use-cases/commands/verify-email/verify-email.handler';
 import { GetUserHandler as GetUser } from './use-cases/queries/get-user/get-user.handler';
@@ -100,5 +110,8 @@ export const commandHandlers = [
   RefreshSession,
   Logout,
   LogoutAllSessions,
+  RequestPasswordReset,
+  ResetPassword,
+  ChangePassword,
 ];
 export const queryHandlers = [ListUsers, GetUser];

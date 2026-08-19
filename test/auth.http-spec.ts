@@ -370,4 +370,127 @@ describe('auth HTTP contract', () => {
         .expect(204);
     });
   });
+
+  describe('POST /auth/forgot-password', () => {
+    it('returns 202 for a known address', async () => {
+      credentials.seed({
+        userId: USER_ID,
+        email: 'ada@example.com',
+        role: 'seller',
+        passwordHash: 'hash-1',
+        emailVerifiedAt: new Date(),
+      });
+
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: 'ada@example.com' })
+        .expect(202);
+    });
+
+    it('returns 202 for an address nobody holds, since the endpoint answers the same either way', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/forgot-password')
+        .send({ email: 'nobody@example.com' })
+        .expect(202);
+    });
+  });
+
+  describe('POST /auth/reset-password', () => {
+    const seedResetToken = async (
+      expiresAt: Date,
+    ): Promise<{ plaintext: string }> => {
+      const hash = await hasher.hash(Password.create('correct horse battery'));
+      credentials.seed({
+        userId: USER_ID,
+        email: 'ada@example.com',
+        role: 'seller',
+        passwordHash: hash.value,
+        emailVerifiedAt: new Date(),
+      });
+      const secret = SecretToken.issue();
+      await tokens.issue({
+        id: OneTimeTokenId.create(),
+        purpose: TokenPurpose.passwordReset(),
+        userId: UserId.create(USER_ID),
+        tokenHash: secret.hash,
+        expiresAt,
+      });
+
+      return { plaintext: secret.plaintext };
+    };
+
+    it('returns 204 for a good token, and the old password stops working at login', async () => {
+      const { plaintext } = await seedResetToken(new Date(Date.now() + 60_000));
+
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: plaintext, newPassword: 'a new long password' })
+        .expect(204);
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'ada@example.com', password: 'correct horse battery' })
+        .expect(401);
+      expect(bodyOf(response).code).toBe('AUTH_INVALID_CREDENTIALS');
+    });
+
+    it('returns 401 with a typed code for an expired token', async () => {
+      const { plaintext } = await seedResetToken(new Date(Date.now() - 1000));
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: plaintext, newPassword: 'a new long password' })
+        .expect(401);
+
+      expect(bodyOf(response).code).toBe('AUTH_RESET_TOKEN_EXPIRED');
+    });
+
+    it('returns 422 with a typed code for a weak new password', async () => {
+      const { plaintext } = await seedResetToken(new Date(Date.now() + 60_000));
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: plaintext, newPassword: 'short' })
+        .expect(422);
+
+      expect(bodyOf(response).code).toBe('USER_PASSWORD_INVALID');
+    });
+  });
+
+  describe('POST /auth/change-password', () => {
+    it('returns 401 with no access token, since the endpoint is protected', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .send({
+          currentPassword: 'whatever',
+          newPassword: 'a new long password',
+        })
+        .expect(401);
+    });
+
+    it('returns 401 with a typed code for a wrong current password', async () => {
+      const { accessToken } = await loginViaHttp();
+
+      const response = await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({ currentPassword: 'wrong', newPassword: 'a new long password' })
+        .expect(401);
+
+      expect(bodyOf(response).code).toBe('AUTH_INVALID_CREDENTIALS');
+    });
+
+    it('returns 204 for the right current password', async () => {
+      const { accessToken } = await loginViaHttp();
+
+      await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .send({
+          currentPassword: 'correct horse battery',
+          newPassword: 'a new long password',
+        })
+        .expect(204);
+    });
+  });
 });

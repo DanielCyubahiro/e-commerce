@@ -1,20 +1,26 @@
 import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import {
+  ChangePasswordCommand,
   LoginCommand,
   type LoginResult,
   LogoutAllSessionsCommand,
   LogoutCommand,
   RefreshSessionCommand,
+  RequestPasswordResetCommand,
   ResendVerificationCommand,
+  ResetPasswordCommand,
   VerifyEmailCommand,
 } from '../application';
 import { CurrentUser } from '@/shared/presentation/decorators/current-user.decorator';
 import { Public } from '@/shared/presentation/decorators/public.decorator';
 import type { AuthenticatedUser } from '@/shared/presentation/authenticated-request';
+import { ChangePasswordDto } from './dtos/change-password.dto';
+import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { LoginDto } from './dtos/login.dto';
 import { RefreshDto } from './dtos/refresh.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
+import { ResetPasswordDto } from './dtos/reset-password.dto';
 import { SessionResponseDto } from './dtos/session-response.dto';
 import { VerifyEmailDto } from './dtos/verify-email.dto';
 
@@ -93,6 +99,47 @@ export class AuthController {
   async logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {
     await this.commandBus.execute<LogoutAllSessionsCommand, void>(
       new LogoutAllSessionsCommand(user.userId),
+    );
+  }
+
+  /** 202 whether or not the address exists, so it cannot be used to probe. */
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
+  async forgotPassword(@Body() body: ForgotPasswordDto): Promise<void> {
+    await this.commandBus.execute<RequestPasswordResetCommand, void>(
+      new RequestPasswordResetCommand(body.email),
+    );
+  }
+
+  /** Public: presenting the reset token is the authentication. */
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async resetPassword(@Body() body: ResetPasswordDto): Promise<void> {
+    await this.commandBus.execute<ResetPasswordCommand, void>(
+      new ResetPasswordCommand(body.token, body.newPassword),
+    );
+  }
+
+  /**
+   * Protected: a bearer token alone is not proof of the account owner, which
+   * is why the command still carries the current password for the handler to
+   * check.
+   */
+  @Post('change-password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() body: ChangePasswordDto,
+  ): Promise<void> {
+    await this.commandBus.execute<ChangePasswordCommand, void>(
+      new ChangePasswordCommand(
+        user.userId,
+        user.sessionId,
+        body.currentPassword,
+        body.newPassword,
+      ),
     );
   }
 }

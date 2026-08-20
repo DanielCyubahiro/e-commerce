@@ -187,4 +187,128 @@ describe('migrated test database', () => {
 
     expect(rows[0]?.moved).toBe(true);
   });
+
+  it('has a credentials table with every migrated column', async () => {
+    const rows = await testDb().execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'credentials'
+      ORDER BY column_name
+    `);
+
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'created_at',
+      'email_verified_at',
+      'password_hash',
+      'user_id',
+    ]);
+  });
+
+  it('has a refresh_tokens table with every migrated column', async () => {
+    const rows = await testDb().execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'refresh_tokens'
+      ORDER BY column_name
+    `);
+
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'created_at',
+      'expires_at',
+      'id',
+      'revoked_at',
+      'session_id',
+      'token_hash',
+      'used_at',
+      'user_id',
+    ]);
+  });
+
+  it('has a one_time_tokens table with every migrated column', async () => {
+    const rows = await testDb().execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'one_time_tokens'
+      ORDER BY column_name
+    `);
+
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'created_at',
+      'expires_at',
+      'id',
+      'purpose',
+      'token_hash',
+      'used_at',
+      'user_id',
+    ]);
+  });
+
+  it('stores auth timestamps with a timezone, unlike users and products', async () => {
+    const rows = await testDb().execute<{
+      table_name: string;
+      data_type: string;
+    }>(sql`
+      SELECT table_name, data_type
+      FROM information_schema.columns
+      WHERE column_name = 'expires_at'
+      ORDER BY table_name
+    `);
+
+    expect(rows).toEqual([
+      { table_name: 'one_time_tokens', data_type: 'timestamp with time zone' },
+      { table_name: 'refresh_tokens', data_type: 'timestamp with time zone' },
+    ]);
+  });
+
+  it('cascades every auth table when its user row is deleted', async () => {
+    // confdeltype 'c' is ON DELETE CASCADE. Asserted rather than assumed
+    // because a live refresh token outliving its user is the one orphan that
+    // would still authenticate.
+    const rows = await testDb().execute<{
+      conrelid: string;
+      confdeltype: string;
+    }>(sql`
+      SELECT conrelid::regclass::text AS conrelid, confdeltype
+      FROM pg_constraint
+      WHERE contype = 'f'
+        AND confrelid = 'users'::regclass
+      ORDER BY conrelid
+    `);
+
+    expect(rows).toEqual([
+      { conrelid: 'credentials', confdeltype: 'c' },
+      { conrelid: 'one_time_tokens', confdeltype: 'c' },
+      { conrelid: 'refresh_tokens', confdeltype: 'c' },
+    ]);
+  });
+
+  it('indexes what chain revocation, logout-all and the cascades need', async () => {
+    const rows = await testDb().execute<{ indexname: string }>(sql`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename IN ('credentials', 'refresh_tokens', 'one_time_tokens')
+      ORDER BY indexname
+    `);
+
+    expect(rows.map((row) => row.indexname)).toEqual([
+      'credentials_pkey',
+      'one_time_tokens_pkey',
+      'one_time_tokens_token_hash_unique',
+      'one_time_tokens_user_id_purpose_idx',
+      'refresh_tokens_pkey',
+      'refresh_tokens_session_id_idx',
+      'refresh_tokens_token_hash_unique',
+      'refresh_tokens_user_id_idx',
+    ]);
+  });
+
+  it('carries no trigger on credentials, deliberately', async () => {
+    // credentials has no updated_at, so it needs no trigger. Asserted so the
+    // absence reads as a decision rather than the fork hazard in ADR 0009.
+    const rows = await testDb().execute<{ tgname: string }>(sql`
+      SELECT tgname FROM pg_trigger
+      WHERE tgrelid = 'credentials'::regclass AND NOT tgisinternal
+    `);
+
+    expect(rows).toEqual([]);
+  });
 });

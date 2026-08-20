@@ -99,3 +99,8 @@ last.
   this record; its actual decision, that queries never rehydrate the
   aggregate, is untouched, since `replace` is a write-side factory, not a
   query-side one.
+- A later context that reuses this replace-without-rehydration shape may have
+  a field that must not participate in it, the way identity's email must not;
+  see [ADR 0014](0014-email-is-immutable-after-registration.md). "Replace"
+  therefore means every *mutable* field a context's write DTO carries, not
+  literally every field the aggregate has.

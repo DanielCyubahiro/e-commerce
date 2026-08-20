@@ -2,14 +2,19 @@ import { Inject, Injectable } from '@nestjs/common';
 import { eq } from 'drizzle-orm';
 import {
   DuplicateEmailException,
+  type Registration,
   type UserWriteRepository,
 } from '@/identity/application';
-import type { User, UserId } from '@/identity/domain';
+import type { UserId, UserProfile } from '@/identity/domain';
 import {
   DRIZZLE,
   type DrizzleDB,
 } from '@/shared/infrastructure/database/postgres/drizzle.provider';
-import { users } from '@/shared/infrastructure/database/postgres/schema';
+import {
+  credentials,
+  oneTimeTokens,
+  users,
+} from '@/shared/infrastructure/database/postgres/schema';
 
 const UNIQUE_VIOLATION = '23505';
 // Drizzle's name for the unnamed .unique() on users.email, as emitted in
@@ -27,15 +32,34 @@ const EMAIL_UNIQUE_CONSTRAINT = 'users_email_unique';
 export class DrizzleUserWriteRepository implements UserWriteRepository {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDB) {}
 
-  async add(user: User): Promise<void> {
+  async register(registration: Registration): Promise<void> {
+    const { user, passwordHash, verification } = registration;
+
     try {
-      await this.db.insert(users).values({
-        id: user.id.value,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        email: user.email.value,
-        role: user.role.value,
-        phone: user.phone?.value ?? null,
+      await this.db.transaction(async (tx) => {
+        await tx.insert(users).values({
+          id: user.id.value,
+          firstName: user.profile.firstName,
+          lastName: user.profile.lastName,
+          email: user.email.value,
+          role: user.profile.role.value,
+          phone: user.profile.phone?.value ?? null,
+        });
+
+        await tx.insert(credentials).values({
+          userId: user.id.value,
+          passwordHash: passwordHash.value,
+          // emailVerifiedAt is left at NULL: a new account is unverified, and
+          // NULL is the only spelling of that. See ADR 0011.
+        });
+
+        await tx.insert(oneTimeTokens).values({
+          id: verification.id.value,
+          purpose: 'email-verification',
+          userId: user.id.value,
+          tokenHash: verification.tokenHash.value,
+          expiresAt: verification.expiresAt,
+        });
       });
     } catch (error) {
       if (DrizzleUserWriteRepository.isDuplicateEmail(error)) {
@@ -45,30 +69,23 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
     }
   }
 
-  async replace(user: User): Promise<boolean> {
-    try {
-      const updated = await this.db
-        .update(users)
-        .set({
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email.value,
-          role: user.role.value,
-          phone: user.phone?.value ?? null,
-          // updatedAt is absent deliberately: the users_set_updated_at trigger
-          // owns it, so both timestamps come from the database clock. Setting
-          // it here would reintroduce the host clock. See ADR 0009.
-        })
-        .where(eq(users.id, user.id.value))
-        .returning({ id: users.id });
+  async replaceProfile(id: UserId, profile: UserProfile): Promise<boolean> {
+    // No try/catch and no duplicate-email branch: email is not in the SET list,
+    // so this statement cannot raise a unique violation.
+    const updated = await this.db
+      .update(users)
+      .set({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        role: profile.role.value,
+        phone: profile.phone?.value ?? null,
+        // updatedAt is absent deliberately: the users_set_updated_at trigger
+        // owns it, so both timestamps come from the database clock. See ADR 0009.
+      })
+      .where(eq(users.id, id.value))
+      .returning({ id: users.id });
 
-      return updated.length > 0;
-    } catch (error) {
-      if (DrizzleUserWriteRepository.isDuplicateEmail(error)) {
-        throw new DuplicateEmailException(user.email.value);
-      }
-      throw error;
-    }
+    return updated.length > 0;
   }
 
   async delete(id: UserId): Promise<boolean> {

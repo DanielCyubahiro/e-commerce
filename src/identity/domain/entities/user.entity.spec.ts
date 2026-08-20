@@ -1,7 +1,5 @@
 import { catchError } from '@test/support/catch-error';
-import { InvalidEmailException } from '../exceptions/invalid-email.exception';
 import { InvalidUserNameException } from '../exceptions/invalid-user-name.exception';
-import { UserId } from '../value-objects/user-id.vo';
 import { User, type UserInput } from './user.entity';
 
 const input = (overrides: Partial<UserInput> = {}): UserInput => ({
@@ -18,10 +16,10 @@ describe('User', () => {
       input({ firstName: '  Ada ', email: 'ADA@Example.com', role: 'Seller' }),
     );
 
-    expect(user.firstName).toBe('Ada');
-    expect(user.lastName).toBe('Lovelace');
+    expect(user.profile.firstName).toBe('Ada');
+    expect(user.profile.lastName).toBe('Lovelace');
     expect(user.email.value).toBe('ada@example.com');
-    expect(user.role.value).toBe('seller');
+    expect(user.profile.role.value).toBe('seller');
   });
 
   it('mints a new identity on create', () => {
@@ -30,22 +28,22 @@ describe('User', () => {
     );
   });
 
-  it('replaces under an identity the caller already holds', () => {
-    const id = UserId.create();
+  it('exposes its profile rather than flattening it', () => {
+    const user = User.create({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+      role: 'seller',
+    });
 
-    const user = User.replace(id, input({ firstName: 'Grace' }));
-
-    expect(user.id.equals(id)).toBe(true);
-    expect(user.firstName).toBe('Grace');
+    expect(user.profile.firstName).toBe('Ada');
+    expect(user.email.value).toBe('ada@example.com');
   });
 
-  it('validates on replace exactly as it does on create', () => {
-    const error = catchError(
-      () => User.replace(UserId.create(), input({ email: 'nope' })),
-      InvalidEmailException,
-    );
-
-    expect(error).toBeInstanceOf(InvalidEmailException);
+  it('has exactly one construction path, so no unvalidated user exists', () => {
+    // `replace` is gone: an update replaces a UserProfile, not a User, because
+    // email is no longer replaceable. See ADR 0014.
+    expect('replace' in User).toBe(false);
   });
 
   it.each<[string, UserInput]>([
@@ -53,13 +51,13 @@ describe('User', () => {
     ['undefined', input({ phone: undefined })],
     ['null', input({ phone: null })],
   ])('collapses %s to a null phone', (_case, given) => {
-    expect(User.create(given).phone).toBeNull();
+    expect(User.create(given).profile.phone).toBeNull();
   });
 
   it('normalises a phone that is present', () => {
-    expect(User.create(input({ phone: '+32 489 12 34 56' })).phone?.value).toBe(
-      '+32489123456',
-    );
+    expect(
+      User.create(input({ phone: '+32 489 12 34 56' })).profile.phone?.value,
+    ).toBe('+32489123456');
   });
 
   it.each<[string, UserInput]>([
@@ -76,7 +74,7 @@ describe('User', () => {
   });
 
   it('accepts a single-character name', () => {
-    expect(User.create(input({ firstName: 'O' })).firstName).toBe('O');
+    expect(User.create(input({ firstName: 'O' })).profile.firstName).toBe('O');
   });
 
   it.each<[string, UserInput]>([

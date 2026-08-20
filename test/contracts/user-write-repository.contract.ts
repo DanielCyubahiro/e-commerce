@@ -1,8 +1,16 @@
 import {
   DuplicateEmailException,
+  type Registration,
   type UserWriteRepository,
 } from '@/identity/application';
-import { User, UserId } from '@/identity/domain';
+import {
+  OneTimeTokenId,
+  PasswordHash,
+  SecretToken,
+  User,
+  UserId,
+  UserProfile,
+} from '@/identity/domain';
 import { catchRejection } from '@test/support/catch-error';
 
 export interface WriteHarness {
@@ -35,14 +43,23 @@ export function userWriteRepositoryContract(
         phone,
       });
 
-    const replacementFor = (id: UserId, email: string): User =>
-      User.replace(id, {
+    const aProfile = (): UserProfile =>
+      UserProfile.create({
         firstName: 'Grace',
         lastName: 'Hopper',
-        email,
         role: 'customer',
         phone: '+32489123456',
       });
+
+    const aRegistration = (user: User): Registration => ({
+      user,
+      passwordHash: PasswordHash.create('hash-1'),
+      verification: {
+        id: OneTimeTokenId.create(),
+        tokenHash: SecretToken.issue().hash,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
 
     beforeAll(async () => {
       harness = await makeHarness();
@@ -59,7 +76,7 @@ export function userWriteRepositoryContract(
     it('stores a user, evidenced by a delete that finds it', async () => {
       const user = aUser();
 
-      await harness.repository.add(user);
+      await harness.repository.register(aRegistration(user));
 
       await expect(harness.repository.delete(user.id)).resolves.toBe(true);
     });
@@ -67,15 +84,17 @@ export function userWriteRepositoryContract(
     it('stores a user with no phone', async () => {
       const user = aUser('nophone@example.com', null);
 
-      await expect(harness.repository.add(user)).resolves.toBeUndefined();
+      await expect(
+        harness.repository.register(aRegistration(user)),
+      ).resolves.toBeUndefined();
       await expect(harness.repository.delete(user.id)).resolves.toBe(true);
     });
 
     it('rejects a second user holding the same email', async () => {
-      await harness.repository.add(aUser());
+      await harness.repository.register(aRegistration(aUser()));
 
       const error = await catchRejection(
-        () => harness.repository.add(aUser()),
+        () => harness.repository.register(aRegistration(aUser())),
         DuplicateEmailException,
       );
 
@@ -83,60 +102,49 @@ export function userWriteRepositoryContract(
     });
 
     it('treats a differently cased email as the same email', async () => {
-      await harness.repository.add(aUser('ada@example.com'));
+      await harness.repository.register(
+        aRegistration(aUser('ada@example.com')),
+      );
 
       // Email lowercases on construction, so the store never sees two cases.
       const error = await catchRejection(
-        () => harness.repository.add(aUser('ADA@Example.com')),
+        () =>
+          harness.repository.register(aRegistration(aUser('ADA@Example.com'))),
         DuplicateEmailException,
       );
 
       expect(error.code).toBe('USER_EMAIL_DUPLICATE');
     });
 
-    it('replaces every field under an id that exists', async () => {
+    it('replaces every mutable field under an id that exists', async () => {
       const user = aUser();
-      await harness.repository.add(user);
+      await harness.repository.register(aRegistration(user));
 
       await expect(
-        harness.repository.replace(
-          replacementFor(user.id, 'grace@example.com'),
-        ),
+        harness.repository.replaceProfile(user.id, aProfile()),
       ).resolves.toBe(true);
     });
 
     it('reports false rather than throwing when replacing an unknown id', async () => {
-      const replacement = replacementFor(UserId.create(), 'nobody@example.com');
-
-      await expect(harness.repository.replace(replacement)).resolves.toBe(
-        false,
-      );
-    });
-
-    it('lets a user keep its own email through a replace', async () => {
-      const user = aUser();
-      await harness.repository.add(user);
-
       await expect(
-        harness.repository.replace(replacementFor(user.id, 'ada@example.com')),
-      ).resolves.toBe(true);
+        harness.repository.replaceProfile(UserId.create(), aProfile()),
+      ).resolves.toBe(false);
     });
 
-    it('rejects a replace onto an email another user holds', async () => {
-      const first = aUser('ada@example.com');
-      const second = aUser('grace@example.com');
-      await harness.repository.add(first);
-      await harness.repository.add(second);
+    it('leaves the email untouched by a profile replacement', async () => {
+      const user = aUser('ada@example.com');
+      await harness.repository.register(aRegistration(user));
 
-      const error = await catchRejection(
+      await harness.repository.replaceProfile(user.id, aProfile());
+
+      // This write-only harness has no read path, so the only way to show the
+      // email survived is that it is still taken.
+      const stillTaken = await catchRejection(
         () =>
-          harness.repository.replace(
-            replacementFor(second.id, 'ada@example.com'),
-          ),
+          harness.repository.register(aRegistration(aUser('ada@example.com'))),
         DuplicateEmailException,
       );
-
-      expect(error.code).toBe('USER_EMAIL_DUPLICATE');
+      expect(stillTaken.code).toBe('USER_EMAIL_DUPLICATE');
     });
 
     it('reports false rather than throwing when deleting an unknown id', async () => {
@@ -147,19 +155,19 @@ export function userWriteRepositoryContract(
 
     it('reports false on a second delete of the same id', async () => {
       const user = aUser();
-      await harness.repository.add(user);
+      await harness.repository.register(aRegistration(user));
       await harness.repository.delete(user.id);
 
       await expect(harness.repository.delete(user.id)).resolves.toBe(false);
     });
 
-    it('an add rejected as a duplicate email leaves no row for it, and leaves the other user in place', async () => {
+    it('a register rejected as a duplicate email leaves no row for it, and leaves the other user in place', async () => {
       const kept = aUser('keep@example.com');
-      await harness.repository.add(kept);
+      await harness.repository.register(aRegistration(kept));
 
       const rejected = aUser('keep@example.com');
       const error = await catchRejection(
-        () => harness.repository.add(rejected),
+        () => harness.repository.register(aRegistration(rejected)),
         DuplicateEmailException,
       );
       expect(error.code).toBe('USER_EMAIL_DUPLICATE');
@@ -170,30 +178,18 @@ export function userWriteRepositoryContract(
       await expect(harness.repository.delete(kept.id)).resolves.toBe(true);
     });
 
-    it('a replace rejected as a duplicate email leaves the target user and its email intact', async () => {
-      const kept = aUser('keep@example.com');
-      const target = aUser('target@example.com');
-      await harness.repository.add(kept);
-      await harness.repository.add(target);
+    it('writes no credential when the email collides, so a half account is impossible', async () => {
+      const first = aUser('ada@example.com');
+      await harness.repository.register(aRegistration(first));
 
-      const error = await catchRejection(
-        () =>
-          harness.repository.replace(
-            replacementFor(target.id, 'keep@example.com'),
-          ),
+      const second = aUser('ada@example.com');
+      await catchRejection(
+        () => harness.repository.register(aRegistration(second)),
         DuplicateEmailException,
       );
-      expect(error.code).toBe('USER_EMAIL_DUPLICATE');
 
-      // This write-only harness has no read path, so the only way to show
-      // target's email was not overwritten is that it is still taken.
-      const stillTaken = await catchRejection(
-        () => harness.repository.add(aUser('target@example.com')),
-        DuplicateEmailException,
-      );
-      expect(stillTaken.code).toBe('USER_EMAIL_DUPLICATE');
-
-      await expect(harness.repository.delete(target.id)).resolves.toBe(true);
+      // The rejected user's row is the one a partial write would leave.
+      await expect(harness.repository.delete(second.id)).resolves.toBe(false);
     });
   });
 }

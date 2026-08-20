@@ -1,9 +1,12 @@
-import type { UserInput } from '@/identity/domain';
+import type { UserProfileInput } from '@/identity/domain';
 
-/** Carries `fields` as one object for the same reason `CreateUserCommand` does. */
+/**
+ * No email: it is immutable after registration, so a full replacement of the
+ * mutable fields does not include it. See ADR 0014.
+ */
 export class UpdateUserCommand {
   constructor(
-    public readonly userId: string,
-    public readonly fields: UserInput,
+    public readonly id: string,
+    public readonly fields: UserProfileInput,
   ) {}
 }

@@ -1,10 +1,18 @@
 import type { Page } from '@/shared/application';
 import type {
+  Registration,
   UserReadModel,
   UserReadRepository,
   UserWriteRepository,
 } from '@/identity/application';
-import { User, UserId } from '@/identity/domain';
+import {
+  OneTimeTokenId,
+  PasswordHash,
+  SecretToken,
+  User,
+  UserId,
+  UserProfile,
+} from '@/identity/domain';
 
 export interface ReadHarness {
   read: UserReadRepository;
@@ -21,6 +29,16 @@ export function userReadRepositoryContract(
   describe(`UserReadRepository contract (${name})`, () => {
     let harness: ReadHarness;
 
+    const aRegistration = (user: User): Registration => ({
+      user,
+      passwordHash: PasswordHash.create('hash-1'),
+      verification: {
+        id: OneTimeTokenId.create(),
+        tokenHash: SecretToken.issue().hash,
+        expiresAt: new Date(Date.now() + 86_400_000),
+      },
+    });
+
     const store = async (overrides: {
       email?: string;
       role?: string;
@@ -33,7 +51,7 @@ export function userReadRepositoryContract(
         role: overrides.role ?? 'seller',
         phone: overrides.phone ?? null,
       });
-      await harness.write.add(user);
+      await harness.write.register(aRegistration(user));
       return user;
     };
 
@@ -42,11 +60,10 @@ export function userReadRepositoryContract(
       offset: 0,
     });
 
-    const replacementFor = (id: UserId): User =>
-      User.replace(id, {
+    const aProfile = (): UserProfile =>
+      UserProfile.create({
         firstName: 'Grace',
         lastName: 'Hopper',
-        email: 'grace@example.com',
         role: 'customer',
         phone: '+15551234567',
       });
@@ -92,17 +109,17 @@ export function userReadRepositoryContract(
       expect(found?.phone).toBeNull();
     });
 
-    describe('after a replace', () => {
-      it('projects the replaced values', async () => {
-        const user = await store({});
+    describe('after a profile replacement', () => {
+      it('projects the replaced values, with the email untouched', async () => {
+        const user = await store({ email: 'ada@example.com' });
 
-        await harness.write.replace(replacementFor(user.id));
+        await harness.write.replaceProfile(user.id, aProfile());
 
         expect(await harness.read.findById(user.id)).toMatchObject({
           id: user.id.value,
           firstName: 'Grace',
           lastName: 'Hopper',
-          email: 'grace@example.com',
+          email: 'ada@example.com',
           role: 'customer',
           phone: '+15551234567',
         });
@@ -112,7 +129,7 @@ export function userReadRepositoryContract(
         const user = await store({});
         const before = await harness.read.findById(user.id);
 
-        await harness.write.replace(replacementFor(user.id));
+        await harness.write.replaceProfile(user.id, aProfile());
 
         const after = await harness.read.findById(user.id);
         expect(after?.createdAt).toEqual(before?.createdAt);
@@ -125,7 +142,7 @@ export function userReadRepositoryContract(
         const older = await store({ email: 'older@example.com' });
         const newer = await store({ email: 'newer@example.com' });
 
-        await harness.write.replace(replacementFor(older.id));
+        await harness.write.replaceProfile(older.id, aProfile());
 
         const found = await harness.read.findMany({}, page());
 

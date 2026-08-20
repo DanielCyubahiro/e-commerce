@@ -25,7 +25,18 @@ pnpm db:migrate
 
 Every variable in `.env.example` is required at boot. A missing or malformed one
 aborts startup with a message naming it, rather than failing later on first
-query.
+query. `JWT_SECRET` is the one exception to having a usable default: generate
+it yourself and never commit the real value.
+
+```bash
+openssl rand -base64 48
+```
+
+There is no frontend, so a verification or password-reset email has nowhere
+to land except the mailbox `docker-compose.yml` starts for local development:
+open Mailpit's web UI at [http://localhost:8025](http://localhost:8025) and
+read the link out of whichever message registration, resend, or
+forgot-password just sent.
 
 ## Scripts
 
@@ -48,6 +59,13 @@ query.
 not, so a database left behind a new migration answers with a 500 from the
 first query against the missing table. The integration suite migrates a fresh
 container of its own and so stays green either way.
+
+`pnpm build` is the only command that type-checks `src/` against
+`tsconfig.build.json`. `pnpm test` passing proves nothing about types: Jest
+runs through `ts-jest`, which is effectively transpile-only here, and nothing
+in the test tree is type-checked at all. Every exhaustiveness guarantee this
+codebase relies on, `STATUS_BY_KIND`'s totality, a `never` guard on a closed
+union, is only real because `pnpm build` was run.
 
 ## Where to go next
 

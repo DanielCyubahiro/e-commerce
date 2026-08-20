@@ -11,6 +11,15 @@ import { IdentityModule } from './identity/identity.module';
  * `validate: validateEnv` is what makes a malformed environment abort at
  * boot rather than fail later at first use, and `isGlobal: true` is why no
  * other module imports `ConfigModule` for itself.
+ *
+ * `ThrottlerModule` is registered in `identity.module.ts`, not here, even
+ * though it is `@Global()` like `ConfigModule`: every http-spec test
+ * bootstraps `IdentityModule` on its own, without this module, and a guard
+ * applied via `@UseGuards()` cannot be swapped out with `overrideProvider`
+ * the way the config-backed providers below are. Registering it where the
+ * guarded controllers live is what the existing `JwtAuthGuard` /
+ * `APP_GUARD` pairing in `identity.module.ts` already does for the same
+ * reason.
  */
 @Module({
   imports: [

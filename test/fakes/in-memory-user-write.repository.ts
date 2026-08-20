@@ -1,12 +1,15 @@
 import {
   DuplicateEmailException,
+  type Registration,
   type UserWriteRepository,
 } from '@/identity/application';
-import type { User, UserId } from '@/identity/domain';
+import type { Email, User, UserId, UserProfile } from '@/identity/domain';
 
 export interface StoredUser {
-  user: User;
-  /** Assigned once, on `add`; stands in for `created_at`. */
+  id: UserId;
+  email: Email;
+  profile: UserProfile;
+  /** Assigned once, on `register`; stands in for `created_at`. */
   createdSeq: number;
   /** Bumped by every write to this row; stands in for `updated_at`. */
   updatedSeq: number;
@@ -17,52 +20,78 @@ export interface StoredUser {
  * a collaborator was called. Its fidelity is not taken on trust, the shared
  * contract suite runs against both this and the Drizzle adapter.
  *
+ * Stores decomposed rows rather than a `User`: with `User.replace` gone there
+ * is no way to build a `User` carrying an existing id, and reconstructing one
+ * here would reintroduce exactly what removing `replace` was for. A
+ * repository row is not an aggregate.
+ *
  * Methods return promises without being `async` so they reject rather than
  * throw synchronously, which callers awaiting them depend on.
  */
 export class InMemoryUserWriteRepository implements UserWriteRepository {
   private readonly rows = new Map<string, StoredUser>();
+  private readonly registered: Registration[] = [];
   private writes = 0;
 
-  add(user: User): Promise<void> {
+  register(registration: Registration): Promise<void> {
     const emailTaken = [...this.rows.values()].some((stored) =>
-      stored.user.email.equals(user.email),
+      stored.email.equals(registration.user.email),
     );
 
     if (emailTaken) {
-      return Promise.reject(new DuplicateEmailException(user.email.value));
+      return Promise.reject(
+        new DuplicateEmailException(registration.user.email.value),
+      );
     }
 
     this.writes += 1;
-    this.rows.set(user.id.value, {
-      user,
+    this.rows.set(registration.user.id.value, {
+      id: registration.user.id,
+      email: registration.user.email,
+      profile: registration.user.profile,
       createdSeq: this.writes,
       updatedSeq: this.writes,
     });
+    this.registered.push(registration);
     return Promise.resolve();
   }
 
-  replace(user: User): Promise<boolean> {
-    const existing = this.rows.get(user.id.value);
+  /**
+   * Test-only seam: inserts a row directly, bypassing the credential and token
+   * bundle `register` requires. For specs seeding a user to exercise unrelated
+   * behaviour (list, get, update, delete), which would otherwise have to carry
+   * a password hash and a verification token they do not test.
+   */
+  seed(user: User): void {
+    this.writes += 1;
+    this.rows.set(user.id.value, {
+      id: user.id,
+      email: user.email,
+      profile: user.profile,
+      createdSeq: this.writes,
+      updatedSeq: this.writes,
+    });
+  }
+
+  /** Test seam: the credential and token bundle each `register` call carried. */
+  registrations(): Registration[] {
+    return [...this.registered];
+  }
+
+  replaceProfile(id: UserId, profile: UserProfile): Promise<boolean> {
+    const existing = this.rows.get(id.value);
 
     if (!existing) {
       return Promise.resolve(false);
     }
 
-    const emailTaken = [...this.rows.values()].some(
-      (stored) =>
-        stored.user.email.equals(user.email) && !stored.user.id.equals(user.id),
-    );
-
-    if (emailTaken) {
-      return Promise.reject(new DuplicateEmailException(user.email.value));
-    }
-
     this.writes += 1;
-    // `createdSeq` is carried over so the row keeps its place in created_at
-    // order exactly as the adapter's row does.
-    this.rows.set(user.id.value, {
-      user,
+    this.rows.set(id.value, {
+      id: existing.id,
+      email: existing.email,
+      profile,
+      // `createdSeq` is carried over so the row keeps its place in created_at
+      // order exactly as the adapter's row does.
       createdSeq: existing.createdSeq,
       updatedSeq: this.writes,
     });
@@ -73,16 +102,13 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
     return Promise.resolve(this.rows.delete(id.value));
   }
 
-  snapshot(): User[] {
-    return [...this.rows.values()].map((stored) => stored.user);
-  }
-
-  stored(): StoredUser[] {
+  snapshot(): StoredUser[] {
     return [...this.rows.values()];
   }
 
   clear(): void {
     this.rows.clear();
+    this.registered.length = 0;
     this.writes = 0;
   }
 }

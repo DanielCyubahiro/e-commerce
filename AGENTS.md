@@ -62,6 +62,11 @@ and no factory, so `toThrow` would actually compile against it, but
   resulting HTTP status.
 - **No rule is written twice.** If a check exists in the domain, the DTO does
   not repeat it.
+- **Auth state transitions are guarded targeted writes, not replacements.** A
+  credential's verification flag, a refresh token's rotation, and a one-time
+  token's consumption are each one `UPDATE ... WHERE <precondition>`, never a
+  read followed by a check followed by a write. See
+  [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
 
 ## Docs that must change with the code
 
@@ -154,3 +159,4 @@ in for a fix, or write an `@param` that retypes the parameter list.
 | "This exception needs `expect().toThrow()`" | Most have a private constructor behind a factory, which fails `toThrow`'s type check. Use `catchError`. |
 | "I will document the context after the feature lands" | `pnpm test` is red until the page exists. The page is part of the feature. |
 | "This context has no read model, so I will leave the row out" | A missing row and a forgotten edit are indistinguishable. Write `none`. |
+| "I will load the credential, check it, then save it" | That is load-modify-save: two concurrent callers both pass the check. Guarded single statements, see [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md). |

@@ -10,22 +10,26 @@ import {
   Put,
   Query,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Response } from 'express';
 import type { Page } from '@/shared/application';
+import { Public } from '@/shared/presentation/decorators/public.decorator';
 import {
-  CreateUserCommand,
   DeleteUserCommand,
   GetUserQuery,
   ListUsersQuery,
   type UserReadModel,
+  RegisterUserCommand,
   UpdateUserCommand,
 } from '../application';
 import type { PaginatedResponse } from '@/shared/presentation/dtos/paginated-response.dto';
 import { ListUsersQueryDto } from './dtos/list-users.query.dto';
+import { RegisterUserDto } from './dtos/register-user.dto';
+import { UpdateUserProfileDto } from './dtos/update-user-profile.dto';
 import { UserIdParamDto } from './dtos/user-id.param.dto';
-import { UserPayloadDto } from './dtos/user-payload.dto';
 import { UserResponseDto } from './dtos/user-response.dto';
 
 /**
@@ -43,21 +47,32 @@ export class UserController {
    * `passthrough: true` is required: without it Nest hands over the raw
    * response and stops serialising the return value, so `return { id }` would
    * never send.
+   *
+   * This is registration: it stays public, since nobody can hold a token
+   * before an account exists. Throttled because it hashes the submitted
+   * password: every attempt costs 19 MiB of argon2 whether or not it results
+   * in an account.
    */
+  @Public()
+  @UseGuards(ThrottlerGuard)
+  @Throttle({ default: { limit: 5, ttl: 3_600_000 } })
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async create(
-    @Body() body: UserPayloadDto,
+    @Body() body: RegisterUserDto,
     @Res({ passthrough: true }) response: Response,
   ): Promise<{ id: string }> {
-    const id = await this.commandBus.execute<CreateUserCommand, string>(
-      new CreateUserCommand({
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email,
-        role: body.role,
-        phone: body.phone,
-      }),
+    const id = await this.commandBus.execute<RegisterUserCommand, string>(
+      new RegisterUserCommand(
+        {
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          role: body.role,
+          phone: body.phone,
+        },
+        body.password,
+      ),
     );
 
     response.setHeader('Location', `/users/${id}`);
@@ -105,13 +120,12 @@ export class UserController {
   @HttpCode(HttpStatus.NO_CONTENT)
   async replace(
     @Param() params: UserIdParamDto,
-    @Body() body: UserPayloadDto,
+    @Body() body: UpdateUserProfileDto,
   ): Promise<void> {
     await this.commandBus.execute<UpdateUserCommand, void>(
       new UpdateUserCommand(params.id, {
         firstName: body.firstName,
         lastName: body.lastName,
-        email: body.email,
         role: body.role,
         phone: body.phone,
       }),

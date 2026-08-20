@@ -6,9 +6,9 @@ Accepted.
 
 ## Context
 
-[`ProductWriteRepository`](../../src/product/application/ports/product.write-repository.ts)
+[`ProductWriteRepository`](../../src/catalogue/application/ports/product.write-repository.ts)
 and
-[`ProductReadRepository`](../../src/product/application/ports/product.read-repository.ts)
+[`ProductReadRepository`](../../src/catalogue/application/ports/product.read-repository.ts)
 each have two implementations: an in-memory fake used by fast application
 handler tests, and a Drizzle adapter used against real Postgres. See
 [Fake versus mock](../concepts.md#fake-versus-mock) for what makes the fake a

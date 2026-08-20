@@ -9,7 +9,7 @@ import {
 
 // Must stay equal to UserRole's ROLES. Two copies, nothing enforcing
 // agreement: a third role added in TypeScript alone compiles and fails at
-// insert time. Not imported from @/user/domain on purpose, that would make the
+// insert time. Not imported from @/identity/domain on purpose, that would make the
 // shared kernel depend on a bounded context.
 export const userRole = pgEnum('user_role', ['customer', 'seller']);
 

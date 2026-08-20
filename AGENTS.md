@@ -62,6 +62,11 @@ and no factory, so `toThrow` would actually compile against it, but
   resulting HTTP status.
 - **No rule is written twice.** If a check exists in the domain, the DTO does
   not repeat it.
+- **Auth state transitions are guarded targeted writes, not replacements.** A
+  credential's verification flag, a refresh token's rotation, and a one-time
+  token's consumption are each one `UPDATE ... WHERE <precondition>`, never a
+  read followed by a check followed by a write. See
+  [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
 
 ## Docs that must change with the code
 
@@ -72,7 +77,7 @@ discipline alone, because no check here reads a sentence for staleness.
 
 | When you | Update | Checked by `pnpm test`? |
 | --- | --- | --- |
-| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list | Yes: the page, its headings, the glossary row, and README's link to the page (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). |
+| Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list. Name it for the capability, not the entity; see docs/concepts.md's Bounded context entry. | Yes: the page, its headings, the glossary row, and README's link to the page (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). |
 | Add or change a port | That context's `## Ports and adapters`, both tables | No |
 | Add an endpoint, or change its status | That context's `## Endpoints` | No |
 | Add an exception | That context's `## Error codes`, plus the `## Error path` table in `docs/architecture.md` (columns Failure, Base, Filter, Status) if the *kind* is new | No |
@@ -89,7 +94,7 @@ exactly what `glossary.docs-spec.ts` catches.
 The five required headings a context page must carry are named nowhere but
 `CONTEXT_PAGE_HEADINGS` in `test/docs/docs-model.ts`; that constant is the
 authority, not this file, so the two cannot drift apart. Copy
-`docs/contexts/product.md` as the template rather than retyping the headings
+`docs/contexts/catalogue.md` as the template rather than retyping the headings
 by hand. A required section with nothing to write yet, `## Endpoints` on a
 context with no controller, say, still gets written, holding the word `none`,
 the same convention as an empty glossary cell.
@@ -154,3 +159,4 @@ in for a fix, or write an `@param` that retypes the parameter list.
 | "This exception needs `expect().toThrow()`" | Most have a private constructor behind a factory, which fails `toThrow`'s type check. Use `catchError`. |
 | "I will document the context after the feature lands" | `pnpm test` is red until the page exists. The page is part of the feature. |
 | "This context has no read model, so I will leave the row out" | A missing row and a forgotten edit are indistinguishable. Write `none`. |
+| "I will load the credential, check it, then save it" | That is load-modify-save: two concurrent callers both pass the check. Guarded single statements, see [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md). |

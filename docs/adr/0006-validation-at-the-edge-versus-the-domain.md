@@ -20,7 +20,7 @@ them, and never re-checked in a DTO.
 
 DTOs check only type, presence, and generous ceilings; value objects and
 aggregates own every rule that expresses a business constraint.
-[`ListProductsQueryDto`](../../src/product/presentation/dtos/list-products.query.dto.ts)
+[`ListProductsQueryDto`](../../src/catalogue/presentation/dtos/list-products.query.dto.ts)
 is the clearest example: its own comment states the boundary directly, that
 pagination bounds (`limit`, `offset`) have no domain counterpart and so are
 enforced here at the edge, while currency format does have one and is left

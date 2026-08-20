@@ -2,8 +2,8 @@ import type {
   ProductReadModel,
   ProductReadRepository,
   ProductWriteRepository,
-} from '@/product/application';
-import { Product, ProductId } from '@/product/domain';
+} from '@/catalogue/application';
+import { Product, ProductId } from '@/catalogue/domain';
 import type { Page } from '@/shared/application';
 
 export interface ReadHarness {

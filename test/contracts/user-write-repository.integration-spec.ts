@@ -1,4 +1,4 @@
-import { DrizzleUserWriteRepository } from '@/user/infrastructure';
+import { DrizzleUserWriteRepository } from '@/identity/infrastructure';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 import { userWriteRepositoryContract } from './user-write-repository.contract';
 

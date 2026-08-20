@@ -23,3 +23,11 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0009](0009-postgres-owns-updated-at.md) | Postgres owns `updated_at` | Accepted |
 | [0010](0010-one-user-aggregate-with-a-role.md) | One `User` aggregate carries a role | Accepted |
 | [0011](0011-absence-has-one-spelling.md) | Absence is `null` from the aggregate outward | Accepted |
+| [0012](0012-contexts-are-named-for-capabilities.md) | Contexts are named for capabilities, not entities | Accepted |
+| [0013](0013-guarded-writes-never-rehydration.md) | Auth state transitions are guarded writes, never rehydrated | Accepted |
+| [0014](0014-email-is-immutable-after-registration.md) | Email is immutable after registration | Accepted |
+| [0015](0015-authentication-without-authorization.md) | Authentication ships without authorization | Accepted |
+| [0016](0016-refresh-rotation-with-reuse-detection.md) | Refresh tokens rotate with strict reuse detection | Accepted |
+| [0017](0017-token-state-in-postgres.md) | Credential and token state lives in Postgres, not Mongo | Accepted |
+| [0018](0018-mail-sent-inline-after-commit.md) | Mail is sent inline after commit, not through an outbox | Accepted |
+| [0019](0019-commands-call-collaborators-directly.md) | Commands call collaborators directly; no domain events | Accepted |

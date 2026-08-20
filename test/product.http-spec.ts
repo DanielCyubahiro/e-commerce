@@ -1,4 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -6,8 +7,11 @@ import { configureApp } from '@/app.config';
 import {
   PRODUCT_READ_REPOSITORY,
   PRODUCT_WRITE_REPOSITORY,
-} from '@/product/application';
-import { ProductModule } from '@/product/product.module';
+} from '@/catalogue/application';
+import { CatalogueModule } from '@/catalogue/catalogue.module';
+import { ACCESS_TOKEN_ISSUER } from '@/identity/application';
+import { JwtAuthGuard } from '@/identity/presentation/guards/jwt-auth.guard';
+import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { InMemoryProductReadRepository } from '@test/fakes/in-memory-product-read.repository';
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
 
@@ -48,14 +52,33 @@ const validBody = (
   ...overrides,
 });
 
+// CatalogueModule carries no guard of its own; identity.module.ts is the only
+// place JwtAuthGuard is normally wired in, so this suite wires it by hand,
+// the same way production wiring reaches every context through APP_GUARD.
+const issuer = new FakeAccessTokenIssuer();
+
 describe('products HTTP contract', () => {
   let app: INestApplication<App>;
+  let authHeader: string;
+
+  beforeAll(async () => {
+    const { token } = await issuer.issue({
+      userId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      role: 'seller',
+      sessionId: '9c858901-8a57-4791-81fe-4c455b099bc9',
+    });
+    authHeader = `Bearer ${token}`;
+  });
 
   beforeEach(async () => {
     const writes = new InMemoryProductWriteRepository();
 
     const moduleRef = await Test.createTestingModule({
-      imports: [ProductModule],
+      imports: [CatalogueModule],
+      providers: [
+        { provide: APP_GUARD, useClass: JwtAuthGuard },
+        { provide: ACCESS_TOKEN_ISSUER, useValue: issuer },
+      ],
     })
       .overrideProvider(PRODUCT_WRITE_REPOSITORY)
       .useValue(writes)
@@ -66,7 +89,10 @@ describe('products HTTP contract', () => {
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
     );
-    await app.init();
+    // Listening on an OS-assigned port, rather than app.init(), stops
+    // supertest from opening and closing an ephemeral listener on every
+    // request across this suite's many cases.
+    await app.listen(0);
   });
 
   afterEach(async () => {
@@ -74,7 +100,10 @@ describe('products HTTP contract', () => {
   });
 
   const create = (overrides: Record<string, unknown> = {}): request.Test =>
-    request(app.getHttpServer()).post('/products').send(validBody(overrides));
+    request(app.getHttpServer())
+      .post('/products')
+      .set('Authorization', authHeader)
+      .send(validBody(overrides));
 
   const get = (path: string): request.Test =>
     request(app.getHttpServer()).get(path);
@@ -281,7 +310,9 @@ describe('products HTTP contract', () => {
 
   describe('DELETE /products/:id', () => {
     const remove = (id: string): request.Test =>
-      request(app.getHttpServer()).delete(`/products/${id}`);
+      request(app.getHttpServer())
+        .delete(`/products/${id}`)
+        .set('Authorization', authHeader);
 
     it('returns 204 and removes the product', async () => {
       const created = await create();
@@ -317,7 +348,10 @@ describe('products HTTP contract', () => {
     });
 
     const put = (id: string, body: Record<string, unknown>): request.Test =>
-      request(app.getHttpServer()).put(`/products/${id}`).send(body);
+      request(app.getHttpServer())
+        .put(`/products/${id}`)
+        .set('Authorization', authHeader)
+        .send(body);
 
     const createdId = async (): Promise<string> =>
       bodyOf(await create()).id ?? '';
@@ -395,5 +429,16 @@ describe('products HTTP contract', () => {
 
       expect((await put(id, replacement({ sku: 'ESP-001' }))).status).toBe(204);
     });
+  });
+
+  it('refuses a protected endpoint with no token', async () => {
+    await request(app.getHttpServer())
+      .post('/products')
+      .send(validBody())
+      .expect(401);
+  });
+
+  it('leaves the public endpoints reachable without a token', async () => {
+    expect((await get('/products')).status).toBe(200);
   });
 });

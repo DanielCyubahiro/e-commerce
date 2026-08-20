@@ -1,7 +1,8 @@
 // New members here are a compile error in `application-exception.filter.ts`'s
 // `STATUS_BY_KIND` until a status is assigned, never a silent runtime
 // fallthrough.
-export type ApplicationErrorKind = 'conflict' | 'not-found';
+export type ApplicationErrorKind =
+  'conflict' | 'not-found' | 'unauthorized' | 'forbidden';
 
 /**
  * Base for every application-layer error. `code` is a stable, machine-readable

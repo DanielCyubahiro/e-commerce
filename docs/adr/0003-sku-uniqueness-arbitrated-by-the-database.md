@@ -20,11 +20,11 @@ trying to prevent the collision earlier.
 `add` simply attempts the insert; a duplicate SKU is not pre-checked, it is
 caught. `add`'s try/catch and the private `isDuplicateSku` check
 (constants in
-[`DrizzleProductWriteRepository`](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts),
+[`DrizzleProductWriteRepository`](../../src/catalogue/infrastructure/adapters/drizzle-product.write-repository.ts),
 method in
-[`isDuplicateSku`](../../src/product/infrastructure/adapters/drizzle-product.write-repository.ts))
+[`isDuplicateSku`](../../src/catalogue/infrastructure/adapters/drizzle-product.write-repository.ts))
 translate SQLSTATE `23505` on constraint `products_sku_unique` into
-[`DuplicateSkuException`](../../src/product/application/exceptions/duplicate-sku.exception.ts).
+[`DuplicateSkuException`](../../src/catalogue/application/exceptions/duplicate-sku.exception.ts).
 The check walks the caught error's cause chain in a loop rather than reading
 `error.code` directly, because Drizzle wraps a driver failure in its own
 `DrizzleQueryError`, so the underlying Postgres error, the object actually

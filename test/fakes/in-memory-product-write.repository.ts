@@ -1,8 +1,8 @@
 import {
   DuplicateSkuException,
   type ProductWriteRepository,
-} from '@/product/application';
-import type { Product, ProductId } from '@/product/domain';
+} from '@/catalogue/application';
+import type { Product, ProductId } from '@/catalogue/domain';
 
 export interface StoredProduct {
   product: Product;

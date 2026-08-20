@@ -3,8 +3,8 @@ import type {
   UserFilters,
   UserReadModel,
   UserReadRepository,
-} from '@/user/application';
-import type { UserId } from '@/user/domain';
+} from '@/identity/application';
+import type { UserId } from '@/identity/domain';
 import type { InMemoryUserWriteRepository } from './in-memory-user-write.repository';
 
 const EPOCH = Date.parse('2026-01-01T00:00:00.000Z');
@@ -53,15 +53,17 @@ export class InMemoryUserReadRepository implements UserReadRepository {
    * `updated_at` on every update, so both order identically.
    */
   private projectAll(): UserReadModel[] {
-    return this.writes.stored().map(({ user, createdSeq, updatedSeq }) => ({
-      id: user.id.value,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email.value,
-      role: user.role.value,
-      phone: user.phone?.value ?? null,
-      createdAt: new Date(EPOCH + createdSeq * 1000),
-      updatedAt: new Date(EPOCH + updatedSeq * 1000),
-    }));
+    return this.writes
+      .snapshot()
+      .map(({ id, email, profile, createdSeq, updatedSeq }) => ({
+        id: id.value,
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        email: email.value,
+        role: profile.role.value,
+        phone: profile.phone?.value ?? null,
+        createdAt: new Date(EPOCH + createdSeq * 1000),
+        updatedAt: new Date(EPOCH + updatedSeq * 1000),
+      }));
   }
 }

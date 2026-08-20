@@ -19,7 +19,7 @@ to do in this codebase.
 
 Commands operate on the `Product` aggregate; `Product.create` stays the only
 way to construct one. Queries return a flat
-[`ProductReadModel`](../../src/product/application/read-models/product.read-model.ts)
+[`ProductReadModel`](../../src/catalogue/application/read-models/product.read-model.ts)
 instead, and never rebuild a `Product` from a row. The read model's own comment
 states the consequence directly: nothing on the query path enforces an
 invariant, which is what lets `Product`'s constructor stay private.
@@ -49,9 +49,9 @@ into a `Product` without passing validation first, is unchanged.
 ## Consequences
 
 - The application layer defines two ports rather than one,
-  [`ProductWriteRepository`](../../src/product/application/ports/product.write-repository.ts)
+  [`ProductWriteRepository`](../../src/catalogue/application/ports/product.write-repository.ts)
   and
-  [`ProductReadRepository`](../../src/product/application/ports/product.read-repository.ts).
+  [`ProductReadRepository`](../../src/catalogue/application/ports/product.read-repository.ts).
 - The read model must be re-projected by hand whenever a column is added;
   there is no single mapping shared with the write side that updates both
   automatically.

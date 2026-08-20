@@ -1,8 +1,8 @@
 import {
   DuplicateSkuException,
   type ProductWriteRepository,
-} from '@/product/application';
-import { Product, ProductId } from '@/product/domain';
+} from '@/catalogue/application';
+import { Product, ProductId } from '@/catalogue/domain';
 import { catchRejection } from '@test/support/catch-error';
 
 export interface WriteHarness {

@@ -20,8 +20,11 @@ export function testDb(): TestDb {
 }
 
 export async function truncateAll(db: TestDb): Promise<void> {
+  // Naming the auth tables explicitly rather than relying on CASCADE from
+  // users, so a table that loses its foreign key later still gets cleared
+  // between tests instead of leaking rows into the next one.
   await db.execute(
-    sql`TRUNCATE TABLE products, users RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE credentials, one_time_tokens, refresh_tokens, products, users RESTART IDENTITY CASCADE`,
   );
 }
 

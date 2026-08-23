@@ -50,37 +50,12 @@ import { UserController } from './presentation/user.controller';
 @Module({
   imports: [
     CqrsModule,
-    // A default the per-endpoint `@Throttle` decorators tighten. Not
-    // registered as a global guard: only six endpoints need a limit, so
-    // ThrottlerGuard is applied per controller method instead, which also
-    // keeps guard ordering out of play.
-    //
-    // Storage is the in-process default: with more than one instance each
-    // gets its own counter, so the effective limit multiplies across the
-    // fleet. Redis-backed storage fixes that and belongs with a later spec.
-    // In production, IP throttling like this usually lives at the edge, in a
-    // gateway or CDN, with the application keeping only the limits that need
-    // to know about accounts; these six are a stand-in until that split
-    // happens.
-    //
-    // The limits also key on `req.ip`, and Express's `trust proxy` is off by
-    // default in main.ts, so that is the peer address, not a client IP a
-    // proxy forwarded. Behind any load balancer or CDN every caller shares
-    // the peer's one bucket, and the 5-per-hour registration limit becomes
-    // five per hour for the entire world. Do not flip `trust proxy` on to fix
-    // that without first deciding which hop is trusted: trusting
-    // `X-Forwarded-For` from an untrusted peer lets a caller spoof its
-    // address and bypass throttling entirely, which is worse than the
-    // collapsed-bucket problem it would solve.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
   ],
   controllers: [UserController, AuthController],
   providers: [
     ...commandHandlers,
     ...queryHandlers,
-    // Global, so an endpoint added later is protected by default. Registered
-    // here rather than in configureApp because APP_GUARD is the only form that
-    // gets dependency injection.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: USER_WRITE_REPOSITORY, useClass: DrizzleUserWriteRepository },
     { provide: USER_READ_REPOSITORY, useClass: DrizzleUserReadRepository },

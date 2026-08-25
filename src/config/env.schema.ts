@@ -59,8 +59,15 @@ export class EnvSchema {
   SMTP_FROM!: string;
 
   // require_tld off so http://localhost:5173 validates; the default rule wants a
-  // public suffix, which no development host has.
-  @IsUrl({ require_tld: false })
+  // public suffix, which no development host has. require_protocol and the
+  // http/https allow-list are on because `new URL(...).origin` is the literal
+  // string "null" for a scheme-less or non-http URL, which would turn the
+  // guard's Origin check into an allow-list for `Origin: null`.
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+    protocols: ['http', 'https'],
+  })
   WEB_BASE_URL!: string;
 }
 

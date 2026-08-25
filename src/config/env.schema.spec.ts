@@ -79,6 +79,18 @@ describe('validateEnv', () => {
     ).toBe('http://localhost:5173');
   });
 
+  it('rejects a WEB_BASE_URL without a scheme', () => {
+    expect(() =>
+      validateEnv({ ...valid, WEB_BASE_URL: 'localhost:5173' }),
+    ).toThrow(/WEB_BASE_URL/);
+  });
+
+  it('rejects a WEB_BASE_URL with a scheme that is not http or https', () => {
+    expect(() =>
+      validateEnv({ ...valid, WEB_BASE_URL: 'ftp://example.com' }),
+    ).toThrow(/WEB_BASE_URL/);
+  });
+
   it('defaults the session lifetimes', () => {
     const config = validateEnv({ ...valid });
 

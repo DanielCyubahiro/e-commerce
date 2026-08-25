@@ -31,4 +31,10 @@ describe('authWebSettingsFrom', () => {
       authWebSettingsFrom('http://localhost:5173', lifetimes).cookie,
     ).toEqual({ name: 'session', secure: false, maxAgeSeconds: 2_592_000 });
   });
+
+  it('refuses a URL whose origin would be the literal "null"', () => {
+    expect(() => authWebSettingsFrom('file:///tmp/app', lifetimes)).toThrow(
+      /WEB_BASE_URL/,
+    );
+  });
 });

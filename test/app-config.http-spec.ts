@@ -168,6 +168,7 @@ describe('configureApp global filters', () => {
     expect(allowed.headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
     expect(allowed.headers['access-control-allow-credentials']).toBe('true');
     expect(other.headers['access-control-allow-origin']).toBeUndefined();
+    expect(other.headers['access-control-allow-credentials']).toBeUndefined();
   });
 
   it('answers a preflight for the configured origin', async () => {

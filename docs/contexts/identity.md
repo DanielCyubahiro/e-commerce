@@ -466,10 +466,18 @@ the clear. That protection stops at the presentation boundary: a command may
 not import a domain value object, so
 [`LoginCommand.password`](../../src/identity/application/use-cases/commands/login/login.command.ts),
 [`ChangePasswordCommand.currentPassword`](../../src/identity/application/use-cases/commands/change-password/change-password.command.ts)
-and `newPassword`, and
+and `newPassword`,
 [`ResetPasswordCommand.token`](../../src/identity/application/use-cases/commands/reset-password/reset-password.command.ts)
-and `newPassword`
+and `newPassword`, and
+[`AuthenticateSessionCommand.presentedToken`](../../src/identity/application/use-cases/commands/authenticate-session/authenticate-session.command.ts)
 are raw public strings, each carrying only its own interface comment as a
-warning. Nothing logs a command today, so there is no live leak, but a CQRS
-logging interceptor added later would put a plaintext password in every log
-line it touched, and no test here would go red to catch it.
+warning. `presentedToken` is dispatched on every protected request carrying a
+live credential, so a logging interceptor would leak far more here than at
+login, one command per request rather than one per login. The same risk sits
+on the way out:
+[`LoginResult.token`](../../src/identity/application/use-cases/commands/login/login.handler.ts)
+is the plaintext the controller writes into `Set-Cookie`, held in a plain
+string for the same presentation-boundary reason as the commands above.
+Nothing logs a command today, so there is no live leak, but a CQRS logging
+interceptor added later would put a plaintext password in every log line it
+touched, and no test here would go red to catch it.

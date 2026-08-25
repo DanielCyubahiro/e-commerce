@@ -190,7 +190,10 @@ export class AuthController {
       new RevokeSessionCommand(user.userId, params.id),
     );
 
-    if (params.id === user.sessionId) {
+    // UUIDs are case-insensitive and @IsUUID() accepts either case, while
+    // stored ids are lowercase, so a case-sensitive comparison here would
+    // silently skip clearing the cookie on the caller's own uppercase id.
+    if (params.id.toLowerCase() === user.sessionId) {
       this.cookie.clear(response);
     }
   }

@@ -25,14 +25,26 @@ const DAY_SECONDS = 86_400;
  * and no boolean for class-transformer's implicit conversion to turn the
  * string "false" into true.
  *
- * @throws TypeError when `webBaseUrl` is not an absolute URL; env validation
- * already guarantees it is.
+ * @throws TypeError when `webBaseUrl` is not an absolute URL, or Error when
+ * its origin would be the literal string "null"; env validation already
+ * guarantees neither happens.
  */
 export function authWebSettingsFrom(
   webBaseUrl: string,
   lifetimes: TokenLifetimes,
 ): AuthWebSettings {
   const url = new URL(webBaseUrl);
+
+  // Env validation already requires an http(s) scheme, which is what makes
+  // this unreachable in practice; this is the last line of defence for a
+  // caller that bypassed it, since `url.origin` is the literal string "null"
+  // for a scheme-less or non-http URL and would otherwise allow-list
+  // `Origin: null`.
+  if (url.origin === 'null') {
+    throw new Error(
+      'WEB_BASE_URL must be an http or https URL with a host; its origin is "null".',
+    );
+  }
 
   return {
     allowedOrigin: url.origin,

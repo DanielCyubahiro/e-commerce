@@ -1,5 +1,4 @@
 import { InvalidOrderStatusException, type Order } from '@/ordering/domain';
-import { FakeUnitOfWork } from '@test/fakes/fake-unit-of-work';
 import { InMemoryOrderReadRepository } from '@test/fakes/in-memory-order-read.repository';
 import { InMemoryOrderWriteRepository } from '@test/fakes/in-memory-order-write.repository';
 import { seedPlaced } from '@test/fakes/seed-order';
@@ -24,7 +23,7 @@ describe('ListOrdersHandler', () => {
     theirs = await seedPlaced(writes, OTHER_CUSTOMER);
     const loaded = (await writes.findById(theirs.id)) as Order;
     loaded.pay(new Date());
-    await new FakeUnitOfWork([writes]).run((tx) => writes.save(loaded, tx));
+    await writes.save(loaded);
   });
 
   it('scopes a customer to their own orders, whatever filter they sent', async () => {

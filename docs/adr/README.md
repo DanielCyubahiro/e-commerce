@@ -33,3 +33,4 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0019](0019-commands-call-collaborators-directly.md) | Commands call collaborators directly; no domain events | Accepted |
 | [0020](0020-server-side-sessions-replace-jwts.md) | Server-side sessions replace JWTs for instant revocation | Accepted |
 | [0021](0021-cookie-transport-with-lax-and-origin-check.md) | The session travels in a `SameSite=Lax` cookie with Origin verification | Accepted |
+| [0022](0022-postman-collections-in-the-repo.md) | Postman collections live in the repo and are checked against the controllers | Accepted |

@@ -48,7 +48,7 @@ test needs rather than by which of the five layers above it belongs to:
 | `unit` | Nothing, no I/O | Unit, Application, and the fake half of Contract |
 | `integration` | Docker, one Postgres container per run, plus a Mailpit container for the SMTP email-sender binding | Integration, and the Drizzle and SMTP halves of Contract |
 | `http` | Nothing, no database | HTTP |
-| `docs` | Nothing, no database | The markdown tree, checked against `src/` |
+| `docs` | Nothing, no database | The markdown tree and `postman/`, checked against `src/` |
 
 Contract is the layer that splits across two projects: the same suite runs
 once bound to the in-memory fake (in `unit`) and once bound to the Drizzle

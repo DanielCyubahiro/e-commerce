@@ -11,9 +11,8 @@ same session. Detecting reuse, a second presentation of a token already
 consumed, is the mechanism that turns a stolen refresh token into a signal
 rather than free, silent access.
 [`RefreshTokenRepository.rotate`](../../src/identity/application/ports/refresh-token.repository.ts)
-reports a closed `RotationOutcome`, and
-[`RefreshSessionHandler`](../../src/identity/application/use-cases/commands/refresh-session/refresh-session.handler.ts)
-is the only place that outcome is consumed.
+reports a closed `RotationOutcome`, and `RefreshSessionHandler` is the only
+place that outcome is consumed.
 
 ## Decision
 

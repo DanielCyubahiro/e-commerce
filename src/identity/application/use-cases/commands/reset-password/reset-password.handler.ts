@@ -14,9 +14,9 @@ import {
   type PasswordHasher,
 } from '../../../ports/password-hasher';
 import {
-  REFRESH_TOKEN_REPOSITORY,
-  type RefreshTokenRepository,
-} from '../../../ports/refresh-token.repository';
+  SESSION_REPOSITORY,
+  type SessionRepository,
+} from '../../../ports/session.repository';
 import { InvalidResetTokenException } from '../../../exceptions/invalid-reset-token.exception';
 import { ResetPasswordCommand } from './reset-password.command';
 
@@ -34,8 +34,7 @@ export class ResetPasswordHandler implements ICommandHandler<
     private readonly tokens: OneTimeTokenRepository,
     @Inject(CREDENTIAL_REPOSITORY)
     private readonly credentials: CredentialRepository,
-    @Inject(REFRESH_TOKEN_REPOSITORY)
-    private readonly refreshTokens: RefreshTokenRepository,
+    @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
   ) {}
 
@@ -64,7 +63,7 @@ export class ResetPasswordHandler implements ICommandHandler<
         await this.credentials.changePassword(userId, newHash);
 
         // No exception: whoever prompted the reset may be holding a session.
-        await this.refreshTokens.revokeAllForUser(userId, now);
+        await this.sessions.revokeAllForUser(userId, now);
         return;
       }
 

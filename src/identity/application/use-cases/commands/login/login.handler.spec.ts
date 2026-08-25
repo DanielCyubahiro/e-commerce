@@ -1,8 +1,7 @@
 import { catchRejection } from '@test/support/catch-error';
-import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
-import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
 import { Password, PasswordHash, SecretToken } from '@/identity/domain';
 import { EmailNotVerifiedException } from '../../../exceptions/email-not-verified.exception';
 import { InvalidCredentialsException } from '../../../exceptions/invalid-credentials.exception';
@@ -11,32 +10,33 @@ import { LoginHandler } from './login.handler';
 
 describe('LoginHandler', () => {
   const userId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
+  const now = new Date('2026-08-19T10:00:00.000Z');
   const lifetimes = {
     refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
+    sessionIdleDays: 30,
+    sessionAbsoluteDays: 365,
   };
+  const origin = { userAgent: 'Firefox/142', ipAddress: '10.0.0.1' };
+  const login = (
+    email = 'ada@example.com',
+    password = 'correct horse battery',
+  ): LoginCommand => new LoginCommand(email, password, origin);
 
   let credentials: InMemoryCredentialRepository;
-  let refreshTokens: InMemoryRefreshTokenRepository;
+  let sessions: InMemorySessionRepository;
   let hasher: FakePasswordHasher;
-  let issuer: FakeAccessTokenIssuer;
   let handler: LoginHandler;
   let storedHash: PasswordHash;
 
   beforeEach(async () => {
-    jest.useFakeTimers().setSystemTime(new Date('2026-08-19T10:00:00.000Z'));
+    jest.useFakeTimers().setSystemTime(now);
     credentials = new InMemoryCredentialRepository();
-    refreshTokens = new InMemoryRefreshTokenRepository();
+    sessions = new InMemorySessionRepository(lifetimes);
+    sessions.seedUserRole(userId, 'seller');
     hasher = new FakePasswordHasher();
-    issuer = new FakeAccessTokenIssuer();
-    handler = new LoginHandler(
-      credentials,
-      hasher,
-      refreshTokens,
-      issuer,
-      lifetimes,
-    );
+    handler = new LoginHandler(credentials, hasher, sessions);
 
     storedHash = await hasher.hash(Password.create('correct horse battery'));
     credentials.seed({
@@ -52,57 +52,60 @@ describe('LoginHandler', () => {
     jest.useRealTimers();
   });
 
-  it('returns an access token carrying the user, role and session', async () => {
-    const result = await handler.execute(
-      new LoginCommand('ada@example.com', 'correct horse battery'),
-    );
+  it('starts a session and returns its plaintext with the caller identity', async () => {
+    const result = await handler.execute(login());
 
-    const claims = await issuer.verify(result.accessToken);
-    expect(claims?.userId).toBe(userId);
-    expect(claims?.role).toBe('seller');
-    expect(claims?.sessionId).toEqual(expect.any(String));
+    expect(result).toEqual({
+      token: expect.any(String) as unknown,
+      userId,
+      role: 'seller',
+    });
+    expect(result.token).toMatch(/^[A-Za-z0-9_-]+$/);
   });
 
-  it('returns a refresh token that is stored only as a digest', async () => {
-    const result = await handler.execute(
-      new LoginCommand('ada@example.com', 'correct horse battery'),
-    );
+  it('stores only the digest of the token it returns', async () => {
+    const result = await handler.execute(login());
 
-    expect(result.refreshToken).toMatch(/^[A-Za-z0-9_-]+$/);
-    expect(refreshTokens.digests()).toEqual([
-      SecretToken.hashOf(result.refreshToken).value,
+    expect(sessions.rows().map((row) => row.tokenHash)).toEqual([
+      SecretToken.hashOf(result.token).value,
     ]);
   });
 
-  it('starts a new chain per login, so devices are independent', async () => {
-    const first = await handler.execute(
-      new LoginCommand('ada@example.com', 'correct horse battery'),
-    );
-    const second = await handler.execute(
-      new LoginCommand('ada@example.com', 'correct horse battery'),
-    );
+  it('records where the session came from, stamped with the current time', async () => {
+    await handler.execute(login());
 
-    const sessions = await Promise.all(
-      [first, second].map(
-        async (r) => (await issuer.verify(r.accessToken))?.sessionId,
-      ),
-    );
-    expect(sessions[0]).not.toBe(sessions[1]);
+    expect(sessions.rows()[0]).toMatchObject({
+      userId,
+      userAgent: 'Firefox/142',
+      ipAddress: '10.0.0.1',
+      createdAt: now,
+      lastSeenAt: now,
+      revokedAt: null,
+    });
   });
 
-  it('expires the refresh token after the configured lifetime', async () => {
-    await handler.execute(
-      new LoginCommand('ada@example.com', 'correct horse battery'),
-    );
+  it('starts a new session per login, so devices are independent', async () => {
+    await handler.execute(login());
+    await handler.execute(login());
 
-    expect(refreshTokens.rows()[0]?.expiresAt).toEqual(
-      new Date('2026-09-18T10:00:00.000Z'),
-    );
+    expect(new Set(sessions.rows().map((row) => row.id)).size).toBe(2);
+  });
+
+  it('returns a token the repository recognises on the next request', async () => {
+    const result = await handler.execute(login());
+
+    await expect(
+      sessions.touch(SecretToken.hashOf(result.token), now),
+    ).resolves.toEqual({
+      userId,
+      role: 'seller',
+      sessionId: sessions.rows()[0]?.id,
+    });
   });
 
   it('rejects a wrong password', async () => {
     const error = await catchRejection(
-      () => handler.execute(new LoginCommand('ada@example.com', 'wrong')),
+      () => handler.execute(login('ada@example.com', 'wrong')),
       InvalidCredentialsException,
     );
 
@@ -111,7 +114,7 @@ describe('LoginHandler', () => {
 
   it('answers a nonexistent address with the same code as a wrong password', async () => {
     const error = await catchRejection(
-      () => handler.execute(new LoginCommand('nobody@example.com', 'whatever')),
+      () => handler.execute(login('nobody@example.com', 'whatever')),
       InvalidCredentialsException,
     );
 
@@ -124,7 +127,7 @@ describe('LoginHandler', () => {
     const spy = jest.spyOn(hasher, 'verify');
 
     await catchRejection(
-      () => handler.execute(new LoginCommand('nobody@example.com', 'whatever')),
+      () => handler.execute(login('nobody@example.com', 'whatever')),
       InvalidCredentialsException,
     );
 
@@ -132,13 +135,13 @@ describe('LoginHandler', () => {
     expect(spy.mock.calls[0]?.[1].value).toBe(hasher.dummyHash().value);
   });
 
-  it('issues nothing when the password is wrong', async () => {
+  it('starts nothing when the password is wrong', async () => {
     await catchRejection(
-      () => handler.execute(new LoginCommand('ada@example.com', 'wrong')),
+      () => handler.execute(login('ada@example.com', 'wrong')),
       InvalidCredentialsException,
     );
 
-    expect(refreshTokens.rows()).toHaveLength(0);
+    expect(sessions.rows()).toHaveLength(0);
   });
 
   it('refuses an unverified account, distinctly', async () => {
@@ -152,10 +155,7 @@ describe('LoginHandler', () => {
     });
 
     const error = await catchRejection(
-      () =>
-        handler.execute(
-          new LoginCommand('ada@example.com', 'correct horse battery'),
-        ),
+      () => handler.execute(login()),
       EmailNotVerifiedException,
     );
 
@@ -175,7 +175,7 @@ describe('LoginHandler', () => {
     });
 
     const error = await catchRejection(
-      () => handler.execute(new LoginCommand('ada@example.com', 'wrong')),
+      () => handler.execute(login('ada@example.com', 'wrong')),
       InvalidCredentialsException,
     );
 
@@ -197,10 +197,8 @@ describe('LoginHandler', () => {
       emailVerifiedAt: new Date(),
     });
 
-    const result = await handler.execute(
-      new LoginCommand('ada@example.com', 'short'),
-    );
+    const result = await handler.execute(login('ada@example.com', 'short'));
 
-    expect(result.accessToken).toEqual(expect.any(String));
+    expect(result.token).toEqual(expect.any(String));
   });
 });

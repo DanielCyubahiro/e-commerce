@@ -18,7 +18,7 @@ import { type DomainErrorKind, DomainException } from '@/shared/domain';
 
 const ALLOWED_ORIGIN = 'http://localhost:5173';
 
-// `configureApp` is not the whole request pipeline: `JwtAuthGuard` is global
+// `configureApp` is not the whole request pipeline: `SessionAuthGuard` is global
 // too, but registered as `APP_GUARD` in `src/identity/identity.module.ts`
 // rather than here, because only that provider form gets dependency
 // injection. A reader wanting the full pipeline needs both files.

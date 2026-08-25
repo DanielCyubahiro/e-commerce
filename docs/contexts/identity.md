@@ -57,15 +57,18 @@ Fourteen endpoints across two controllers, both under
 `users` root, and
 [`AuthController`](../../src/identity/presentation/auth.controller.ts) at
 the `auth` root. The Guard column marks whether
-[`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts),
-registered as `APP_GUARD`, requires a valid access token; `Public` means the
+[`SessionAuthGuard`](../../src/identity/presentation/guards/session-auth.guard.ts),
+registered as `APP_GUARD`, requires a live session cookie; `Public` means the
 [`Public`](../../src/shared/presentation/decorators/public.decorator.ts)
 decorator opts the endpoint out. The Throttle column names the
 `ThrottlerGuard` limit a `@Throttle` decorator sets on that endpoint,
 `count/window`; `none` means no limit beyond `identity.module.ts`'s app-wide
 default of 60 requests per 60 seconds. A caller over a named limit gets a 429
 with no `code`, the same framework-exception shape
-[`architecture.md`](../architecture.md#error-path) describes.
+[`architecture.md`](../architecture.md#error-path) describes. Whatever the
+column says, every request with an `Origin` header that is not
+`WEB_BASE_URL`'s origin answers 403 `AUTH_ORIGIN_FORBIDDEN` before anything
+else runs.
 
 | Method | Path | Guard | Throttle | Success | Request DTO |
 | --- | --- | --- | --- | --- | --- |
@@ -74,12 +77,12 @@ with no `code`, the same framework-exception shape
 | GET | `/users/:id` | Protected | none | 200 | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
 | PUT | `/users/:id` | Protected | none | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts), [`UpdateUserProfileDto`](../../src/identity/presentation/dtos/update-user-profile.dto.ts) |
 | DELETE | `/users/:id` | Protected | none | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
-| POST | `/auth/login` | Public | 10/60s | 200 | [`LoginDto`](../../src/identity/presentation/dtos/login.dto.ts) |
+| POST | `/auth/login` | Public | 10/60s | 200, [`CurrentUserResponseDto`](../../src/identity/presentation/dtos/current-user-response.dto.ts), `Set-Cookie: session` | [`LoginDto`](../../src/identity/presentation/dtos/login.dto.ts) |
+| GET | `/auth/me` | Protected | none | 200, `CurrentUserResponseDto` | none, the caller comes from the session the cookie names |
 | POST | `/auth/verify-email` | Public | none | 204, no body | [`VerifyEmailDto`](../../src/identity/presentation/dtos/verify-email.dto.ts) |
 | POST | `/auth/verify-email/resend` | Public | 5/hour | 202, no body | [`ResendVerificationDto`](../../src/identity/presentation/dtos/resend-verification.dto.ts) |
-| POST | `/auth/refresh` | Public | none | 200 | [`RefreshDto`](../../src/identity/presentation/dtos/refresh.dto.ts) |
-| POST | `/auth/logout` | Protected | none | 204, no body | none, the session comes from the access token's claim |
-| POST | `/auth/logout-all` | Protected | none | 204, no body | none, the user comes from the access token's claim |
+| POST | `/auth/logout` | Protected | none | 204, no body | none, the session comes from the cookie; the cookie is cleared |
+| POST | `/auth/logout-all` | Protected | none | 204, no body | none, the user comes from the cookie; the cookie is cleared |
 | POST | `/auth/forgot-password` | Public | 5/hour | 202, no body | [`ForgotPasswordDto`](../../src/identity/presentation/dtos/forgot-password.dto.ts) |
 | POST | `/auth/reset-password` | Public | 10/60s | 204, no body | [`ResetPasswordDto`](../../src/identity/presentation/dtos/reset-password.dto.ts) |
 | POST | `/auth/change-password` | Protected | 10/60s | 204, no body | [`ChangePasswordDto`](../../src/identity/presentation/dtos/change-password.dto.ts) |
@@ -102,12 +105,15 @@ makes registration usable, and the endpoint's own throttle limits how many
 addresses a caller can probe. It is written here only so the system's
 posture is stated, not implied by omission.
 
-Second, no revocation path reaches a live access token. `POST /auth/logout`
-and `POST /auth/logout-all` both answer 204 by ending a refresh chain's
-ability to renew, not by invalidating the access token already issued: the
-token keeps working for whatever TTL remains, because `JwtAuthGuard` verifies
-a signature and an expiry, never a per-request revocation lookup. Shortening
-that window is what `ACCESS_TOKEN_TTL_SECONDS` is for.
+Second, every revocation reaches the very next request. `POST /auth/logout`,
+`POST /auth/logout-all`, a password change or reset, and `DELETE /users/:id`
+(through the `sessions.user_id` cascade) each answer by ending the session
+rows involved, and `SessionAuthGuard` resolves the cookie against those rows
+on every request, so there is no issued credential left to outlive its
+revocation. The cost is one write per authenticated request, since the same
+statement that checks liveness also moves `last_seen_at`;
+`SESSION_IDLE_TTL_DAYS` and `SESSION_ABSOLUTE_TTL_DAYS` bound how long an
+untouched or a very old session stays live.
 
 ## Ports and adapters
 
@@ -288,8 +294,7 @@ sequenceDiagram
     participant H as LoginHandler
     participant CR as CredentialRepository
     participant Hash as PasswordHasher
-    participant RT as RefreshTokenRepository
-    participant AT as AccessTokenIssuer
+    participant S as SessionRepository
 
     C->>Ctl: POST /auth/login
     Ctl->>H: LoginCommand
@@ -308,10 +313,9 @@ sequenceDiagram
         H-->>Ctl: EmailNotVerifiedException
         Ctl-->>C: 403
     else password verified and email verified
-        H->>RT: issue(refresh token)
-        H->>AT: issue(access claims)
+        H->>S: start(session with the token's digest)
         H-->>Ctl: LoginResult
-        Ctl-->>C: 200, SessionResponseDto
+        Ctl-->>C: 200 CurrentUserResponseDto, Set-Cookie: session
     end
 ```
 
@@ -327,51 +331,45 @@ possible after the password has already verified: an attacker who has
 guessed an address but not its password sees the same `401` as any other
 wrong guess, and cannot use this endpoint to confirm the account exists.
 
-Refresh consumes the presented token in a single guarded statement and
-branches on what that statement saw:
+Every protected request resolves the cookie against the `sessions` table in
+one statement that is both the liveness check and the idle-window extension:
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant Ctl as AuthController
-    participant H as RefreshSessionHandler
-    participant RT as RefreshTokenRepository
+    participant B as Browser
+    participant G as SessionAuthGuard
+    participant H as AuthenticateSessionHandler
+    participant S as SessionRepository
     participant DB as Postgres
-    participant AT as AccessTokenIssuer
+    participant Ctl as Controller
 
-    C->>Ctl: POST /auth/refresh
-    Ctl->>H: RefreshSessionCommand
-    H->>RT: rotate(presentedHash, successor, now)
-    RT->>DB: UPDATE refresh_tokens SET used_at = now<br/>WHERE token_hash = presented<br/>AND used_at IS NULL AND revoked_at IS NULL<br/>AND expires_at > now
-    alt guard matches the row (won the race)
-        DB-->>RT: row returned
-        RT->>DB: INSERT successor row (same transaction)
-        RT-->>H: rotated { userId, role, sessionId }
-        H->>AT: issue(access claims)
-        H-->>Ctl: LoginResult
-        Ctl-->>C: 200, new access and refresh tokens
-    else guard matches nothing (already used)
-        DB-->>RT: no row
-        RT->>DB: SELECT to classify why
-        DB-->>RT: usedAt is set: replayed { sessionId }
-        RT-->>H: replayed
-        H->>RT: revokeSession(sessionId)
-        H-->>Ctl: InvalidRefreshTokenException
-        Ctl-->>C: 401
-    else guard matches nothing (expired, revoked, or unknown)
-        DB-->>RT: classification
-        RT-->>H: expired | revoked | unknown
-        H-->>Ctl: InvalidRefreshTokenException
-        Ctl-->>C: 401
+    B->>G: request with cookie `session`
+    G->>G: Origin present and not WEB_BASE_URL's? 403
+    G->>G: @Public()? pass through
+    G->>G: no cookie? 401
+    G->>H: AuthenticateSessionCommand(plaintext)
+    H->>S: touch(SecretToken.hashOf(plaintext), now)
+    S->>DB: UPDATE sessions SET last_seen_at = now FROM users<br/>WHERE token_hash = digest AND revoked_at IS NULL<br/>AND last_seen_at > now - idle AND created_at > now - absolute<br/>RETURNING id, user_id, role
+    alt no row
+        S-->>H: null
+        H-->>G: null
+        G-->>B: 401 AUTH_UNAUTHENTICATED
+    else row
+        S-->>H: { userId, role, sessionId }
+        H-->>G: AuthenticatedSession
+        G->>G: request.user = session; Set-Cookie with a fresh Max-Age
+        G->>Ctl: proceed
     end
 ```
 
-The guarded `UPDATE` is what makes exactly one of two concurrent presenters
-of the same token win; see
-[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md) for the
-mechanism, and
-[ADR 0016](../adr/0016-refresh-rotation-with-reuse-detection.md) for why a
-replay revokes the whole chain rather than only the replayed token.
+The guard dispatches a command rather than calling the port because hashing
+the presented token is `SecretToken.hashOf`, a domain operation presentation
+may not perform. The `UPDATE` is guarded in the sense of
+[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md): a session revoked
+between two requests cannot be extended by the second, because the revocation
+changed the row the guard tests. Unknown, revoked, idle-expired and absolutely
+expired all answer the same 401, since telling a forger which check failed is
+a gift.
 
 ## Error codes
 
@@ -389,10 +387,10 @@ Codes raised by `src/identity/`.
 | `USER_EMAIL_DUPLICATE` | `conflict` | 409 | [`DuplicateEmailException`](../../src/identity/application/exceptions/duplicate-email.exception.ts) |
 | `USER_NOT_FOUND` | `not-found` | 404 | [`GetUserHandler`](../../src/identity/application/use-cases/queries/get-user/get-user.handler.ts), [`DeleteUserHandler`](../../src/identity/application/use-cases/commands/delete-user/delete-user.handler.ts), [`UpdateUserHandler`](../../src/identity/application/use-cases/commands/update-user/update-user.handler.ts) |
 | `AUTH_SESSION_NOT_FOUND` | `not-found` | 404 | [`RevokeSessionHandler`](../../src/identity/application/use-cases/commands/revoke-session/revoke-session.handler.ts) |
-| `AUTH_UNAUTHENTICATED` | `unauthorized` | 401 | [`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts) |
+| `AUTH_UNAUTHENTICATED` | `unauthorized` | 401 | [`SessionAuthGuard`](../../src/identity/presentation/guards/session-auth.guard.ts) |
+| `AUTH_ORIGIN_FORBIDDEN` | `forbidden` | 403 | [`SessionAuthGuard`](../../src/identity/presentation/guards/session-auth.guard.ts) |
 | `AUTH_INVALID_CREDENTIALS` | `unauthorized` | 401 | [`LoginHandler`](../../src/identity/application/use-cases/commands/login/login.handler.ts), [`ChangePasswordHandler`](../../src/identity/application/use-cases/commands/change-password/change-password.handler.ts) |
 | `AUTH_EMAIL_NOT_VERIFIED` | `forbidden` | 403 | [`LoginHandler`](../../src/identity/application/use-cases/commands/login/login.handler.ts) |
-| `AUTH_REFRESH_TOKEN_INVALID` | `unauthorized` | 401 | [`RefreshSessionHandler`](../../src/identity/application/use-cases/commands/refresh-session/refresh-session.handler.ts) |
 | `AUTH_RESET_TOKEN_EXPIRED` | `unauthorized` | 401 | [`ResetPasswordHandler`](../../src/identity/application/use-cases/commands/reset-password/reset-password.handler.ts) |
 | `AUTH_RESET_TOKEN_INVALID` | `unauthorized` | 401 | [`ResetPasswordHandler`](../../src/identity/application/use-cases/commands/reset-password/reset-password.handler.ts) |
 | `AUTH_VERIFICATION_TOKEN_EXPIRED` | `unauthorized` | 401 | [`VerifyEmailHandler`](../../src/identity/application/use-cases/commands/verify-email/verify-email.handler.ts) |

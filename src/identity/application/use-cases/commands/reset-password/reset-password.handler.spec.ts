@@ -2,13 +2,12 @@ import { catchRejection } from '@test/support/catch-error';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
 import { InMemoryOneTimeTokenRepository } from '@test/fakes/in-memory-one-time-token.repository';
-import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
 import {
   InvalidPasswordException,
   OneTimeTokenId,
   Password,
   PasswordAttempt,
-  RefreshTokenId,
   SecretToken,
   SessionId,
   TokenPurpose,
@@ -21,13 +20,34 @@ import { ResetPasswordHandler } from './reset-password.handler';
 describe('ResetPasswordHandler', () => {
   const userId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
   const now = new Date('2026-08-19T10:00:00.000Z');
+  const lifetimes = {
+    refreshTokenDays: 30,
+    passwordResetMinutes: 60,
+    emailVerificationHours: 24,
+    sessionIdleDays: 30,
+    sessionAbsoluteDays: 365,
+  };
 
   let tokens: InMemoryOneTimeTokenRepository;
   let credentials: InMemoryCredentialRepository;
-  let refreshTokens: InMemoryRefreshTokenRepository;
+  let sessions: InMemorySessionRepository;
   let hasher: FakePasswordHasher;
   let handler: ResetPasswordHandler;
   let storedHash: string;
+
+  const startSession = async (): Promise<SessionId> => {
+    const sessionId = SessionId.create();
+    await sessions.start(
+      {
+        id: sessionId,
+        userId: UserId.create(userId),
+        tokenHash: SecretToken.issue().hash,
+        origin: { userAgent: null, ipAddress: null },
+      },
+      now,
+    );
+    return sessionId;
+  };
 
   // Seeds an account with a known stored hash and a valid, unexpired reset
   // token, returning the plaintext secret the handler must be presented with.
@@ -60,14 +80,10 @@ describe('ResetPasswordHandler', () => {
     jest.useFakeTimers().setSystemTime(now);
     tokens = new InMemoryOneTimeTokenRepository();
     credentials = new InMemoryCredentialRepository();
-    refreshTokens = new InMemoryRefreshTokenRepository();
+    sessions = new InMemorySessionRepository(lifetimes);
+    sessions.seedUserRole(userId, 'seller');
     hasher = new FakePasswordHasher();
-    handler = new ResetPasswordHandler(
-      tokens,
-      credentials,
-      refreshTokens,
-      hasher,
-    );
+    handler = new ResetPasswordHandler(tokens, credentials, sessions, hasher);
   });
 
   afterEach(() => {
@@ -101,39 +117,24 @@ describe('ResetPasswordHandler', () => {
 
   it('revokes every session, including the caller’s', async () => {
     const { secret } = await seedAccountWithResetToken();
-    const callerSession = SessionId.create();
-    const otherSession = SessionId.create();
-    await refreshTokens.issue({
-      id: RefreshTokenId.create(),
-      sessionId: callerSession,
-      userId: UserId.create(userId),
-      tokenHash: SecretToken.issue().hash,
-      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60_000),
-    });
-    await refreshTokens.issue({
-      id: RefreshTokenId.create(),
-      sessionId: otherSession,
-      userId: UserId.create(userId),
-      tokenHash: SecretToken.issue().hash,
-      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60_000),
-    });
+    const callerSession = await startSession();
+    const otherSession = await startSession();
     // Two distinct rows, so an assertion that both are revoked afterward
     // cannot be satisfied by a fake that only ever revoked one.
-    expect(refreshTokens.rows()).toHaveLength(2);
+    expect(sessions.rows()).toHaveLength(2);
 
     // The premise of a reset is that someone else may hold a session.
     await handler.execute(
       new ResetPasswordCommand(secret.plaintext, 'a new long password'),
     );
 
-    const caller = refreshTokens
-      .rows()
-      .find((row) => row.sessionId === callerSession.value);
-    const other = refreshTokens
-      .rows()
-      .find((row) => row.sessionId === otherSession.value);
-    expect(caller?.revokedAt).not.toBeNull();
-    expect(other?.revokedAt).not.toBeNull();
+    const rows = sessions.rows();
+    expect(
+      rows.find((row) => row.id === callerSession.value)?.revokedAt,
+    ).not.toBeNull();
+    expect(
+      rows.find((row) => row.id === otherSession.value)?.revokedAt,
+    ).not.toBeNull();
   });
 
   it('rejects a weak new password before the token is spent', async () => {

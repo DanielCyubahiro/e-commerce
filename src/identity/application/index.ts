@@ -33,6 +33,13 @@ export {
   type RotationOutcome,
 } from './ports/refresh-token.repository';
 export {
+  SESSION_REPOSITORY,
+  type AuthenticatedSession,
+  type NewSession,
+  type SessionOrigin,
+  type SessionRepository,
+} from './ports/session.repository';
+export {
   USER_READ_REPOSITORY,
   type UserFilters,
   type UserReadRepository,
@@ -42,12 +49,15 @@ export {
   type Registration,
   type UserWriteRepository,
 } from './ports/user.write-repository';
+export type { SessionReadModel } from './read-models/session.read-model';
 export type { UserReadModel } from './read-models/user.read-model';
 export {
   TOKEN_LIFETIMES,
   type TokenLifetimes,
   refreshExpiry,
   resetExpiry,
+  sessionAbsoluteCutoff,
+  sessionIdleCutoff,
   verificationExpiry,
 } from './token-lifetimes';
 export { ChangePasswordCommand } from './use-cases/commands/change-password/change-password.command';

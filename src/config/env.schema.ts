@@ -53,6 +53,16 @@ export class EnvSchema {
   @Min(1)
   EMAIL_VERIFICATION_TTL_HOURS: number = 24;
 
+  // How long a session survives without a request. Also the cookie's Max-Age.
+  @IsInt()
+  @Min(1)
+  SESSION_IDLE_TTL_DAYS: number = 30;
+
+  // The cap no amount of activity extends past.
+  @IsInt()
+  @Min(1)
+  SESSION_ABSOLUTE_TTL_DAYS: number = 365;
+
   @IsString()
   @IsNotEmpty()
   SMTP_HOST!: string;
@@ -97,6 +107,13 @@ export function validateEnv(config: Record<string, unknown>): EnvSchema {
       )
       .join('\n');
     throw new Error(`Invalid environment configuration:\n${details}`);
+  }
+
+  // The one rule class-validator cannot express: a decorator sees one field.
+  if (validated.SESSION_ABSOLUTE_TTL_DAYS < validated.SESSION_IDLE_TTL_DAYS) {
+    throw new Error(
+      'Invalid environment configuration:\n  - SESSION_ABSOLUTE_TTL_DAYS must be at least SESSION_IDLE_TTL_DAYS',
+    );
   }
 
   return validated;

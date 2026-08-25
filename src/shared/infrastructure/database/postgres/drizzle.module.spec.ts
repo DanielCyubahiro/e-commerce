@@ -1,5 +1,7 @@
 import { Test } from '@nestjs/testing';
+import { UNIT_OF_WORK } from '@/shared/application';
 import { DrizzleModule } from './drizzle.module';
+import { DrizzleUnitOfWork } from './drizzle-unit-of-work';
 import {
   DRIZZLE,
   POSTGRES_CLIENT,
@@ -25,5 +27,20 @@ describe('DrizzleModule', () => {
 
     await moduleRef.close();
     expect(end).toHaveBeenCalledTimes(1);
+  });
+
+  it('exports a unit of work bound to the Drizzle adapter', async () => {
+    const moduleRef = await Test.createTestingModule({
+      imports: [DrizzleModule],
+    })
+      .overrideProvider(POSTGRES_CLIENT)
+      .useValue({ end: () => Promise.resolve() })
+      .overrideProvider(DRIZZLE)
+      .useValue({})
+      .compile();
+
+    expect(moduleRef.get(UNIT_OF_WORK)).toBeInstanceOf(DrizzleUnitOfWork);
+
+    await moduleRef.close();
   });
 });

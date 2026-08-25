@@ -143,7 +143,7 @@ application exception; nothing above it should ever see a raw driver error.
 | --- | --- | --- |
 | catalogue | [`DrizzleProductWriteRepository`](../src/catalogue/infrastructure/adapters/drizzle-product.write-repository.ts), [`DrizzleStockAllocator`](../src/catalogue/infrastructure/adapters/drizzle-stock-allocator.ts) | `isDuplicateSku` walks Drizzle's wrapped error cause chain to find the Postgres unique violation; `DrizzleStockAllocator` holds no database handle of its own, every statement runs on the transaction it is given |
 | identity | [`DrizzleUserWriteRepository.isDuplicateEmail`](../src/identity/infrastructure/adapters/drizzle-user.write-repository.ts), [`Argon2PasswordHasher`](../src/identity/infrastructure/adapters/argon2-password.hasher.ts), [`DrizzleCredentialRepository`](../src/identity/infrastructure/adapters/drizzle-credential.repository.ts), [`DrizzleOneTimeTokenRepository`](../src/identity/infrastructure/adapters/drizzle-one-time-token.repository.ts), [`DrizzleRefreshTokenRepository`](../src/identity/infrastructure/adapters/drizzle-refresh-token.repository.ts), [`JoseAccessTokenIssuer`](../src/identity/infrastructure/adapters/jose-access-token.issuer.ts), [`SmtpEmailSender`](../src/identity/infrastructure/adapters/smtp-email.sender.ts) | `DrizzleUserWriteRepository.isDuplicateEmail` walks the same wrapped error cause chain, matching both the `23505` code and the `users_email_unique` constraint name, so a primary-key collision is never misreported as a duplicate email; `Argon2PasswordHasher` is the only place argon2 is named; `DrizzleCredentialRepository`, `DrizzleOneTimeTokenRepository`, and `DrizzleRefreshTokenRepository` each write through one guarded statement rather than a read followed by a write (see [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md)); `JoseAccessTokenIssuer` is the only place a JWT is named; `SmtpEmailSender` is the only place mail copy and link shapes exist |
-| ordering | none | Not modelled yet |
+| ordering | [`DrizzleOrderWriteRepository`](../src/ordering/infrastructure/adapters/drizzle-order.write-repository.ts), [`DrizzleOrderReadRepository`](../src/ordering/infrastructure/adapters/drizzle-order.read-repository.ts) | the write adapter's `place` runs its two inserts under a savepoint so a unique violation becomes an outcome without aborting the caller's transaction, and matches `orders_customer_id_idempotency_key_unique` by name; `save` is one `UPDATE ... WHERE version = $expected` |
 
 Canonical source: Alistair Cockburn's Hexagonal Architecture, also called
 Ports and Adapters.
@@ -214,7 +214,7 @@ adapter, so no other layer ever learns the row's shape.
 | --- | --- | --- |
 | catalogue | [`DrizzleProductReadRepository.project`](../src/catalogue/infrastructure/adapters/drizzle-product.read-repository.ts) | renames the row's `priceAmount` column to `priceMinorUnits` |
 | identity | [`DrizzleUserReadRepository.project`](../src/identity/infrastructure/adapters/drizzle-user.read-repository.ts) | passes every column through unrenamed; `phone` stays `null`, never `undefined`; unchanged by authentication, since every new capability there is a command, none a query |
-| ordering | none | Not modelled yet |
+| ordering | [`DrizzleOrderReadRepository.summary`](../src/ordering/infrastructure/adapters/drizzle-order.read-repository.ts) | renames every `*_amount` column to `*MinorUnits` and carries a correlated `lineCount`; the detail adds lines in product id order |
 
 Canonical source: Greg Young, "CQRS Documents".
 

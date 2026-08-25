@@ -50,6 +50,39 @@ export class Money {
     );
   }
 
+  static zero(currency: string): Money {
+    return new Money(0, Money.normaliseCurrency(currency));
+  }
+
+  /** @throws InvalidMoneyException when the currencies differ */
+  add(other: Money): Money {
+    if (this._currency !== other._currency) {
+      throw InvalidMoneyException.currencyMismatch(
+        this._currency,
+        other._currency,
+      );
+    }
+
+    return new Money(this._minorUnits + other._minorUnits, this._currency);
+  }
+
+  /**
+   * Integer factors only: a quantity, never a rate. Rates would reopen the
+   * rounding question this class exists to close.
+   *
+   * @throws InvalidMoneyException for a fractional or negative factor
+   */
+  multiply(factor: number): Money {
+    if (!Number.isInteger(factor)) {
+      throw InvalidMoneyException.notAnIntegerFactor(factor);
+    }
+    if (factor < 0) {
+      throw InvalidMoneyException.negativeFactor(factor);
+    }
+
+    return new Money(this._minorUnits * factor, this._currency);
+  }
+
   get minorUnits(): number {
     return this._minorUnits;
   }

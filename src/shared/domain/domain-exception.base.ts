@@ -1,7 +1,8 @@
 // New members here are a compile error in `domain-exception.filter.ts`'s
 // `STATUS_BY_KIND` until a status is assigned, never a silent runtime
 // fallthrough.
-export type DomainErrorKind = 'invariant' | 'malformed-identifier';
+export type DomainErrorKind =
+  'invariant' | 'malformed-identifier' | 'illegal-transition';
 
 /**
  * Base for every domain-layer error. `code` is a stable, machine-readable

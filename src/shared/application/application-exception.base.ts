@@ -13,6 +13,13 @@ export abstract class ApplicationException extends Error {
   abstract readonly code: string;
   abstract readonly kind: ApplicationErrorKind;
 
+  /**
+   * Structured data a client can act on, for example which products fell
+   * short. Emitted by the filter as `details` only when defined, so the body
+   * shape stays `{ statusCode, code, message }` for every other exception.
+   */
+  readonly details?: unknown;
+
   protected constructor(message: string) {
     super(message);
     this.name = new.target.name;

@@ -47,4 +47,22 @@ export class InvalidMoneyException extends DomainException {
       `Currency must be three letters, received "${currency}".`,
     );
   }
+
+  static currencyMismatch(left: string, right: string): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `Cannot combine amounts in ${left} and ${right}.`,
+    );
+  }
+
+  static notAnIntegerFactor(factor: number): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `A multiplier must be a whole number, received ${factor}.`,
+    );
+  }
+
+  static negativeFactor(factor: number): InvalidMoneyException {
+    return new InvalidMoneyException(
+      `A multiplier cannot be negative, received ${factor}.`,
+    );
+  }
 }

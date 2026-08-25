@@ -37,6 +37,25 @@ class ProbeConflictException extends ApplicationException {
   }
 }
 
+class ProbeTransitionException extends DomainException {
+  readonly code = 'PROBE_TRANSITION';
+  readonly kind: DomainErrorKind = 'illegal-transition';
+
+  constructor() {
+    super('probe cannot move there');
+  }
+}
+
+class ProbeDetailedException extends ApplicationException {
+  readonly code = 'PROBE_DETAILED';
+  readonly kind: ApplicationErrorKind = 'conflict';
+  readonly details = [{ productId: 'p-1', reason: 'insufficient' }];
+
+  constructor() {
+    super('probe conflict with details');
+  }
+}
+
 @Controller('probe')
 class ProbeController {
   @Get('domain')
@@ -64,6 +83,16 @@ class ProbeController {
     // Throwing a non-Error is the point: the filter must not assume `.stack`.
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw 'a bare string, not an Error';
+  }
+
+  @Get('transition')
+  transition(): never {
+    throw new ProbeTransitionException();
+  }
+
+  @Get('detailed')
+  detailed(): never {
+    throw new ProbeDetailedException();
   }
 }
 
@@ -136,5 +165,34 @@ describe('configureApp global filters', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toMatchObject({ code: 'INTERNAL_ERROR' });
+  });
+
+  it('maps an illegal transition to 409 with its code', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/probe/transition')
+      .expect(409);
+
+    expect(response.body).toEqual({
+      statusCode: 409,
+      code: 'PROBE_TRANSITION',
+      message: 'probe cannot move there',
+    });
+  });
+
+  it('emits details when an application exception carries them, and only then', async () => {
+    const detailed = await request(app.getHttpServer())
+      .get('/probe/detailed')
+      .expect(409);
+    const plain = await request(app.getHttpServer())
+      .get('/probe/application')
+      .expect(409);
+
+    expect(detailed.body).toEqual({
+      statusCode: 409,
+      code: 'PROBE_DETAILED',
+      message: 'probe conflict with details',
+      details: [{ productId: 'p-1', reason: 'insufficient' }],
+    });
+    expect(Object.keys(plain.body as object)).not.toContain('details');
   });
 });

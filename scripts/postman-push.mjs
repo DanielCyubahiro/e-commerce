@@ -24,7 +24,7 @@ const ENVIRONMENT_SUFFIX = '.postman_environment.json';
 const CLOUD_NOISE = new Set(['createdAt', 'updatedAt', 'lastUpdatedBy', 'owner', 'uid']);
 
 /** Drops the fields the Postman API adds on read, at every depth. */
-export function stripCloudNoise(value) {
+function stripCloudNoise(value) {
   if (Array.isArray(value)) {
     return value.map(stripCloudNoise);
   }
@@ -39,7 +39,7 @@ export function stripCloudNoise(value) {
 }
 
 /** The one on-disk shape: two-space JSON with a trailing newline. */
-export function serialize(json) {
+function serialize(json) {
   return `${JSON.stringify(json, null, 2)}\n`;
 }
 
@@ -103,9 +103,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
-  main().catch((error) => {
-    console.error(error instanceof Error ? error.message : String(error));
-    process.exit(1);
-  });
-}
+main().catch((error) => {
+  console.error(error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

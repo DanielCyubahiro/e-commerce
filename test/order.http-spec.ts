@@ -289,6 +289,19 @@ describe('orders HTTP contract', () => {
 
       expect(bodyOf(response).details?.[0]?.reason).toBe('unknown');
     });
+
+    it('returns 422 for the same product on two lines, leaving stock untouched', async () => {
+      const response = await place(
+        customerA,
+        orderBody([
+          { productId: espressoId, quantity: 1 },
+          { productId: espressoId, quantity: 1 },
+        ]),
+      ).expect(422);
+
+      expect(bodyOf(response).code).toBe('ORDER_LINES_INVALID');
+      expect(await stockOf(espressoId)).toBe(12);
+    });
   });
 
   describe('GET /orders/:id', () => {

@@ -5,6 +5,7 @@ import { InvalidOrderLinesException } from '../exceptions/invalid-order-lines.ex
 import { InvalidQuantityException } from '../exceptions/invalid-quantity.exception';
 import { InvalidShippingAddressException } from '../exceptions/invalid-shipping-address.exception';
 import { CustomerId } from '../value-objects/customer-id.vo';
+import { OrderLineRequest } from '../value-objects/order-line-request.vo';
 import type { OrderLineInput } from '../value-objects/order-line.vo';
 import { Order, type PlaceOrderInput } from './order.entity';
 
@@ -43,6 +44,53 @@ const input = (overrides: Partial<PlaceOrderInput> = {}): PlaceOrderInput => ({
     country: 'GB',
   },
   ...overrides,
+});
+
+const requestFor = (i: number): OrderLineRequest =>
+  OrderLineRequest.create({
+    productId: `00000000-0000-4000-8000-${String(i).padStart(12, '0')}`,
+    quantity: 1,
+  });
+
+describe('Order.checkLineRequests', () => {
+  it('accepts 100 distinct requests', () => {
+    const requests = Array.from({ length: 100 }, (_, i) => requestFor(i));
+
+    expect(Order.checkLineRequests(requests)).toBeUndefined();
+  });
+
+  it('rejects an empty list', () => {
+    const error = catchError(
+      () => Order.checkLineRequests([]),
+      InvalidOrderLinesException,
+    );
+
+    expect(error.code).toBe('ORDER_LINES_INVALID');
+    expect(error.message).toMatch(/at least one/);
+  });
+
+  it('rejects 101 requests', () => {
+    const requests = Array.from({ length: 101 }, (_, i) => requestFor(i));
+
+    expect(
+      catchError(
+        () => Order.checkLineRequests(requests),
+        InvalidOrderLinesException,
+      ).message,
+    ).toMatch(/at most 100/);
+  });
+
+  it('rejects a repeated product id, naming it in the message', () => {
+    const repeated = requestFor(0);
+    const requests = [repeated, requestFor(1), repeated];
+
+    expect(
+      catchError(
+        () => Order.checkLineRequests(requests),
+        InvalidOrderLinesException,
+      ).message,
+    ).toContain(repeated.productRef.value);
+  });
 });
 
 describe('Order.place', () => {

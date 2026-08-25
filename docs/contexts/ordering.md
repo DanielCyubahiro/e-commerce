@@ -59,7 +59,20 @@ none
 
 ## Ports and adapters
 
-none
+Ports are declared in
+[`src/ordering/application/ports/`](../../src/ordering/application/ports/).
+Adapters arrive in the next slice; the contracts already run against the
+in-memory fakes.
+
+| Token | Interface | Adapter |
+| --- | --- | --- |
+| [`ORDER_WRITE_REPOSITORY`](../../src/ordering/application/ports/order.write-repository.ts) | `OrderWriteRepository` | none yet |
+| [`ORDER_READ_REPOSITORY`](../../src/ordering/application/ports/order.read-repository.ts) | `OrderReadRepository` | none yet |
+
+| Contract | Fake binding, `unit` | Adapter binding, `integration` |
+| --- | --- | --- |
+| [`orderWriteRepositoryContract`](../../test/contracts/order-write-repository.contract.ts) | [`order-write-repository.spec.ts`](../../test/contracts/order-write-repository.spec.ts) | none yet |
+| [`orderReadRepositoryContract`](../../test/contracts/order-read-repository.contract.ts) | [`order-read-repository.spec.ts`](../../test/contracts/order-read-repository.spec.ts) | none yet |
 
 ## Request lifecycle
 
@@ -78,3 +91,6 @@ mechanism in [`docs/architecture.md`](../architecture.md#error-path).
 | `ORDER_SHIPPING_ADDRESS_INVALID` | `invariant` | 422 | [`ShippingAddress`](../../src/ordering/domain/value-objects/shipping-address.vo.ts) |
 | `ORDER_STATUS_INVALID` | `invariant` | 422 | [`OrderStatus.create`](../../src/ordering/domain/value-objects/order-status.vo.ts) |
 | `ORDER_TRANSITION_ILLEGAL` | `illegal-transition` | 409 | [`OrderStatus.transitionTo`](../../src/ordering/domain/value-objects/order-status.vo.ts) |
+| `ORDER_NOT_FOUND` | `not-found` | 404 | [`OrderNotFoundException`](../../src/ordering/application/exceptions/order-not-found.exception.ts) |
+| `ORDER_STOCK_UNAVAILABLE` | `conflict` | 409 | [`StockUnavailableException`](../../src/ordering/application/exceptions/stock-unavailable.exception.ts), body carries `details` |
+| `ORDER_CONFLICT` | `conflict` | 409 | [`OrderConflictException`](../../src/ordering/application/exceptions/order-conflict.exception.ts) |

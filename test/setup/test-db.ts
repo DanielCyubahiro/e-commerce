@@ -24,7 +24,7 @@ export async function truncateAll(db: TestDb): Promise<void> {
   // users, so a table that loses its foreign key later still gets cleared
   // between tests instead of leaking rows into the next one.
   await db.execute(
-    sql`TRUNCATE TABLE credentials, one_time_tokens, refresh_tokens, products, users RESTART IDENTITY CASCADE`,
+    sql`TRUNCATE TABLE credentials, one_time_tokens, refresh_tokens, order_lines, orders, products, users RESTART IDENTITY CASCADE`,
   );
 }
 

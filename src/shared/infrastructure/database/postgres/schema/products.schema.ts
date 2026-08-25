@@ -1,4 +1,6 @@
+import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   pgTable,
@@ -39,5 +41,9 @@ export const products = pgTable(
       table.createdAt.desc(),
       table.id.desc(),
     ),
+    // The StockAllocator's `stock >= $qty` guard is the mechanism; this is the
+    // backstop that makes negative stock unrepresentable even for a writer that
+    // bypasses the port.
+    check('products_stock_non_negative', sql`${table.stock} >= 0`),
   ],
 );

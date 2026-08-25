@@ -311,4 +311,245 @@ describe('migrated test database', () => {
 
     expect(rows).toEqual([]);
   });
+
+  const insertProbeOrder = async (
+    status: string,
+    customerId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+  ): Promise<string> => {
+    const rows = await testDb().execute<{ id: string }>(sql`
+      INSERT INTO orders (
+        id, customer_id, status, currency,
+        subtotal_amount, shipping_fee_amount, tax_amount, total_amount,
+        ship_recipient_name, ship_line1, ship_city, ship_postal_code, ship_country,
+        version
+      ) VALUES (
+        gen_random_uuid(), ${customerId}, ${status}::order_status, 'EUR',
+        100, 0, 0, 100,
+        'Ada Lovelace', '1 Analytical Way', 'London', 'N1 1AA', 'GB',
+        1
+      ) RETURNING id
+    `);
+    return rows[0]?.id ?? '';
+  };
+
+  it('has an orders table with every migrated column', async () => {
+    const rows = await testDb().execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'orders'
+      ORDER BY column_name COLLATE "C"
+    `);
+
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'cancelled_at',
+      'created_at',
+      'currency',
+      'customer_id',
+      'delivered_at',
+      'id',
+      'idempotency_key',
+      'number',
+      'paid_at',
+      'ship_city',
+      'ship_country',
+      'ship_line1',
+      'ship_line2',
+      'ship_postal_code',
+      'ship_recipient_name',
+      'ship_region',
+      'shipped_at',
+      'shipping_fee_amount',
+      'status',
+      'subtotal_amount',
+      'tax_amount',
+      'total_amount',
+      'updated_at',
+      'version',
+    ]);
+  });
+
+  it('assigns orders.number from an identity column the application never writes', async () => {
+    const rows = await testDb().execute<{
+      is_identity: string;
+      identity_generation: string;
+    }>(sql`
+      SELECT is_identity, identity_generation
+      FROM information_schema.columns
+      WHERE table_name = 'orders' AND column_name = 'number'
+    `);
+
+    expect(rows[0]).toEqual({
+      is_identity: 'YES',
+      identity_generation: 'ALWAYS',
+    });
+  });
+
+  it('has an order_lines table with every migrated column', async () => {
+    const rows = await testDb().execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'order_lines'
+      ORDER BY column_name COLLATE "C"
+    `);
+
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'line_total_amount',
+      'name',
+      'order_id',
+      'product_id',
+      'quantity',
+      'sku',
+      'unit_price_amount',
+    ]);
+  });
+
+  it('keys order_lines on (order_id, product_id) and cascades from orders', async () => {
+    const rows = await testDb().execute<{
+      conname: string;
+      contype: string;
+      confdeltype: string;
+    }>(sql`
+      SELECT conname, contype, confdeltype
+      FROM pg_constraint
+      -- Postgres 17+ also catalogues every NOT NULL as its own contype 'n'
+      -- row; excluded here since this case is about the fk, pk, and check.
+      WHERE conrelid = 'order_lines'::regclass AND contype != 'n'
+      ORDER BY conname COLLATE "C"
+    `);
+
+    expect(rows).toEqual([
+      {
+        conname: 'order_lines_order_id_orders_id_fk',
+        contype: 'f',
+        confdeltype: 'c',
+      },
+      {
+        conname: 'order_lines_order_id_product_id_pk',
+        contype: 'p',
+        confdeltype: ' ',
+      },
+      {
+        conname: 'order_lines_quantity_positive',
+        contype: 'c',
+        confdeltype: ' ',
+      },
+    ]);
+  });
+
+  it('indexes the customer list, the staff list, the idempotency key, and the number', async () => {
+    const rows = await testDb().execute<{ indexname: string }>(sql`
+      SELECT indexname FROM pg_indexes
+      WHERE tablename = 'orders'
+      ORDER BY indexname COLLATE "C"
+    `);
+
+    expect(rows.map((row) => row.indexname)).toEqual([
+      'orders_created_at_id_idx',
+      'orders_customer_id_created_at_id_idx',
+      'orders_customer_id_idempotency_key_unique',
+      'orders_number_unique',
+      'orders_pkey',
+    ]);
+  });
+
+  it('lets two keyless orders coexist but not two with the same customer and key', async () => {
+    const db = testDb();
+    const key = '9c858901-8a57-4791-81fe-4c455b099bc9';
+    await insertProbeOrder('placed');
+    await insertProbeOrder('placed');
+    await db.execute(sql`
+      UPDATE orders SET idempotency_key = ${key}
+      WHERE id = (SELECT id FROM orders ORDER BY number LIMIT 1)
+    `);
+
+    await expect(
+      db.execute(sql`
+        UPDATE orders SET idempotency_key = ${key}
+        WHERE id = (SELECT id FROM orders ORDER BY number DESC LIMIT 1)
+      `),
+    ).rejects.toThrow();
+
+    await db.execute(sql`DELETE FROM orders`);
+  });
+
+  it('rejects a status outside the enum', async () => {
+    await expect(insertProbeOrder('refunded')).rejects.toThrow();
+  });
+
+  it('rejects a non-positive line quantity at the database', async () => {
+    const db = testDb();
+    const orderId = await insertProbeOrder('placed');
+
+    await expect(
+      db.execute(sql`
+        INSERT INTO order_lines (order_id, product_id, sku, name, unit_price_amount, quantity, line_total_amount)
+        VALUES (${orderId}, gen_random_uuid(), 'SKU-1', 'Probe', 100, 0, 0)
+      `),
+    ).rejects.toThrow();
+
+    await db.execute(sql`DELETE FROM orders WHERE id = ${orderId}`);
+  });
+
+  it('rejects negative stock at the database', async () => {
+    const db = testDb();
+    await db.execute(sql`
+      INSERT INTO products (id, name, description, price_amount, sku, stock)
+      VALUES (gen_random_uuid(), 'Check Probe', 'Probes the check.', 1, 'CHECK-PROBE', 1)
+    `);
+
+    await expect(
+      db.execute(sql`UPDATE products SET stock = -1 WHERE sku = 'CHECK-PROBE'`),
+    ).rejects.toThrow();
+
+    await db.execute(sql`DELETE FROM products WHERE sku = 'CHECK-PROBE'`);
+  });
+
+  it('names both check constraints so the fork notes can point at them', async () => {
+    const rows = await testDb().execute<{ conname: string }>(sql`
+      SELECT conname FROM pg_constraint
+      WHERE contype = 'c'
+        AND conrelid IN ('order_lines'::regclass, 'products'::regclass)
+      ORDER BY conname COLLATE "C"
+    `);
+
+    expect(rows.map((row) => row.conname)).toEqual([
+      'order_lines_quantity_positive',
+      'products_stock_non_negative',
+    ]);
+  });
+
+  it('carries the trigger that owns orders.updated_at', async () => {
+    const rows = await testDb().execute<{ tgname: string }>(sql`
+      SELECT tgname FROM pg_trigger
+      WHERE tgrelid = 'orders'::regclass AND NOT tgisinternal
+    `);
+
+    expect(rows.map((row) => row.tgname)).toEqual(['orders_set_updated_at']);
+  });
+
+  it('moves orders.updated_at on an update, from the database clock', async () => {
+    const db = testDb();
+    const orderId = await insertProbeOrder('placed');
+
+    await db.execute(
+      sql`UPDATE orders SET status = 'paid' WHERE id = ${orderId}`,
+    );
+
+    const rows = await db.execute<{ moved: boolean }>(sql`
+      SELECT updated_at > created_at AS moved FROM orders WHERE id = ${orderId}
+    `);
+    await db.execute(sql`DELETE FROM orders WHERE id = ${orderId}`);
+
+    expect(rows[0]?.moved).toBe(true);
+  });
+
+  it('stores order timestamps with a timezone', async () => {
+    const rows = await testDb().execute<{ data_type: string }>(sql`
+      SELECT data_type
+      FROM information_schema.columns
+      WHERE table_name = 'orders' AND column_name = 'created_at'
+    `);
+
+    expect(rows[0]?.data_type).toBe('timestamp with time zone');
+  });
 });

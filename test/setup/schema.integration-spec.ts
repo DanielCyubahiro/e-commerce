@@ -243,6 +243,63 @@ describe('migrated test database', () => {
     ]);
   });
 
+  it('has a sessions table with every migrated column', async () => {
+    const rows = await testDb().execute<{ column_name: string }>(sql`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'sessions'
+      ORDER BY column_name
+    `);
+
+    expect(rows.map((row) => row.column_name)).toEqual([
+      'created_at',
+      'id',
+      'ip_address',
+      'last_seen_at',
+      'revoked_at',
+      'token_hash',
+      'user_agent',
+      'user_id',
+    ]);
+  });
+
+  it('stores every session timestamp with a timezone', async () => {
+    const rows = await testDb().execute<{
+      column_name: string;
+      data_type: string;
+    }>(sql`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'sessions' AND data_type LIKE 'timestamp%'
+      ORDER BY column_name
+    `);
+
+    expect(rows).toEqual([
+      { column_name: 'created_at', data_type: 'timestamp with time zone' },
+      { column_name: 'last_seen_at', data_type: 'timestamp with time zone' },
+      { column_name: 'revoked_at', data_type: 'timestamp with time zone' },
+    ]);
+  });
+
+  it('keeps session origin columns unbounded, since presentation caps them', async () => {
+    // `text`, not `varchar(n)`: there is no column length to keep equal to
+    // the ceiling `originOf` applies, so nothing can drift.
+    const rows = await testDb().execute<{
+      column_name: string;
+      data_type: string;
+    }>(sql`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'sessions' AND column_name IN ('user_agent', 'ip_address')
+      ORDER BY column_name
+    `);
+
+    expect(rows).toEqual([
+      { column_name: 'ip_address', data_type: 'text' },
+      { column_name: 'user_agent', data_type: 'text' },
+    ]);
+  });
+
   it('stores auth timestamps with a timezone, unlike users and products', async () => {
     const rows = await testDb().execute<{
       table_name: string;
@@ -279,13 +336,14 @@ describe('migrated test database', () => {
       { conrelid: 'credentials', confdeltype: 'c' },
       { conrelid: 'one_time_tokens', confdeltype: 'c' },
       { conrelid: 'refresh_tokens', confdeltype: 'c' },
+      { conrelid: 'sessions', confdeltype: 'c' },
     ]);
   });
 
   it('indexes what chain revocation, logout-all and the cascades need', async () => {
     const rows = await testDb().execute<{ indexname: string }>(sql`
       SELECT indexname FROM pg_indexes
-      WHERE tablename IN ('credentials', 'refresh_tokens', 'one_time_tokens')
+      WHERE tablename IN ('credentials', 'refresh_tokens', 'one_time_tokens', 'sessions')
       ORDER BY indexname
     `);
 
@@ -298,6 +356,9 @@ describe('migrated test database', () => {
       'refresh_tokens_session_id_idx',
       'refresh_tokens_token_hash_unique',
       'refresh_tokens_user_id_idx',
+      'sessions_pkey',
+      'sessions_token_hash_unique',
+      'sessions_user_id_idx',
     ]);
   });
 

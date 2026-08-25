@@ -63,9 +63,9 @@ and no factory, so `toThrow` would actually compile against it, but
 - **No rule is written twice.** If a check exists in the domain, the DTO does
   not repeat it.
 - **Auth state transitions are guarded targeted writes, not replacements.** A
-  credential's verification flag, a refresh token's rotation, and a one-time
-  token's consumption are each one `UPDATE ... WHERE <precondition>`, never a
-  read followed by a check followed by a write. See
+  credential's verification flag, a session's touch and revocation, and a
+  one-time token's consumption are each one `UPDATE ... WHERE <precondition>`,
+  never a read followed by a check followed by a write. See
   [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
 
 ## Docs that must change with the code

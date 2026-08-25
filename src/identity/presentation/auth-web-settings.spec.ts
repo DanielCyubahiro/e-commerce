@@ -2,7 +2,6 @@ import { authWebSettingsFrom } from './auth-web-settings';
 
 describe('authWebSettingsFrom', () => {
   const lifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
     sessionIdleDays: 30,

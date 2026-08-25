@@ -31,7 +31,6 @@ const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
 const ALLOWED_ORIGIN = 'http://localhost:5173';
 
 const lifetimes = {
-  refreshTokenDays: 30,
   passwordResetMinutes: 60,
   emailVerificationHours: 24,
   sessionIdleDays: 30,

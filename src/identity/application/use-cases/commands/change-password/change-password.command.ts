@@ -1,6 +1,6 @@
 /**
- * `userId` and `sessionId` come from the caller's access token claims, never
- * the body. `currentPassword` and `newPassword` are raw strings, not domain
+ * `userId` and `sessionId` come from the caller's session as the guard
+ * attached it, never the body. `currentPassword` and `newPassword` are raw strings, not domain
  * value objects, for the same reason every command carrying a password is:
  * the handler is what puts each through `PasswordAttempt.create` and
  * `Password.create` respectively.

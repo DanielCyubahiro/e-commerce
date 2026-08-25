@@ -27,7 +27,7 @@ cleanup job.
 
 An index on each token table's lookup path
 ([`one_time_tokens_user_id_purpose_idx`](../../src/shared/infrastructure/database/postgres/schema/one-time-tokens.schema.ts),
-[`refresh_tokens_session_id_idx`](../../src/shared/infrastructure/database/postgres/schema/refresh-tokens.schema.ts))
+`refresh_tokens_session_id_idx`)
 is ordinary storage hygiene, the same category as any other query-serving
 index, not a substitute for an expiry guarantee: every token row still
 carries its own `expires_at`, checked in the guarded `WHERE` clause on every

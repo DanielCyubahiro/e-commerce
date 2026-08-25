@@ -54,17 +54,18 @@ export class InMemorySessionRepository implements SessionRepository {
       return Promise.resolve(null);
     }
 
-    row.lastSeenAt = now;
-
     const role = this.roles.get(row.userId);
 
     if (!role) {
       // Unreachable through the binding: the harness always seeds a role
       // before starting a session for that user. The adapter's inner join
       // simply matches nothing without a user row; throwing here keeps a
-      // misuse of the fake loud rather than silently answering null.
+      // misuse of the fake loud rather than silently answering null. Checked
+      // before the touch below, so a throw never leaves the row half-updated.
       throw new Error(`Session owner ${row.userId} has no seeded role.`);
     }
+
+    row.lastSeenAt = now;
 
     return Promise.resolve({ userId: row.userId, role, sessionId: row.id });
   }

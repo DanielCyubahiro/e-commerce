@@ -8,9 +8,9 @@ Accepted.
 
 This feature adds authentication: proving who is asking, via `JwtAuthGuard`
 and a valid access token. It adds no authorization: deciding what the asker
-is allowed to do. [`AccessClaims`](../../src/identity/application/ports/access-token.issuer.ts)
-carries a `role`, and its own comment says directly that nothing branches on
-it yet, that it exists only so authorization is additive later.
+is allowed to do. `AccessClaims` carries a `role`, and its own comment says
+directly that nothing branches on it yet, that it exists only so authorization
+is additive later.
 [`UserController`](../../src/identity/presentation/user.controller.ts)'s four
 `:id` endpoints and its list endpoint check nothing about the caller beyond
 "does a valid access token exist."

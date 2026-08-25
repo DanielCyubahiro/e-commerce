@@ -25,12 +25,10 @@ pnpm db:migrate
 
 Every variable in `.env.example` is required at boot. A missing or malformed one
 aborts startup with a message naming it, rather than failing later on first
-query. `JWT_SECRET` is the one exception to having a usable default: generate
-it yourself and never commit the real value.
-
-```bash
-openssl rand -base64 48
-```
+query. There is no signing secret to generate: authentication is a server-side
+session in an `HttpOnly` cookie, and the only value that has to match your
+frontend is `WEB_BASE_URL`, which doubles as the CORS origin and the cookie's
+`Secure` switch.
 
 There is no frontend, so a verification or password-reset email has nowhere
 to land except the mailbox `docker-compose.yml` starts for local development:

@@ -50,7 +50,6 @@ describe('SessionAuthGuard', () => {
   const userId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
   const now = new Date('2026-08-19T10:00:00.000Z');
   const lifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
     sessionIdleDays: 30,

@@ -10,7 +10,7 @@ Every refresh consumes the presented token and issues a successor sharing the
 same session. Detecting reuse, a second presentation of a token already
 consumed, is the mechanism that turns a stolen refresh token into a signal
 rather than free, silent access.
-[`RefreshTokenRepository.rotate`](../../src/identity/application/ports/refresh-token.repository.ts)
+`RefreshTokenRepository.rotate`
 reports a closed `RotationOutcome`, and `RefreshSessionHandler` is the only
 place that outcome is consumed.
 
@@ -19,7 +19,7 @@ place that outcome is consumed.
 A `replayed` outcome, the presented token was already used, causes the
 handler to revoke the entire session, every token sharing that `sessionId`,
 via
-[`RefreshTokenRepository.revokeSession`](../../src/identity/application/ports/refresh-token.repository.ts),
+`RefreshTokenRepository.revokeSession`,
 and then answer with the same `AUTH_REFRESH_TOKEN_INVALID` as every other
 failure. Killing the whole chain rather than only the replayed token is what
 stops the attacker's freshly-issued successor from continuing to work; naming

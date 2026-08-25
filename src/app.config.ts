@@ -1,4 +1,6 @@
 import { type INestApplication, ValidationPipe } from '@nestjs/common';
+// Deep import: the public `@nestjs/common` barrel does not re-export this
+// type, and `enableCors` types its parameter as `any`.
 import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-options.interface';
 import cookieParser from 'cookie-parser';
 import { ApplicationExceptionFilter } from '@/shared/presentation/filters/application-exception.filter';

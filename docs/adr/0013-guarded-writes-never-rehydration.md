@@ -10,7 +10,8 @@ Authentication introduces three kinds of state that need to change under
 concurrent access: a credential's password hash and verification timestamp
 ([`CredentialRepository`](../../src/identity/application/ports/credential.repository.ts)),
 a refresh token's rotation
-([`RefreshTokenRepository`](../../src/identity/application/ports/refresh-token.repository.ts)),
+(`RefreshTokenRepository`, since replaced by `SessionRepository`, see
+ADR 0020),
 and a one-time token's consumption
 ([`OneTimeTokenRepository`](../../src/identity/application/ports/one-time-token.repository.ts)).
 None of these rows carries a cross-field invariant a construction path would
@@ -35,7 +36,7 @@ an application-level check and a second statement.
 guards on `email_verified_at IS NULL`;
 [`DrizzleOneTimeTokenRepository.consume`](../../src/identity/infrastructure/adapters/drizzle-one-time-token.repository.ts)
 guards on `used_at IS NULL AND expires_at > now`;
-[`DrizzleRefreshTokenRepository.rotate`](../../src/identity/infrastructure/adapters/drizzle-refresh-token.repository.ts)
+`DrizzleRefreshTokenRepository.rotate` (removed with ADR 0020)
 guards on `used_at IS NULL AND revoked_at IS NULL AND expires_at > now`. Each
 adapter runs a second, unguarded `SELECT` only on the losing path, purely to
 classify why the guard matched nothing (`expired`, `used`, `revoked`,

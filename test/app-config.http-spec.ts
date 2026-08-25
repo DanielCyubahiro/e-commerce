@@ -3,8 +3,10 @@ import {
   Get,
   type INestApplication,
   NotFoundException,
+  Req,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import type { Request } from 'express';
 import request from 'supertest';
 import type { App } from 'supertest/types';
 import { configureApp } from '@/app.config';
@@ -13,6 +15,8 @@ import {
   ApplicationException,
 } from '@/shared/application';
 import { type DomainErrorKind, DomainException } from '@/shared/domain';
+
+const ALLOWED_ORIGIN = 'http://localhost:5173';
 
 // `configureApp` is not the whole request pipeline: `JwtAuthGuard` is global
 // too, but registered as `APP_GUARD` in `src/identity/identity.module.ts`
@@ -65,6 +69,12 @@ class ProbeController {
     // eslint-disable-next-line @typescript-eslint/only-throw-error
     throw 'a bare string, not an Error';
   }
+
+  @Get('cookies')
+  cookies(@Req() request: Request): { jar: unknown } {
+    const jar: unknown = request.cookies;
+    return { jar };
+  }
 }
 
 describe('configureApp global filters', () => {
@@ -79,6 +89,7 @@ describe('configureApp global filters', () => {
     // would otherwise bury the rest of the suite's output.
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
+      { allowedOrigin: ALLOWED_ORIGIN },
     );
     await app.init();
   });
@@ -136,5 +147,38 @@ describe('configureApp global filters', () => {
 
     expect(response.status).toBe(500);
     expect(response.body).toMatchObject({ code: 'INTERNAL_ERROR' });
+  });
+
+  it('parses cookies into request.cookies', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/probe/cookies')
+      .set('Cookie', 'a=1; b=two');
+
+    expect(response.body).toEqual({ jar: { a: '1', b: 'two' } });
+  });
+
+  it('allows the configured origin with credentials, and no other', async () => {
+    const allowed = await request(app.getHttpServer())
+      .get('/probe/http')
+      .set('Origin', ALLOWED_ORIGIN);
+    const other = await request(app.getHttpServer())
+      .get('/probe/http')
+      .set('Origin', 'https://evil.example');
+
+    expect(allowed.headers['access-control-allow-origin']).toBe(ALLOWED_ORIGIN);
+    expect(allowed.headers['access-control-allow-credentials']).toBe('true');
+    expect(other.headers['access-control-allow-origin']).toBeUndefined();
+  });
+
+  it('answers a preflight for the configured origin', async () => {
+    const response = await request(app.getHttpServer())
+      .options('/probe/http')
+      .set('Origin', ALLOWED_ORIGIN)
+      .set('Access-Control-Request-Method', 'DELETE');
+
+    expect(response.status).toBe(204);
+    expect(response.headers['access-control-allow-origin']).toBe(
+      ALLOWED_ORIGIN,
+    );
   });
 });

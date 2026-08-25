@@ -37,6 +37,8 @@ import {
 // that `then` trap itself: Nest's DI awaits any injected value shaped like a
 // thenable before handing it to a constructor, which would collapse the whole
 // handle to the chain's own empty result before a repository ever saw it.
+const ALLOWED_ORIGIN = 'http://localhost:5173';
+
 function emptyDrizzleDouble(): DrizzleDB {
   const handler: ProxyHandler<object> = {
     get(_target, prop) {
@@ -79,6 +81,7 @@ describe('AppModule composition', () => {
 
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
+      { allowedOrigin: ALLOWED_ORIGIN },
     );
     await app.listen(0);
   });

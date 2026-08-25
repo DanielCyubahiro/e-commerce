@@ -16,6 +16,7 @@ import { InMemoryProductReadRepository } from '@test/fakes/in-memory-product-rea
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
 
 const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+const ALLOWED_ORIGIN = 'http://localhost:5173';
 
 /**
  * supertest types `body` as `any`, so asserting on it directly is unchecked.
@@ -88,6 +89,7 @@ describe('products HTTP contract', () => {
 
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
+      { allowedOrigin: ALLOWED_ORIGIN },
     );
     // Listening on an OS-assigned port, rather than app.init(), stops
     // supertest from opening and closing an ephemeral listener on every

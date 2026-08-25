@@ -44,6 +44,7 @@ blocks, one per layer that has something to forbid, plus the general
 | `presentation` imports no domain entity, value object, or the domain barrel | `src/*/presentation/**/*.ts` block |
 | `application` imports no `infrastructure` or `presentation` (no adapter, no controller) | `src/*/application/**/*.ts` block |
 | `infrastructure` imports no `presentation` | `src/*/infrastructure/**/*.ts` block |
+| a context imports another context only through its `application` barrel | `import/no-restricted-paths` zones in the base rules block, one per ordered pair of contexts and layer |
 
 The presentation block has one deliberate carve-out: it names domain entities,
 value objects, and the domain barrel specifically, not the domain layer as a

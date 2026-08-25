@@ -50,6 +50,41 @@ export default tseslint.config(
       'import/no-cycle': ['error', { maxDepth: Infinity }],
       'import/no-self-import': 'error',
 
+      // Architecture: a context reaches a neighbour only through that
+      // neighbour's application barrel (ports, tokens, outcome types); its
+      // domain, adapters, and controllers are private. `except` is relative
+      // to `from`. A rule of its own rather than more `no-restricted-imports`
+      // patterns because ESLint does not merge two configurations of one
+      // rule: a per-context block would replace the per-layer block for
+      // every file both matched. Zones target each context's four layer
+      // directories rather than the context root, so a context's Nest module
+      // file may still import a neighbour's module class, which is wiring,
+      // not a layer dependency.
+      'import/no-restricted-paths': [
+        'error',
+        {
+          zones: ['ordering', 'catalogue', 'identity']
+            .flatMap((target) =>
+              ['ordering', 'catalogue', 'identity']
+                .filter((from) => from !== target)
+                .flatMap((from) =>
+                  ['domain', 'application', 'infrastructure', 'presentation'].map(
+                    (layer) => ({
+                      target: `./src/${target}/${layer}`,
+                      from: `./src/${from}`,
+                      except: ['./application'],
+                    }),
+                  ),
+                ),
+            )
+            .map((zone) => ({
+              ...zone,
+              message:
+                'A context imports another context only through its application barrel (ports, tokens, outcome types).',
+            })),
+        },
+      ],
+
       // General correctness.
       eqeqeq: ['error', 'always', { null: 'ignore' }],
       'no-param-reassign': ['error', { props: true }],

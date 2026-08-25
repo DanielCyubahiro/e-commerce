@@ -20,7 +20,6 @@ describe('GetUserHandler', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
-      role: 'seller',
     });
     writes.seed(user);
 

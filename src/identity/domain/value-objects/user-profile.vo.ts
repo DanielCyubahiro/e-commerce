@@ -3,7 +3,6 @@ import {
   type NamePart,
 } from '../exceptions/invalid-user-name.exception';
 import { Phone } from './phone.vo';
-import { UserRole } from './user-role.vo';
 
 /**
  * `phone` accepts three spellings of absence because the edge produces all
@@ -13,15 +12,16 @@ import { UserRole } from './user-role.vo';
 export interface UserProfileInput {
   firstName: string;
   lastName: string;
-  role: string;
   phone?: string | null | undefined;
 }
 
 /**
- * Everything about a user that can change after registration. Email is
- * deliberately absent: it is set once, at registration, and there is no code
- * path that writes it afterwards, which is what stops a user from claiming a
- * verified status for an address nobody confirmed. See ADR 0014.
+ * Everything about a user that they may change about themselves after
+ * registration. Email is deliberately absent (set once, never rewritten, so
+ * nobody can claim a verified status for an address nobody confirmed; ADR
+ * 0014). Role is deliberately absent too: it is granted by an operator and
+ * lives on `User`, so `PUT /users/:id` cannot become privilege escalation once
+ * an endpoint branches on `seller`.
  *
  * Owns the name rule, so `User.create` and an update validate through one path
  * and cannot drift.
@@ -36,14 +36,12 @@ export class UserProfile {
   private constructor(
     private readonly _firstName: string,
     private readonly _lastName: string,
-    private readonly _role: UserRole,
     private readonly _phone: Phone | null,
   ) {}
 
   /**
    * @throws InvalidUserNameException when either name is empty after trimming
    * or longer than 100 characters
-   * @throws InvalidUserRoleException for a role outside the closed set
    * @throws InvalidPhoneException for a phone that does not normalise
    */
   static create(input: UserProfileInput): UserProfile {
@@ -59,7 +57,6 @@ export class UserProfile {
     return new UserProfile(
       firstName,
       lastName,
-      UserRole.create(input.role),
       phone === null ? null : Phone.create(phone),
     );
   }
@@ -81,10 +78,6 @@ export class UserProfile {
     return this._lastName;
   }
 
-  get role(): UserRole {
-    return this._role;
-  }
-
   /** `null`, never `undefined`, when the user has no phone. */
   get phone(): Phone | null {
     return this._phone;
@@ -95,7 +88,6 @@ export class UserProfile {
       other instanceof UserProfile &&
       this._firstName === other._firstName &&
       this._lastName === other._lastName &&
-      this._role.equals(other._role) &&
       (this._phone === null
         ? other._phone === null
         : (other._phone?.equals(this._phone) ?? false))

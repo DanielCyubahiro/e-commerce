@@ -1,8 +1,9 @@
 import type { UserProfileInput } from '@/identity/domain';
 
 /**
- * No email: it is immutable after registration, so a full replacement of the
- * mutable fields does not include it. See ADR 0014.
+ * No email, and no role: both are immutable through the API, so a full
+ * replacement of the mutable fields includes neither. See ADR 0014 and the
+ * role-granting ADR.
  */
 export class UpdateUserCommand {
   constructor(

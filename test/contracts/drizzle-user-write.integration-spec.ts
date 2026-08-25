@@ -47,7 +47,6 @@ describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
-      role: 'seller',
     });
     await repository.register(aRegistration(user));
 
@@ -56,7 +55,6 @@ describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
       UserProfile.create({
         firstName: 'Grace',
         lastName: 'Hopper',
-        role: 'customer',
       }),
     );
 
@@ -78,7 +76,6 @@ describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
       firstName: 'Grace',
       lastName: 'Hopper',
       email: 'grace@example.com',
-      role: 'customer',
     });
     await db.insert(users).values({
       id: collides.id.value,
@@ -110,7 +107,6 @@ describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
       firstName: 'Grace',
       lastName: 'Hopper',
       email: 'grace@example.com',
-      role: 'customer',
     });
     const collidingToken = 'shared-plaintext-token';
     await repository.register(aRegistration(existing, collidingToken));
@@ -119,7 +115,6 @@ describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
-      role: 'seller',
     });
 
     await expect(

@@ -51,7 +51,6 @@ const validBody = (
   firstName: 'Ada',
   lastName: 'Lovelace',
   email: 'ada@example.com',
-  role: 'seller',
   password: 'correct horse battery',
   ...overrides,
 });
@@ -62,7 +61,6 @@ const updateBody = (
 ): Record<string, unknown> => ({
   firstName: 'Ada',
   lastName: 'Lovelace',
-  role: 'seller',
   ...overrides,
 });
 
@@ -175,10 +173,8 @@ describe('users HTTP contract', () => {
       expect(bodyOf(response).code).toBe('USER_EMAIL_INVALID');
     });
 
-    it('returns 422 for a role outside the closed set', async () => {
-      const response = await create({ role: 'admin' }).expect(422);
-
-      expect(bodyOf(response).code).toBe('USER_ROLE_INVALID');
+    it('returns 400 when a role is supplied: registration never accepts one', async () => {
+      expect((await create({ role: 'seller' })).status).toBe(400);
     });
 
     it('returns 422 for a malformed phone', async () => {
@@ -248,7 +244,7 @@ describe('users HTTP contract', () => {
         firstName: 'Ada',
         lastName: 'Lovelace',
         email: 'ada@example.com',
-        role: 'seller',
+        role: 'customer',
         phone: null,
       });
       expect(Object.keys(response.body as object)).toContain('phone');
@@ -270,9 +266,7 @@ describe('users HTTP contract', () => {
   describe('GET /users', () => {
     beforeEach(async () => {
       await create().expect(201);
-      await create({ email: 'grace@example.com', role: 'customer' }).expect(
-        201,
-      );
+      await create({ email: 'grace@example.com' }).expect(201);
     });
 
     it('returns a pagination envelope with defaults applied', async () => {
@@ -283,12 +277,12 @@ describe('users HTTP contract', () => {
       expect(bodyOf(response).offset).toBe(0);
     });
 
-    it('filters by role', async () => {
-      const response = await get('/users?role=customer').expect(200);
+    it('filters by role, and no registered user is ever a seller', async () => {
+      const customers = await get('/users?role=customer').expect(200);
+      const sellers = await get('/users?role=seller').expect(200);
 
-      expect(bodyOf(response).items?.map((item) => item.email)).toEqual([
-        'grace@example.com',
-      ]);
+      expect(bodyOf(customers).total).toBe(2);
+      expect(bodyOf(sellers)).toMatchObject({ total: 0, items: [] });
     });
 
     it('answers 422 for a mistyped role rather than an empty page', async () => {
@@ -319,7 +313,7 @@ describe('users HTTP contract', () => {
         firstName: 'Grace',
         lastName: 'Lovelace',
         email: 'ada@example.com',
-        role: 'seller',
+        role: 'customer',
         phone: null,
       });
     });
@@ -333,10 +327,10 @@ describe('users HTTP contract', () => {
     it('returns 422 for a broken invariant even when the id holds nothing', async () => {
       const response = await put(
         `/users/${MISSING_ID}`,
-        updateBody({ role: 'admin' }),
+        updateBody({ firstName: '   ' }),
       ).expect(422);
 
-      expect(bodyOf(response).code).toBe('USER_ROLE_INVALID');
+      expect(bodyOf(response).code).toBe('USER_NAME_INVALID');
     });
 
     it('returns 400 when the payload carries an email, since it is immutable after registration', async () => {
@@ -346,6 +340,19 @@ describe('users HTTP contract', () => {
       expect(
         (await put(`/users/${id}`, updateBody({ email: 'new@example.com' })))
           .status,
+      ).toBe(400);
+    });
+
+    it('returns 400 when a role is supplied: the profile cannot grant one', async () => {
+      const created = await create().expect(201);
+
+      expect(
+        (
+          await put(
+            `/users/${bodyOf(created).id ?? ''}`,
+            updateBody({ role: 'seller' }),
+          )
+        ).status,
       ).toBe(400);
     });
   });

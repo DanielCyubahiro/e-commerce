@@ -55,12 +55,12 @@ export class InMemoryUserReadRepository implements UserReadRepository {
   private projectAll(): UserReadModel[] {
     return this.writes
       .snapshot()
-      .map(({ id, email, profile, createdSeq, updatedSeq }) => ({
+      .map(({ id, email, role, profile, createdSeq, updatedSeq }) => ({
         id: id.value,
         firstName: profile.firstName,
         lastName: profile.lastName,
         email: email.value,
-        role: profile.role.value,
+        role: role.value,
         phone: profile.phone?.value ?? null,
         createdAt: new Date(EPOCH + createdSeq * 1000),
         updatedAt: new Date(EPOCH + updatedSeq * 1000),

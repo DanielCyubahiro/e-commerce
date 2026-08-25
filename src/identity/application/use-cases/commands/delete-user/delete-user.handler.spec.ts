@@ -19,7 +19,6 @@ describe('DeleteUserHandler', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
-      role: 'seller',
     });
     repository.seed(user);
 

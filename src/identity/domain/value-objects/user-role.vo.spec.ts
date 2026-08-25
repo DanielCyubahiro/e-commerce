@@ -30,4 +30,9 @@ describe('UserRole', () => {
     );
     expect(UserRole.create('seller').equals('seller')).toBe(false);
   });
+
+  it('customer() is the role every registration starts with', () => {
+    expect(UserRole.customer().value).toBe('customer');
+    expect(UserRole.customer().equals(UserRole.create('customer'))).toBe(true);
+  });
 });

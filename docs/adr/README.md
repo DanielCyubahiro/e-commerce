@@ -31,3 +31,4 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0017](0017-token-state-in-postgres.md) | Credential and token state lives in Postgres, not Mongo | Accepted |
 | [0018](0018-mail-sent-inline-after-commit.md) | Mail is sent inline after commit, not through an outbox | Accepted |
 | [0019](0019-commands-call-collaborators-directly.md) | Commands call collaborators directly; no domain events | Accepted |
+| [0020](0020-role-granted-never-claimed.md) | Role is granted by an operator, never claimed by a request | Accepted |

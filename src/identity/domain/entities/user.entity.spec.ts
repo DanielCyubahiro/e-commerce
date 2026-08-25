@@ -6,20 +6,19 @@ const input = (overrides: Partial<UserInput> = {}): UserInput => ({
   firstName: 'Ada',
   lastName: 'Lovelace',
   email: 'ada@example.com',
-  role: 'seller',
   ...overrides,
 });
 
 describe('User', () => {
   it('trims both names and normalises every value object', () => {
     const user = User.create(
-      input({ firstName: '  Ada ', email: 'ADA@Example.com', role: 'Seller' }),
+      input({ firstName: '  Ada ', email: 'ADA@Example.com' }),
     );
 
     expect(user.profile.firstName).toBe('Ada');
     expect(user.profile.lastName).toBe('Lovelace');
     expect(user.email.value).toBe('ada@example.com');
-    expect(user.profile.role.value).toBe('seller');
+    expect(user.role.value).toBe('customer');
   });
 
   it('mints a new identity on create', () => {
@@ -33,11 +32,17 @@ describe('User', () => {
       firstName: 'Ada',
       lastName: 'Lovelace',
       email: 'ada@example.com',
-      role: 'seller',
     });
 
     expect(user.profile.firstName).toBe('Ada');
     expect(user.email.value).toBe('ada@example.com');
+  });
+
+  it('assigns the customer role itself; no input can choose another', () => {
+    // Privilege is granted by an operator after the fact, never claimed at
+    // registration. The type of `UserInput` has no `role`, so this is the
+    // runtime half of the same rule.
+    expect(User.create(input()).role.value).toBe('customer');
   });
 
   it('has exactly one construction path, so no unvalidated user exists', () => {

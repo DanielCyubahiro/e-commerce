@@ -48,10 +48,7 @@ import { UserController } from './presentation/user.controller';
  * way round.
  */
 @Module({
-  imports: [
-    CqrsModule,
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
-  ],
+  imports: [CqrsModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }])],
   controllers: [UserController, AuthController],
   providers: [
     ...commandHandlers,

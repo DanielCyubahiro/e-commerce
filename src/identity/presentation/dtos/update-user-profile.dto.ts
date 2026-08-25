@@ -1,10 +1,12 @@
 import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 
 /**
- * Carries the four mutable fields `PUT /users/:id` may replace. `email` is
+ * Carries the three mutable fields `PUT /users/:id` may replace. `email` is
  * deliberately absent, not merely unvalidated: it is immutable after
  * registration, and `forbidNonWhitelisted` turns a client that sends one into
- * a 400 rather than a silently ignored field. See ADR 0014.
+ * a 400 rather than a silently ignored field. See ADR 0014. `role` is absent
+ * for the same reason: an endpoint that branches on `seller` cannot let a
+ * caller set it.
  *
  * Every ceiling here is loose enough that the domain rule is still the one
  * that can reject a value: names against 100, phone against its
@@ -21,10 +23,6 @@ export class UpdateUserProfileDto {
   @IsNotEmpty()
   @MaxLength(500)
   lastName!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  role!: string;
 
   /**
    * Typed `string | null` because `@IsOptional` skips validation for an

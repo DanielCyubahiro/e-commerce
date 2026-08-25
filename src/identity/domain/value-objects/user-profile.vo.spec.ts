@@ -6,7 +6,6 @@ describe('UserProfile', () => {
   const input = {
     firstName: 'Ada',
     lastName: 'Lovelace',
-    role: 'seller',
   };
 
   it('trims both names', () => {
@@ -56,8 +55,8 @@ describe('UserProfile', () => {
     ).toBe('+32489123456');
   });
 
-  it('validates the role through UserRole', () => {
-    expect(UserProfile.create(input).role.value).toBe('seller');
+  it('carries no role: a profile is what a user may change about themselves', () => {
+    expect('role' in UserProfile.create(input)).toBe(false);
   });
 
   it('compares by value, so two identical profiles are equal', () => {

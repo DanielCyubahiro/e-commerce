@@ -5,6 +5,9 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
  * can reject a value: names against 100, email against 254, phone against its
  * leading-`+`-and-digit-count bound. Precise rules belong to the domain and
  * surface as 422 with a typed code.
+ *
+ * No `role`: every registration creates a customer, and `forbidNonWhitelisted`
+ * answers 400 to a client that sends one.
  */
 export class RegisterUserDto {
   @IsString()
@@ -21,10 +24,6 @@ export class RegisterUserDto {
   @IsNotEmpty()
   @MaxLength(1000)
   email!: string;
-
-  @IsString()
-  @IsNotEmpty()
-  role!: string;
 
   /**
    * Typed `string | null` because `@IsOptional` skips validation for an

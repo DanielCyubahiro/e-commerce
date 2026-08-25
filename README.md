@@ -38,6 +38,14 @@ open Mailpit's web UI at [http://localhost:8025](http://localhost:8025) and
 read the link out of whichever message registration, resend, or
 forgot-password just sent.
 
+Every registration creates a `customer`. A seller is made by hand, once, in
+the database; no endpoint can do it, which is what keeps role-gated endpoints
+meaningful:
+
+```sql
+UPDATE users SET role = 'seller' WHERE email = 'you@example.com';
+```
+
 ## Scripts
 
 | Script | Purpose |

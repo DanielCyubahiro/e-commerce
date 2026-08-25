@@ -18,6 +18,11 @@ export interface ReadHarness {
   read: UserReadRepository;
   /** Seeding goes through the write port, so the contract never assumes how rows are inserted. */
   write: UserWriteRepository;
+  /**
+   * Stands in for the operator's `UPDATE users SET role = 'seller'`: the only
+   * way a seller comes to exist, since no port can create one.
+   */
+  promoteToSeller(id: UserId): Promise<void>;
   reset(): Promise<void>;
   close(): Promise<void>;
 }
@@ -41,14 +46,12 @@ export function userReadRepositoryContract(
 
     const store = async (overrides: {
       email?: string;
-      role?: string;
       phone?: string | null;
     }): Promise<User> => {
       const user = User.create({
         firstName: 'Ada',
         lastName: 'Lovelace',
         email: overrides.email ?? 'ada@example.com',
-        role: overrides.role ?? 'seller',
         phone: overrides.phone ?? null,
       });
       await harness.write.register(aRegistration(user));
@@ -64,7 +67,6 @@ export function userReadRepositoryContract(
       UserProfile.create({
         firstName: 'Grace',
         lastName: 'Hopper',
-        role: 'customer',
         phone: '+15551234567',
       });
 
@@ -94,7 +96,7 @@ export function userReadRepositoryContract(
         firstName: 'Ada',
         lastName: 'Lovelace',
         email: 'ada@example.com',
-        role: 'seller',
+        role: 'customer',
         phone: '+32489123456',
         createdAt: expect.any(Date) as Date,
         updatedAt: expect.any(Date) as Date,
@@ -107,6 +109,21 @@ export function userReadRepositoryContract(
       const found = await harness.read.findById(user.id);
 
       expect(found?.phone).toBeNull();
+    });
+
+    it('registers every user as a customer', async () => {
+      const user = await store({});
+
+      expect((await harness.read.findById(user.id))?.role).toBe('customer');
+    });
+
+    it('leaves the role untouched by a profile replacement', async () => {
+      const user = await store({});
+      await harness.promoteToSeller(user.id);
+
+      await harness.write.replaceProfile(user.id, aProfile());
+
+      expect((await harness.read.findById(user.id))?.role).toBe('seller');
     });
 
     describe('after a profile replacement', () => {
@@ -154,8 +171,9 @@ export function userReadRepositoryContract(
     });
 
     it('filters by role', async () => {
-      await store({ email: 'seller@example.com', role: 'seller' });
-      await store({ email: 'customer@example.com', role: 'customer' });
+      const seller = await store({ email: 'seller@example.com' });
+      await harness.promoteToSeller(seller.id);
+      await store({ email: 'customer@example.com' });
 
       const found: Page<UserReadModel> = await harness.read.findMany(
         { role: 'customer' },
@@ -218,8 +236,9 @@ export function userReadRepositoryContract(
     });
 
     it('reports the filtered total past the end, not the total of every user', async () => {
-      await store({ email: 'seller@example.com', role: 'seller' });
-      await store({ email: 'customer@example.com', role: 'customer' });
+      const seller = await store({ email: 'seller@example.com' });
+      await harness.promoteToSeller(seller.id);
+      await store({ email: 'customer@example.com' });
 
       const found = await harness.read.findMany(
         { role: 'customer' },

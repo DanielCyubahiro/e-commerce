@@ -32,7 +32,6 @@ describe('RegisterUserHandler', () => {
         firstName: 'Ada',
         lastName: 'Lovelace',
         email: over.email ?? 'ada@example.com',
-        role: 'seller',
       },
       over.password ?? 'correct horse battery',
     );

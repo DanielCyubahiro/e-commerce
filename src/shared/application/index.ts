@@ -9,3 +9,8 @@ export {
   type Page,
   type Pagination,
 } from './pagination';
+export {
+  type Transaction,
+  UNIT_OF_WORK,
+  type UnitOfWork,
+} from './unit-of-work';

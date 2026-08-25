@@ -6,8 +6,8 @@ import { FakeUnitOfWork } from '@test/fakes/fake-unit-of-work';
 import { InMemoryOrderWriteRepository } from '@test/fakes/in-memory-order-write.repository';
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
 import { InMemoryStockAllocator } from '@test/fakes/in-memory-stock-allocator';
+import { seedProduct, type SeededProduct } from '@test/fakes/seed-product';
 import { catchRejection } from '@test/support/catch-error';
-import { Product } from '@test/support/product-fixture';
 import { StockUnavailableException } from '../../../exceptions/stock-unavailable.exception';
 import { PlaceOrderCommand } from './place-order.command';
 import { PlaceOrderHandler } from './place-order.handler';
@@ -27,16 +27,13 @@ describe('PlaceOrderHandler', () => {
   let products: InMemoryProductWriteRepository;
   let orders: InMemoryOrderWriteRepository;
   let handler: PlaceOrderHandler;
-  let espresso: Product;
-  let kettle: Product;
-
-  const stockOf = (product: Product): number =>
-    products.snapshot().find((p) => p.id.equals(product.id))?.stock ?? -1;
+  let espresso: SeededProduct;
+  let kettle: SeededProduct;
 
   const command = (
     lines: { productId: string; quantity: number }[] = [
-      { productId: espresso.id.value, quantity: 2 },
-      { productId: kettle.id.value, quantity: 1 },
+      { productId: espresso.id, quantity: 2 },
+      { productId: kettle.id, quantity: 1 },
     ],
     idempotencyKey: string | null = null,
   ): PlaceOrderCommand =>
@@ -50,24 +47,18 @@ describe('PlaceOrderHandler', () => {
       new InMemoryStockAllocator(products),
       new FakeUnitOfWork([products, orders]),
     );
-    espresso = Product.create({
-      name: 'Espresso Machine',
-      description: 'Makes espresso.',
-      price: 249.99,
-      currency: 'EUR',
+    espresso = await seedProduct(products, {
       sku: 'ESP-001',
+      name: 'Espresso Machine',
+      price: 249.99,
       stock: 12,
     });
-    kettle = Product.create({
-      name: 'Kettle',
-      description: 'Boils water.',
-      price: 10,
-      currency: 'EUR',
+    kettle = await seedProduct(products, {
       sku: 'KET-1',
+      name: 'Kettle',
+      price: 10,
       stock: 3,
     });
-    await products.add(espresso);
-    await products.add(kettle);
   });
 
   it('returns the id of the order it stored, priced from the allocation snapshot', async () => {
@@ -87,8 +78,8 @@ describe('PlaceOrderHandler', () => {
   it('decrements stock for every line', async () => {
     await handler.execute(command());
 
-    expect(stockOf(espresso)).toBe(10);
-    expect(stockOf(kettle)).toBe(2);
+    expect(espresso.stock()).toBe(10);
+    expect(kettle.stock()).toBe(2);
   });
 
   it('rejects a shortfall with every detail, and leaves all stock as it was', async () => {
@@ -96,8 +87,8 @@ describe('PlaceOrderHandler', () => {
       () =>
         handler.execute(
           command([
-            { productId: espresso.id.value, quantity: 2 },
-            { productId: kettle.id.value, quantity: 5 },
+            { productId: espresso.id, quantity: 2 },
+            { productId: kettle.id, quantity: 5 },
           ]),
         ),
       StockUnavailableException,
@@ -105,11 +96,11 @@ describe('PlaceOrderHandler', () => {
 
     expect(error.code).toBe('ORDER_STOCK_UNAVAILABLE');
     expect(error.details).toEqual([
-      { productId: kettle.id.value, reason: 'insufficient', available: 3 },
+      { productId: kettle.id, reason: 'insufficient', available: 3 },
     ]);
     // The espresso decrement happened inside the transaction and was undone
     // with it; the fake unit of work restored the product store.
-    expect(stockOf(espresso)).toBe(12);
+    expect(espresso.stock()).toBe(12);
     expect(orders.stored()).toHaveLength(0);
   });
 
@@ -127,15 +118,12 @@ describe('PlaceOrderHandler', () => {
 
   it('rejects a bad quantity before the allocator is touched', async () => {
     const error = await catchRejection(
-      () =>
-        handler.execute(
-          command([{ productId: espresso.id.value, quantity: 0 }]),
-        ),
+      () => handler.execute(command([{ productId: espresso.id, quantity: 0 }])),
       InvalidQuantityException,
     );
 
     expect(error.code).toBe('ORDER_QUANTITY_INVALID');
-    expect(stockOf(espresso)).toBe(12);
+    expect(espresso.stock()).toBe(12);
   });
 
   it('rolls the allocation back when the aggregate rejects the lines', async () => {
@@ -145,15 +133,15 @@ describe('PlaceOrderHandler', () => {
       () =>
         handler.execute(
           command([
-            { productId: espresso.id.value, quantity: 1 },
-            { productId: espresso.id.value, quantity: 1 },
+            { productId: espresso.id, quantity: 1 },
+            { productId: espresso.id, quantity: 1 },
           ]),
         ),
       InvalidOrderLinesException,
     );
 
     expect(error.code).toBe('ORDER_LINES_INVALID');
-    expect(stockOf(espresso)).toBe(12);
+    expect(espresso.stock()).toBe(12);
     expect(orders.stored()).toHaveLength(0);
   });
 
@@ -164,7 +152,7 @@ describe('PlaceOrderHandler', () => {
 
     expect(second).toBe(first);
     expect(orders.stored()).toHaveLength(1);
-    expect(stockOf(espresso)).toBe(10);
+    expect(espresso.stock()).toBe(10);
   });
 
   it('resolves the race where another request commits the key between check and insert', async () => {
@@ -178,7 +166,7 @@ describe('PlaceOrderHandler', () => {
 
     expect(second).toBe(first);
     expect(orders.stored()).toHaveLength(1);
-    expect(stockOf(espresso)).toBe(10);
+    expect(espresso.stock()).toBe(10);
   });
 
   it('re-throws the race-lost error when the retry lookup also comes up empty', async () => {
@@ -206,6 +194,6 @@ describe('PlaceOrderHandler', () => {
 
     expect(second).not.toBe(first);
     expect(orders.stored()).toHaveLength(2);
-    expect(stockOf(espresso)).toBe(8);
+    expect(espresso.stock()).toBe(8);
   });
 });

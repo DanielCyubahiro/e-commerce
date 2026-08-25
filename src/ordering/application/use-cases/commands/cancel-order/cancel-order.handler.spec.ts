@@ -3,8 +3,8 @@ import { FakeUnitOfWork } from '@test/fakes/fake-unit-of-work';
 import { InMemoryOrderWriteRepository } from '@test/fakes/in-memory-order-write.repository';
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
 import { InMemoryStockAllocator } from '@test/fakes/in-memory-stock-allocator';
+import { seedProduct, type SeededProduct } from '@test/fakes/seed-product';
 import { catchRejection } from '@test/support/catch-error';
-import { Product } from '@test/support/product-fixture';
 import { OrderConflictException } from '../../../exceptions/order-conflict.exception';
 import { OrderNotFoundException } from '../../../exceptions/order-not-found.exception';
 import { PlaceOrderCommand } from '../place-order/place-order.command';
@@ -21,11 +21,8 @@ describe('CancelOrderHandler', () => {
   let products: InMemoryProductWriteRepository;
   let orders: InMemoryOrderWriteRepository;
   let handler: CancelOrderHandler;
-  let espresso: Product;
+  let espresso: SeededProduct;
   let orderId: string;
-
-  const stockOf = (): number =>
-    products.snapshot().find((p) => p.id.equals(espresso.id))?.stock ?? -1;
 
   const statusOf = async (): Promise<string | undefined> =>
     (await orders.findById(orders.stored()[0]?.order.id as Order['id']))?.status
@@ -37,19 +34,16 @@ describe('CancelOrderHandler', () => {
     const allocator = new InMemoryStockAllocator(products);
     const uow = new FakeUnitOfWork([products, orders]);
     handler = new CancelOrderHandler(orders, allocator, uow);
-    espresso = Product.create({
-      name: 'Espresso Machine',
-      description: 'Makes espresso.',
-      price: 249.99,
-      currency: 'EUR',
+    espresso = await seedProduct(products, {
       sku: 'ESP-001',
+      name: 'Espresso Machine',
+      price: 249.99,
       stock: 12,
     });
-    await products.add(espresso);
     orderId = await new PlaceOrderHandler(orders, allocator, uow).execute(
       new PlaceOrderCommand(
         CUSTOMER,
-        [{ productId: espresso.id.value, quantity: 2 }],
+        [{ productId: espresso.id, quantity: 2 }],
         {
           recipientName: 'Ada Lovelace',
           line1: '1 Analytical Way',
@@ -76,7 +70,7 @@ describe('CancelOrderHandler', () => {
   };
 
   it('lets the owner cancel a placed order and gives the stock back', async () => {
-    expect(stockOf()).toBe(10);
+    expect(espresso.stock()).toBe(10);
 
     await handler.execute(
       new CancelOrderCommand(orderId, {
@@ -86,7 +80,7 @@ describe('CancelOrderHandler', () => {
     );
 
     expect(await statusOf()).toBe('cancelled');
-    expect(stockOf()).toBe(12);
+    expect(espresso.stock()).toBe(12);
   });
 
   it('lets the owner cancel a paid order too', async () => {
@@ -116,14 +110,14 @@ describe('CancelOrderHandler', () => {
 
     expect(error.code).toBe('ORDER_NOT_FOUND');
     expect(await statusOf()).toBe('placed');
-    expect(stockOf()).toBe(10);
+    expect(espresso.stock()).toBe(10);
   });
 
   it('lets staff cancel any order', async () => {
     await handler.execute(new CancelOrderCommand(orderId, { kind: 'staff' }));
 
     expect(await statusOf()).toBe('cancelled');
-    expect(stockOf()).toBe(12);
+    expect(espresso.stock()).toBe(12);
   });
 
   it('answers not-found for an id nothing holds', async () => {
@@ -148,7 +142,7 @@ describe('CancelOrderHandler', () => {
 
     expect(error.code).toBe('ORDER_TRANSITION_ILLEGAL');
     expect(await statusOf()).toBe('shipped');
-    expect(stockOf()).toBe(10);
+    expect(espresso.stock()).toBe(10);
   });
 
   it('reports a conflict and releases nothing when the save loses a race', async () => {
@@ -162,7 +156,7 @@ describe('CancelOrderHandler', () => {
     );
 
     expect(error.code).toBe('ORDER_CONFLICT');
-    expect(stockOf()).toBe(10);
+    expect(espresso.stock()).toBe(10);
     expect(await statusOf()).toBe('placed');
   });
 });

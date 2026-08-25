@@ -71,8 +71,12 @@ divide that work in general, and
 split is drawn where it is.
 
 The pipeline itself is described in two files, not one.
-[`configureApp`](../src/app.config.ts) installs the global `ValidationPipe`
-and the three exception filters, and every context relies on it for those.
+[`configureApp`](../src/app.config.ts) installs cookie parsing, CORS for the
+one origin `WEB_BASE_URL` names (with credentials, never reflected), the
+global `ValidationPipe`, and the three exception filters, and every context
+relies on it for those. It takes that origin as a parameter because the
+http-specs bootstrap it without `ConfigModule`; `main.ts` reads it from the
+same `AUTH_WEB_SETTINGS` the guard uses.
 Authentication's global guard is registered separately, as `APP_GUARD` in
 [`identity.module.ts`](../src/identity/identity.module.ts), because a guard
 handed to Nest's `useGlobalGuards` (which `configureApp` would have to call)

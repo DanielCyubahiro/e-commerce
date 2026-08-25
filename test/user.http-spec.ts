@@ -16,6 +16,10 @@ import {
   USER_WRITE_REPOSITORY,
 } from '@/identity/application';
 import { IdentityModule } from '@/identity/identity.module';
+import {
+  AUTH_WEB_SETTINGS,
+  authWebSettingsFrom,
+} from '@/identity/presentation/auth-web-settings';
 import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
@@ -27,6 +31,7 @@ import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.re
 import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
 
 const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+const ALLOWED_ORIGIN = 'http://localhost:5173';
 
 const lifetimes = {
   refreshTokenDays: 30,
@@ -126,10 +131,13 @@ describe('users HTTP contract', () => {
       .useValue(lifetimes)
       .overrideProvider(SESSION_REPOSITORY)
       .useValue(new InMemorySessionRepository(lifetimes))
+      .overrideProvider(AUTH_WEB_SETTINGS)
+      .useValue(authWebSettingsFrom(ALLOWED_ORIGIN, lifetimes))
       .compile();
 
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
+      { allowedOrigin: ALLOWED_ORIGIN },
     );
     // Listening on an OS-assigned port, rather than app.init(), stops
     // supertest from opening and closing an ephemeral listener on every

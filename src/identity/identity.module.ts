@@ -29,8 +29,14 @@ import {
   JoseAccessTokenIssuer,
   SmtpEmailSender,
 } from './infrastructure';
+import {
+  AUTH_WEB_SETTINGS,
+  type AuthWebSettings,
+  authWebSettingsFrom,
+} from './presentation/auth-web-settings';
 import { AuthController } from './presentation/auth.controller';
 import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard';
+import { SessionCookie } from './presentation/session-cookie';
 import { UserController } from './presentation/user.controller';
 
 /**
@@ -107,6 +113,19 @@ import { UserController } from './presentation/user.controller';
       }),
       inject: [ConfigService],
     },
+    {
+      provide: AUTH_WEB_SETTINGS,
+      useFactory: (
+        config: ConfigService,
+        lifetimes: TokenLifetimes,
+      ): AuthWebSettings =>
+        authWebSettingsFrom(
+          config.getOrThrow<string>('WEB_BASE_URL'),
+          lifetimes,
+        ),
+      inject: [ConfigService, TOKEN_LIFETIMES],
+    },
+    SessionCookie,
   ],
 })
 export class IdentityModule {}

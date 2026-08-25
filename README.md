@@ -52,6 +52,7 @@ forgot-password just sent.
 | `pnpm lint` | ESLint with type-aware rules |
 | `pnpm db:up` / `db:down` / `db:logs` | Local Postgres and Mongo |
 | `pnpm db:migrate` | Apply pending Drizzle migrations to that Postgres |
+| `pnpm postman:push` | Publish `postman/` to the Postman cloud (needs `POSTMAN_API_KEY`) |
 
 `start:dev` migrates before it starts watching. `start` and `start:prod` do
 not, so a database left behind a new migration answers with a 500 from the
@@ -73,5 +74,6 @@ union, is only real because `pnpm build` was run.
 | What does a given context contain? | [docs/contexts/](docs/contexts/) |
 | How is it structured, and how do I fork it? | [docs/architecture.md](docs/architecture.md) |
 | How is it tested? | [docs/testing.md](docs/testing.md) |
+| How do I try the API by hand? | [postman/README.md](postman/README.md) |
 | Why was it built this way? | [docs/adr/](docs/adr/) |
 | Rules for agents working here | [AGENTS.md](AGENTS.md) |

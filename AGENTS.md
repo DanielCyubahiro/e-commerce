@@ -119,6 +119,7 @@ Worked instances, copy these shapes:
 | Presentation imports no domain entity, value object, or the domain barrel | `no-restricted-imports` |
 | Application imports no adapter or controller | `no-restricted-imports` |
 | Infrastructure imports no presentation | `no-restricted-imports` |
+| A context imports a neighbour only through its application barrel | `import/no-restricted-paths` zones, one per ordered pair of contexts and layer |
 | No import cycles, including a layer's own barrel | `import/no-cycle` |
 | Domain 100%, application 95%, rest 85% (branches 80) | `jest.config.ts` |
 | Every context has a docs page with all five headings | `test/docs/context-pages.docs-spec.ts` |

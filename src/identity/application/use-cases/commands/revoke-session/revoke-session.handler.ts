@@ -10,7 +10,7 @@ import { RevokeSessionCommand } from './revoke-session.command';
 
 /**
  * The port returns false rather than throwing when no live session of this
- * user held that id, turning that into `SessionNotFoundException` happens
+ * user held that id; turning that into `SessionNotFoundException` happens
  * here.
  */
 @CommandHandler(RevokeSessionCommand)

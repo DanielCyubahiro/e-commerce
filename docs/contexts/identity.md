@@ -388,6 +388,7 @@ Codes raised by `src/identity/`.
 | `USER_TOKEN_HASH_INVALID` | `invariant` | 422 | [`TokenHash`](../../src/identity/domain/value-objects/token-hash.vo.ts) |
 | `USER_EMAIL_DUPLICATE` | `conflict` | 409 | [`DuplicateEmailException`](../../src/identity/application/exceptions/duplicate-email.exception.ts) |
 | `USER_NOT_FOUND` | `not-found` | 404 | [`GetUserHandler`](../../src/identity/application/use-cases/queries/get-user/get-user.handler.ts), [`DeleteUserHandler`](../../src/identity/application/use-cases/commands/delete-user/delete-user.handler.ts), [`UpdateUserHandler`](../../src/identity/application/use-cases/commands/update-user/update-user.handler.ts) |
+| `AUTH_SESSION_NOT_FOUND` | `not-found` | 404 | [`RevokeSessionHandler`](../../src/identity/application/use-cases/commands/revoke-session/revoke-session.handler.ts) |
 | `AUTH_UNAUTHENTICATED` | `unauthorized` | 401 | [`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts) |
 | `AUTH_INVALID_CREDENTIALS` | `unauthorized` | 401 | [`LoginHandler`](../../src/identity/application/use-cases/commands/login/login.handler.ts), [`ChangePasswordHandler`](../../src/identity/application/use-cases/commands/change-password/change-password.handler.ts) |
 | `AUTH_EMAIL_NOT_VERIFIED` | `forbidden` | 403 | [`LoginHandler`](../../src/identity/application/use-cases/commands/login/login.handler.ts) |

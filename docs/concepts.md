@@ -49,7 +49,7 @@ that validates first.
 | --- | --- | --- |
 | catalogue | [`Product`](../src/catalogue/domain/entities/product.entity.ts) | both `create` and `replace` validate through one path before an instance exists |
 | identity | [`User`](../src/identity/domain/entities/user.entity.ts) | `create` is the only path; there is no `replace`, since email is immutable after registration and every mutable field lives on `UserProfile` instead (see [ADR 0014](./adr/0014-email-is-immutable-after-registration.md)); `role` lives on `User`, not on `UserProfile`, assigned as `customer` by `create` and changed by nobody through the API |
-| ordering | none | Not modelled yet |
+| ordering | [`Order`](../src/ordering/domain/entities/order.entity.ts) | `place` creates and owns the collection rules; `reconstitute` is the persistence factory, taking value objects so their rules re-run on the way back in; `pay`, `ship`, `deliver`, and `cancel` move the status through `OrderStatus.transitionTo` and stamp a timestamp. The first aggregate here with behaviour after creation |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 6, "The Life Cycle
 of a Domain Object".
@@ -65,7 +65,7 @@ would not already have.
 | shared | [`AggregateRoot`](../src/shared/domain/aggregate-root.base.ts) | stays empty on purpose; see [ADR 0004](./adr/0004-no-nest-aggregate-root-base-class.md) for why it does not extend Nest CQRS's own `AggregateRoot` |
 | catalogue | [`Product`](../src/catalogue/domain/entities/product.entity.ts) | extends the empty `AggregateRoot` |
 | identity | [`User`](../src/identity/domain/entities/user.entity.ts) | extends the empty `AggregateRoot` |
-| ordering | none | Not modelled yet |
+| ordering | [`Order`](../src/ordering/domain/entities/order.entity.ts) | extends the empty `AggregateRoot`; carries a `version` the repository guards on, never a domain event |
 
 Canonical source: Vaughn Vernon, "Effective Aggregate Design" (a three part
 paper).
@@ -81,7 +81,7 @@ share an id but come from different classes still are not equal.
 | shared | [`Entity`](../src/shared/domain/entity.base.ts) | the abstract base; every entity extends it directly or via `AggregateRoot` |
 | catalogue | [`Product`](../src/catalogue/domain/entities/product.entity.ts) | inherits `equals` unmodified |
 | identity | [`User`](../src/identity/domain/entities/user.entity.ts) | inherits `equals` unmodified |
-| ordering | none | Not modelled yet |
+| ordering | [`Order`](../src/ordering/domain/entities/order.entity.ts) | inherits `equals` unmodified; its lines are value objects, not child entities |
 
 Canonical source: Eric Evans, *Domain-Driven Design*, Ch. 5, "A Model
 Expressed in Software," section "Entities".

@@ -1,3 +1,8 @@
+export {
+  Order,
+  type OrderState,
+  type PlaceOrderInput,
+} from './entities/order.entity';
 export { IllegalOrderTransitionException } from './exceptions/illegal-order-transition.exception';
 export { InvalidOrderLinesException } from './exceptions/invalid-order-lines.exception';
 export { InvalidOrderStatusException } from './exceptions/invalid-order-status.exception';

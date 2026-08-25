@@ -3,6 +3,7 @@ import {
   type ProductWriteRepository,
 } from '@/catalogue/application';
 import type { Product, ProductId } from '@/catalogue/domain';
+import type { Snapshottable } from './snapshottable';
 
 export interface StoredProduct {
   product: Product;
@@ -21,7 +22,9 @@ export interface StoredProduct {
  * Methods return promises without being `async` so they reject rather than throw
  * synchronously, which callers awaiting them depend on.
  */
-export class InMemoryProductWriteRepository implements ProductWriteRepository {
+export class InMemoryProductWriteRepository
+  implements ProductWriteRepository, Snapshottable
+{
   private readonly rows = new Map<string, StoredProduct>();
   private writes = 0;
 
@@ -81,6 +84,29 @@ export class InMemoryProductWriteRepository implements ProductWriteRepository {
 
   stored(): StoredProduct[] {
     return [...this.rows.values()];
+  }
+
+  /** Whole-state copy for `FakeUnitOfWork`; rows are shallow-copied so a restore is not aliased. */
+  capture(): unknown {
+    return {
+      rows: new Map(
+        [...this.rows].map(([id, stored]) => [id, { ...stored }] as const),
+      ),
+      writes: this.writes,
+    };
+  }
+
+  restore(captured: unknown): void {
+    const { rows, writes } = captured as {
+      rows: Map<string, StoredProduct>;
+      writes: number;
+    };
+
+    this.rows.clear();
+    for (const [id, stored] of rows) {
+      this.rows.set(id, { ...stored });
+    }
+    this.writes = writes;
   }
 
   clear(): void {

@@ -609,6 +609,28 @@ describe('auth HTTP contract', () => {
         .expect(401);
     });
 
+    it('clears the cookie when the caller’s own id is sent in uppercase', async () => {
+      const mine = await loginViaHttp('Firefox/142');
+      const me = await request(app.getHttpServer())
+        .get('/auth/sessions')
+        .set('Cookie', mine.cookie)
+        .expect(200);
+      const myId = listOf(me).find((row) => row.current)?.id ?? '';
+
+      const response = await request(app.getHttpServer())
+        .delete(`/auth/sessions/${myId.toUpperCase()}`)
+        .set('Cookie', mine.cookie)
+        .expect(204);
+
+      const [cleared, ...rest] = setCookiesOf(response);
+      expect(rest).toEqual([]);
+      expect(cleared).toContain('Max-Age=0');
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', mine.cookie)
+        .expect(401);
+    });
+
     it('answers 404 for another user’s session, and leaves it live', async () => {
       // The first ownership rule in this API, enforced by the repository
       // predicate rather than a comparison in a handler; see ADR 0015.

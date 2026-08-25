@@ -8,6 +8,22 @@ specific to `src/ordering/`.
 
 ## What it owns
 
+[`Order`](../../src/ordering/domain/entities/order.entity.ts) is the aggregate
+and the whole consistency boundary.
+[`Order.place`](../../src/ordering/domain/entities/order.entity.ts) is the only
+way one comes into being: 1 to 100 lines, no product twice, every line in one
+currency, and the four totals computed once (`subtotal` as the sum of line
+totals, `shippingFee` and `tax` at zero until a pricing rule exists, `total`
+as their sum).
+[`Order.reconstitute`](../../src/ordering/domain/entities/order.entity.ts) is
+the persistence factory, taking value objects rather than primitives so each
+value's own rule re-runs on the way back in. Four behaviours,
+[`Order.pay`](../../src/ordering/domain/entities/order.entity.ts), `ship`,
+`deliver`, and `cancel`, each move the status through
+`OrderStatus.transitionTo` and stamp their own timestamp, so an illegal move
+throws before any state changes. `version` is carried, never changed: the
+repository's guarded `save` owns it.
+
 The value objects an order is made of, each owning its own rule:
 
 - Quantity: [`Quantity.create`](../../src/ordering/domain/value-objects/quantity.vo.ts)

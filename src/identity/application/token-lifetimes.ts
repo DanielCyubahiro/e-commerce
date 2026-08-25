@@ -6,7 +6,6 @@ export const TOKEN_LIFETIMES = Symbol('TOKEN_LIFETIMES');
  * adapter carries a configuration key.
  */
 export interface TokenLifetimes {
-  refreshTokenDays: number;
   passwordResetMinutes: number;
   emailVerificationHours: number;
   /** A session dies when no request has touched it for this long. */
@@ -25,10 +24,6 @@ export function verificationExpiry(now: Date, l: TokenLifetimes): Date {
 
 export function resetExpiry(now: Date, l: TokenLifetimes): Date {
   return new Date(now.getTime() + l.passwordResetMinutes * MINUTE);
-}
-
-export function refreshExpiry(now: Date, l: TokenLifetimes): Date {
-  return new Date(now.getTime() + l.refreshTokenDays * DAY);
 }
 
 /**

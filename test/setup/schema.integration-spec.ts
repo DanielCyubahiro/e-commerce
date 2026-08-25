@@ -204,24 +204,13 @@ describe('migrated test database', () => {
     ]);
   });
 
-  it('has a refresh_tokens table with every migrated column', async () => {
-    const rows = await testDb().execute<{ column_name: string }>(sql`
-      SELECT column_name
-      FROM information_schema.columns
+  it('no longer has a refresh_tokens table', async () => {
+    const rows = await testDb().execute<{ table_name: string }>(sql`
+      SELECT table_name FROM information_schema.tables
       WHERE table_name = 'refresh_tokens'
-      ORDER BY column_name
     `);
 
-    expect(rows.map((row) => row.column_name)).toEqual([
-      'created_at',
-      'expires_at',
-      'id',
-      'revoked_at',
-      'session_id',
-      'token_hash',
-      'used_at',
-      'user_id',
-    ]);
+    expect(rows).toEqual([]);
   });
 
   it('has a one_time_tokens table with every migrated column', async () => {
@@ -313,13 +302,12 @@ describe('migrated test database', () => {
 
     expect(rows).toEqual([
       { table_name: 'one_time_tokens', data_type: 'timestamp with time zone' },
-      { table_name: 'refresh_tokens', data_type: 'timestamp with time zone' },
     ]);
   });
 
   it('cascades every auth table when its user row is deleted', async () => {
     // confdeltype 'c' is ON DELETE CASCADE. Asserted rather than assumed
-    // because a live refresh token outliving its user is the one orphan that
+    // because a live session outliving its user is the one orphan that
     // would still authenticate.
     const rows = await testDb().execute<{
       conrelid: string;
@@ -335,15 +323,14 @@ describe('migrated test database', () => {
     expect(rows).toEqual([
       { conrelid: 'credentials', confdeltype: 'c' },
       { conrelid: 'one_time_tokens', confdeltype: 'c' },
-      { conrelid: 'refresh_tokens', confdeltype: 'c' },
       { conrelid: 'sessions', confdeltype: 'c' },
     ]);
   });
 
-  it('indexes what chain revocation, logout-all and the cascades need', async () => {
+  it('indexes what session revocation, logout-all and the cascades need', async () => {
     const rows = await testDb().execute<{ indexname: string }>(sql`
       SELECT indexname FROM pg_indexes
-      WHERE tablename IN ('credentials', 'refresh_tokens', 'one_time_tokens', 'sessions')
+      WHERE tablename IN ('credentials', 'one_time_tokens', 'sessions')
       ORDER BY indexname
     `);
 
@@ -352,10 +339,6 @@ describe('migrated test database', () => {
       'one_time_tokens_pkey',
       'one_time_tokens_token_hash_unique',
       'one_time_tokens_user_id_purpose_idx',
-      'refresh_tokens_pkey',
-      'refresh_tokens_session_id_idx',
-      'refresh_tokens_token_hash_unique',
-      'refresh_tokens_user_id_idx',
       'sessions_pkey',
       'sessions_token_hash_unique',
       'sessions_user_id_idx',

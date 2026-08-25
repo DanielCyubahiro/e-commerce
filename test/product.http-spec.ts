@@ -68,7 +68,6 @@ const validBody = (
 // with everything it resolves: the cookie, the web settings, and the one
 // command handler it dispatches, registered through CqrsModule.
 const lifetimes = {
-  refreshTokenDays: 30,
   passwordResetMinutes: 60,
   emailVerificationHours: 24,
   sessionIdleDays: 30,

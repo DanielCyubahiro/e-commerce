@@ -6,7 +6,6 @@ import { LogoutAllSessionsHandler } from './logout-all-sessions.handler';
 describe('LogoutAllSessionsHandler', () => {
   const now = new Date('2026-08-19T10:00:00.000Z');
   const lifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
     sessionIdleDays: 30,

@@ -20,7 +20,6 @@ import {
 import { SessionCookie } from '@/identity/presentation/session-cookie';
 
 const lifetimes = {
-  refreshTokenDays: 30,
   passwordResetMinutes: 60,
   emailVerificationHours: 24,
   sessionIdleDays: 30,

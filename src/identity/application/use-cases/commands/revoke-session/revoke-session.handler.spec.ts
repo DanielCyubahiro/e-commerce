@@ -10,7 +10,6 @@ describe('RevokeSessionHandler', () => {
   const otherUserId = '9c858901-8a57-4791-81fe-4c455b099bc9';
   const now = new Date('2026-08-19T10:00:00.000Z');
   const lifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
     sessionIdleDays: 30,

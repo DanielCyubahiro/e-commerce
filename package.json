@@ -37,7 +37,6 @@
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
     "drizzle-orm": "^0.45.2",
-    "jose": "4.15.9",
     "mongodb": "^7.5.0",
     "nodemailer": "^9.0.5",
     "postgres": "^3.4.9",

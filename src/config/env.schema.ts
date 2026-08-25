@@ -6,7 +6,6 @@ import {
   IsUrl,
   Max,
   Min,
-  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -27,23 +26,6 @@ export class EnvSchema {
   @Min(1)
   @Max(65535)
   PORT: number = 3000;
-
-  // No default, deliberately: a defaulted signing secret is a signing secret
-  // someone ships. 32 characters is the floor at which an HS256 secret stops
-  // being brute-forceable offline from a single captured token.
-  @IsString()
-  @MinLength(32)
-  JWT_SECRET!: string;
-
-  // Bounds how long a revoked role or a deleted user's token stays accepted;
-  // see the accepted gaps in the spec.
-  @IsInt()
-  @Min(60)
-  ACCESS_TOKEN_TTL_SECONDS: number = 900;
-
-  @IsInt()
-  @Min(1)
-  REFRESH_TOKEN_TTL_DAYS: number = 30;
 
   @IsInt()
   @Min(1)

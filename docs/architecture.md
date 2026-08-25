@@ -165,15 +165,14 @@ The procedure:
    tool will not reproduce by accident. Each context page records its own
    couplings; catalogue's are in
    [Fork notes](./contexts/catalogue.md#fork-notes), and identity's,
-   including three new to authentication, are in
-   [Fork notes](./contexts/identity.md#fork-notes). Identity's six ports
+   including two new to authentication, are in
+   [Fork notes](./contexts/identity.md#fork-notes). Identity's five ports
    added by authentication, `PasswordHasher`, `CredentialRepository`,
-   `OneTimeTokenRepository`, `RefreshTokenRepository`, `AccessTokenIssuer`,
-   and `EmailSender`, are the sharper case for matching the contract rather
-   than the signature: a fork's `RefreshTokenRepository.rotate` has to
-   reproduce the guarded single-statement race behaviour
-   [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) documents, not
-   only return the same TypeScript shape.
+   `OneTimeTokenRepository`, `SessionRepository`, and `EmailSender`, are the
+   sharper case for matching the contract rather than the signature: a fork's
+   `SessionRepository.touch` has to reproduce the guarded single-statement
+   behaviour [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md)
+   documents, not only return the same TypeScript shape.
 2. Provide your new database client and give it a Nest injection token,
    following
    [`drizzle.provider.ts`](../src/shared/infrastructure/database/postgres/drizzle.provider.ts).

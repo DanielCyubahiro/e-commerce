@@ -1,5 +1,4 @@
 import {
-  refreshExpiry,
   resetExpiry,
   sessionAbsoluteCutoff,
   sessionIdleCutoff,
@@ -9,7 +8,6 @@ import {
 
 describe('token lifetimes', () => {
   const lifetimes: TokenLifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
     sessionIdleDays: 30,
@@ -26,12 +24,6 @@ describe('token lifetimes', () => {
   it('adds the configured minutes for a password reset token', () => {
     expect(resetExpiry(now, lifetimes)).toEqual(
       new Date('2026-08-19T11:00:00.000Z'),
-    );
-  });
-
-  it('adds the configured days for a refresh token', () => {
-    expect(refreshExpiry(now, lifetimes)).toEqual(
-      new Date('2026-09-18T10:00:00.000Z'),
     );
   });
 

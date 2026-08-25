@@ -79,10 +79,9 @@ import { UserController } from './presentation/user.controller';
       inject: [ConfigService],
     },
     {
-      // The only place the five lifetime keys are read.
+      // The only place the four lifetime keys are read.
       provide: TOKEN_LIFETIMES,
       useFactory: (config: ConfigService): TokenLifetimes => ({
-        refreshTokenDays: config.getOrThrow<number>('REFRESH_TOKEN_TTL_DAYS'),
         passwordResetMinutes: config.getOrThrow<number>(
           'PASSWORD_RESET_TTL_MINUTES',
         ),

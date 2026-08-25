@@ -18,7 +18,6 @@ export interface SessionHarness {
  * means the same thing to the fake and to Postgres.
  */
 export const CONTRACT_LIFETIMES: TokenLifetimes = {
-  refreshTokenDays: 30,
   passwordResetMinutes: 60,
   emailVerificationHours: 24,
   sessionIdleDays: 30,

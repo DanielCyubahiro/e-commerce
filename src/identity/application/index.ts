@@ -8,12 +8,6 @@ export { SessionNotFoundException } from './exceptions/session-not-found.excepti
 export { UnauthenticatedException } from './exceptions/unauthenticated.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
 export {
-  ACCESS_TOKEN_ISSUER,
-  type AccessClaims,
-  type AccessTokenIssuer,
-  type IssuedAccessToken,
-} from './ports/access-token.issuer';
-export {
   CREDENTIAL_REPOSITORY,
   type AuthenticationRecord,
   type CredentialRepository,
@@ -26,13 +20,6 @@ export {
   type OneTimeTokenRepository,
 } from './ports/one-time-token.repository';
 export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
-export {
-  REFRESH_TOKEN_REPOSITORY,
-  type IssuedRefreshToken,
-  type RefreshSuccessor,
-  type RefreshTokenRepository,
-  type RotationOutcome,
-} from './ports/refresh-token.repository';
 export {
   SESSION_REPOSITORY,
   type AuthenticatedSession,
@@ -55,7 +42,6 @@ export type { UserReadModel } from './read-models/user.read-model';
 export {
   TOKEN_LIFETIMES,
   type TokenLifetimes,
-  refreshExpiry,
   resetExpiry,
   sessionAbsoluteCutoff,
   sessionIdleCutoff,

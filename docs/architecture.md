@@ -31,6 +31,13 @@ a barrel imports by relative path, never through its own barrel: that cycle
 makes a Nest injection token resolve to `undefined` and surfaces at boot as an
 unrelated "can't resolve dependencies" error.
 
+Contexts are as bounded as layers. A context may import a neighbour only
+through that neighbour's `application` barrel, which is its published
+interface; its domain, adapters, and controllers are private. Catalogue
+publishes `StockAllocator` this way and ordering consumes it; nothing else
+crosses a context line. See [Published interface](./concepts.md#published-interface)
+and [ADR 0022](./adr/0022-contexts-integrate-through-published-ports.md).
+
 ### Enforcement
 
 [`eslint.config.mjs`](../eslint.config.mjs) carries four `no-restricted-imports`
@@ -85,14 +92,23 @@ before it reaches `configureApp`'s pipe: guards run before pipes, so a bad
 token on a protected endpoint answers 401 before a malformed body could
 answer 400.
 
+Authorization by role is a second guard,
+[`RolesGuard`](../src/shared/presentation/guards/roles.guard.ts), applied
+with `@UseGuards()` at method level wherever `@Roles()` lists roles, so it
+always runs after the authentication guard has attached `request.user`.
+Ownership is not a role and is not a guard: it is part of the command or
+query, where the caller's id is part of the write.
+
 ## Error path
 
 | Failure | Base | Filter | Status |
 | --- | --- | --- | --- |
 | Broken invariant | `DomainException`, kind `invariant` | `DomainExceptionFilter` | 422 |
 | Malformed identifier | `DomainException`, kind `malformed-identifier` | `DomainExceptionFilter` | 400 |
+| Illegal state transition, for example cancelling a shipped order | `DomainException`, kind `illegal-transition` | `DomainExceptionFilter` | 409 |
 | Conflict, for example duplicate SKU | `ApplicationException`, kind `conflict` | `ApplicationExceptionFilter` | 409 |
 | Not found | `ApplicationException`, kind `not-found` | `ApplicationExceptionFilter` | 404 |
+| Conflict carrying structured detail, for example stock shortfalls | `ApplicationException`, kind `conflict`, with details | `ApplicationExceptionFilter` | 409, body gains details |
 | Unauthenticated, or a bad credential or token | `ApplicationException`, kind `unauthorized` | `ApplicationExceptionFilter` | 401 |
 | Authenticated but not permitted, for example an unverified email | `ApplicationException`, kind `forbidden` | `ApplicationExceptionFilter` | 403 |
 | Anything unrecognised | none | `UnhandledExceptionFilter` | 500, no driver detail |
@@ -100,7 +116,9 @@ answer 400.
 `DomainException` and `ApplicationException` both carry a stable,
 machine-readable `code`, distinct from the status above.
 `DomainExceptionFilter` and `ApplicationExceptionFilter` emit
-`{ statusCode, code, message }`, where `code` is `exception.code`.
+`{ statusCode, code, message }`, where `code` is `exception.code`, and
+`ApplicationExceptionFilter` adds `details` when the exception defines it,
+as `StockUnavailableException` does.
 Each context lists the codes it raises on its own page; see
 [catalogue's](./contexts/catalogue.md#error-codes) for a worked set.
 `UnhandledExceptionFilter` sets the same fixed code, `'INTERNAL_ERROR'`, only
@@ -170,7 +188,11 @@ The procedure:
    than the signature: a fork's `RefreshTokenRepository.rotate` has to
    reproduce the guarded single-statement race behaviour
    [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) documents, not
-   only return the same TypeScript shape.
+   only return the same TypeScript shape. Ordering's ports and catalogue's
+   `StockAllocator` are the sharpest cases for the contract rather than the
+   signature: `allocate` has to keep its guarded per-row decrement and
+   product id ordering, and `save` its version predicate, or the concurrency
+   properties the contracts and adapter-only specs prove are lost.
 2. Provide your new database client and give it a Nest injection token,
    following
    [`drizzle.provider.ts`](../src/shared/infrastructure/database/postgres/drizzle.provider.ts).
@@ -178,7 +200,10 @@ The procedure:
    and one for the ORM handle built from it (`DRIZZLE`), kept separate so
    something still holds a reference capable of closing the connection. Your
    two new adapters will `@Inject` whatever token you create here, not
-   `DRIZZLE`.
+   `DRIZZLE`. The unit of work is a third provider from the same module:
+   [`DrizzleUnitOfWork`](../src/shared/infrastructure/database/postgres/drizzle-unit-of-work.ts)
+   wraps the client's transaction and hands adapters an opaque handle they
+   unwrap with `asDrizzleTransaction`; a fork replaces both.
 3. Wrap the new provider(s) in an `@Global()` module modelled on
    [`drizzle.module.ts`](../src/shared/infrastructure/database/postgres/drizzle.module.ts),
    implementing `OnModuleDestroy` to close the new client. That module states

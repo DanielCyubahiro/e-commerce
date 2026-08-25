@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted. The reservation of Mongo for a future context is closed by
+[0021](0021-orders-live-in-postgres.md): orders are relational too.
 
 ## Context
 

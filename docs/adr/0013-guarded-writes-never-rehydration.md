@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Accepted for state that is not an aggregate: credentials, tokens, and stock
+counters. [0024](0024-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
+records that an aggregate with a lifecycle is reconstituted and saved under a
+version guard, which is this record's mechanism applied to a version column.
 
 ## Context
 

@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Accepted. The first trigger it named, a second bounded context needing to
+react, fired with ordering and is answered by
+[0023](0023-stock-allocated-in-the-placement-transaction.md) with a
+synchronous call inside a unit of work rather than an event.
 
 ## Context
 

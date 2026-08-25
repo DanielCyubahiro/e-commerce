@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. Narrowed by [ADR 0020](0020-role-granted-never-claimed.md).
+Accepted for `/users`. Narrowed by [ADR 0020](0020-role-granted-never-claimed.md):
+a role can no longer be claimed through the API, and ordering's staff
+transitions are the first role-gated endpoints.
 
 ## Context
 

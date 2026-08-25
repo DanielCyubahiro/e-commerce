@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted.
+Accepted. Revisited by [0025](0025-order-lines-snapshot-the-product.md) when
+orders arrived: order lines snapshot the product and carry no foreign key, so
+hard delete stands.
 
 ## Context
 

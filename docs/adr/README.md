@@ -32,3 +32,9 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0018](0018-mail-sent-inline-after-commit.md) | Mail is sent inline after commit, not through an outbox | Accepted |
 | [0019](0019-commands-call-collaborators-directly.md) | Commands call collaborators directly; no domain events | Accepted |
 | [0020](0020-role-granted-never-claimed.md) | Role is granted by an operator, never claimed by a request | Accepted |
+| [0021](0021-orders-live-in-postgres.md) | Orders live in Postgres, not Mongo | Accepted |
+| [0022](0022-contexts-integrate-through-published-ports.md) | Contexts integrate through published ports, never tables | Accepted |
+| [0023](0023-stock-allocated-in-the-placement-transaction.md) | Stock is allocated in the placement transaction through a unit of work | Accepted |
+| [0024](0024-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md) | Aggregates with a lifecycle are reconstituted and saved under optimistic concurrency | Accepted |
+| [0025](0025-order-lines-snapshot-the-product.md) | Order lines snapshot the product; cross-context references carry no foreign key | Accepted |
+| [0026](0026-order-number-and-idempotency-key-beside-the-aggregate.md) | Order number and idempotency key live beside the aggregate, not in it | Accepted |

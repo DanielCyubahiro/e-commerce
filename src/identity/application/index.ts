@@ -2,7 +2,6 @@ export { DuplicateEmailException } from './exceptions/duplicate-email.exception'
 export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
 export { ForbiddenOriginException } from './exceptions/forbidden-origin.exception';
 export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
-export { InvalidRefreshTokenException } from './exceptions/invalid-refresh-token.exception';
 export { InvalidResetTokenException } from './exceptions/invalid-reset-token.exception';
 export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
 export { SessionNotFoundException } from './exceptions/session-not-found.exception';

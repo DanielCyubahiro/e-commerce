@@ -215,12 +215,10 @@ describe('Money', () => {
             const sum = Money.fromMinorUnits(left, 'EUR').add(
               Money.fromMinorUnits(right, 'EUR'),
             );
-            return sum.minorUnits === left + right;
+            expect(sum.minorUnits).toBe(left + right);
           },
         ),
       );
-
-      expect(true).toBe(true);
     });
   });
 });

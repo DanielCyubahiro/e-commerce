@@ -93,4 +93,33 @@ describe('validateEnv', () => {
         .WEB_BASE_URL,
     ).toBe('http://localhost:5173');
   });
+
+  it('defaults the session lifetimes', () => {
+    const config = validateEnv({ ...valid });
+
+    expect(config.SESSION_IDLE_TTL_DAYS).toBe(30);
+    expect(config.SESSION_ABSOLUTE_TTL_DAYS).toBe(365);
+  });
+
+  it('rejects an absolute session lifetime shorter than the idle one', () => {
+    // class-validator has no cross-field decorator; an inverted pair would
+    // make the idle TTL meaningless, so validateEnv checks it by hand.
+    expect(() =>
+      validateEnv({
+        ...valid,
+        SESSION_IDLE_TTL_DAYS: '30',
+        SESSION_ABSOLUTE_TTL_DAYS: '7',
+      }),
+    ).toThrow(/SESSION_ABSOLUTE_TTL_DAYS/);
+  });
+
+  it('accepts an absolute session lifetime equal to the idle one', () => {
+    expect(
+      validateEnv({
+        ...valid,
+        SESSION_IDLE_TTL_DAYS: '30',
+        SESSION_ABSOLUTE_TTL_DAYS: '30',
+      }).SESSION_ABSOLUTE_TTL_DAYS,
+    ).toBe(30);
+  });
 });

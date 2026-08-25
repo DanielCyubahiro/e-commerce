@@ -1,6 +1,6 @@
 # Identity
 
-The identity context: one aggregate, fourteen endpoints, eight ports. Layer
+The identity context: one aggregate, fourteen endpoints, nine ports. Layer
 rules, the error mechanism, and the generic fork procedure live in
 [`docs/architecture.md`](../architecture.md); this file carries only what is
 specific to `src/identity/`.
@@ -40,12 +40,14 @@ mechanism and why a persistence factory was rejected.
 Passwords are hashed with argon2id at
 [`Argon2PasswordHasher`](../../src/identity/infrastructure/adapters/argon2-password.hasher.ts)'s
 parameters: 19 MiB of memory, a time cost of 2, and a parallelism of 1,
-OWASP's floor for the algorithm. Four TTLs govern how long an issued
+OWASP's floor for the algorithm. Six TTLs govern how long an issued
 credential stays usable, all configured, none hardcoded: how long an access
 token is accepted (`ACCESS_TOKEN_TTL_SECONDS`), how long a refresh token's
 rotation chain stays valid (`REFRESH_TOKEN_TTL_DAYS`), how long a password
 reset link works (`PASSWORD_RESET_TTL_MINUTES`), and how long an email
-verification link works (`EMAIL_VERIFICATION_TTL_HOURS`).
+verification link works (`EMAIL_VERIFICATION_TTL_HOURS`), how long a session
+survives without a request (`SESSION_IDLE_TTL_DAYS`), and how long a session
+lasts however active it is (`SESSION_ABSOLUTE_TTL_DAYS`).
 
 ## Endpoints
 
@@ -122,6 +124,7 @@ and bound to adapters in
 | [`CREDENTIAL_REPOSITORY`](../../src/identity/application/ports/credential.repository.ts) | `CredentialRepository` | [`DrizzleCredentialRepository`](../../src/identity/infrastructure/adapters/drizzle-credential.repository.ts) |
 | [`ONE_TIME_TOKEN_REPOSITORY`](../../src/identity/application/ports/one-time-token.repository.ts) | `OneTimeTokenRepository` | [`DrizzleOneTimeTokenRepository`](../../src/identity/infrastructure/adapters/drizzle-one-time-token.repository.ts) |
 | [`REFRESH_TOKEN_REPOSITORY`](../../src/identity/application/ports/refresh-token.repository.ts) | `RefreshTokenRepository` | [`DrizzleRefreshTokenRepository`](../../src/identity/infrastructure/adapters/drizzle-refresh-token.repository.ts) |
+| [`SESSION_REPOSITORY`](../../src/identity/application/ports/session.repository.ts) | `SessionRepository` | [`DrizzleSessionRepository`](../../src/identity/infrastructure/adapters/drizzle-session.repository.ts) |
 | [`ACCESS_TOKEN_ISSUER`](../../src/identity/application/ports/access-token.issuer.ts) | `AccessTokenIssuer` | [`JoseAccessTokenIssuer`](../../src/identity/infrastructure/adapters/jose-access-token.issuer.ts) |
 | [`EMAIL_SENDER`](../../src/identity/application/ports/email.sender.ts) | `EmailSender` | [`SmtpEmailSender`](../../src/identity/infrastructure/adapters/smtp-email.sender.ts) |
 
@@ -134,7 +137,7 @@ duplicate-email conflict, because email is not among the fields it writes
 (see [ADR 0014](../adr/0014-email-is-immutable-after-registration.md)).
 
 Each port has one contract suite with two bindings, one per implementation,
-sixteen binding files in total. The mechanism, and why a fake is held to the
+eighteen binding files in total. The mechanism, and why a fake is held to the
 same suite as the adapter, is in
 [`docs/testing.md`](../testing.md#the-contract-mechanism).
 
@@ -146,6 +149,7 @@ same suite as the adapter, is in
 | [`credentialRepositoryContract`](../../test/contracts/credential-repository.contract.ts) | [`credential-repository.spec.ts`](../../test/contracts/credential-repository.spec.ts) | [`credential-repository.integration-spec.ts`](../../test/contracts/credential-repository.integration-spec.ts) |
 | [`oneTimeTokenRepositoryContract`](../../test/contracts/one-time-token-repository.contract.ts) | [`one-time-token-repository.spec.ts`](../../test/contracts/one-time-token-repository.spec.ts) | [`one-time-token-repository.integration-spec.ts`](../../test/contracts/one-time-token-repository.integration-spec.ts) |
 | [`refreshTokenRepositoryContract`](../../test/contracts/refresh-token-repository.contract.ts) | [`refresh-token-repository.spec.ts`](../../test/contracts/refresh-token-repository.spec.ts) | [`refresh-token-repository.integration-spec.ts`](../../test/contracts/refresh-token-repository.integration-spec.ts) |
+| [`sessionRepositoryContract`](../../test/contracts/session-repository.contract.ts) | [`session-repository.spec.ts`](../../test/contracts/session-repository.spec.ts) | [`session-repository.integration-spec.ts`](../../test/contracts/session-repository.integration-spec.ts) |
 | [`accessTokenIssuerContract`](../../test/contracts/access-token-issuer.contract.ts) | [`access-token-issuer.spec.ts`](../../test/contracts/access-token-issuer.spec.ts) | [`access-token-issuer.integration-spec.ts`](../../test/contracts/access-token-issuer.integration-spec.ts) |
 | [`emailSenderContract`](../../test/contracts/email-sender.contract.ts) | [`email-sender.spec.ts`](../../test/contracts/email-sender.spec.ts) | [`email-sender.integration-spec.ts`](../../test/contracts/email-sender.integration-spec.ts) |
 
@@ -157,6 +161,7 @@ predate this feature; [`FakePasswordHasher`](../../test/fakes/fake-password.hash
 [`InMemoryCredentialRepository`](../../test/fakes/in-memory-credential.repository.ts),
 [`InMemoryOneTimeTokenRepository`](../../test/fakes/in-memory-one-time-token.repository.ts),
 [`InMemoryRefreshTokenRepository`](../../test/fakes/in-memory-refresh-token.repository.ts),
+[`InMemorySessionRepository`](../../test/fakes/in-memory-session.repository.ts),
 [`FakeAccessTokenIssuer`](../../test/fakes/fake-access-token.issuer.ts), and
 [`RecordingEmailSender`](../../test/fakes/recording-email.sender.ts) are new.
 `reset` clears whatever row map or record the fake holds and `close` is a
@@ -180,6 +185,9 @@ Real-clock expiry, and a validly-signed token missing a claim, which no fake
 ever produces since a fake only ever encodes what it was given, are covered
 in
 [`jose-access-token.integration-spec.ts`](../../test/contracts/jose-access-token.integration-spec.ts).
+The `users` cascade removing a user's sessions is covered in
+[`drizzle-session.integration-spec.ts`](../../test/contracts/drizzle-session.integration-spec.ts),
+since the fake models no `users` table.
 
 ## Request lifecycle
 

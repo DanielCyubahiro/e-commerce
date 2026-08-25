@@ -12,6 +12,7 @@ import {
   PASSWORD_HASHER,
   queryHandlers,
   REFRESH_TOKEN_REPOSITORY,
+  SESSION_REPOSITORY,
   TOKEN_LIFETIMES,
   type TokenLifetimes,
   USER_READ_REPOSITORY,
@@ -22,6 +23,7 @@ import {
   DrizzleCredentialRepository,
   DrizzleOneTimeTokenRepository,
   DrizzleRefreshTokenRepository,
+  DrizzleSessionRepository,
   DrizzleUserReadRepository,
   DrizzleUserWriteRepository,
   JoseAccessTokenIssuer,
@@ -48,10 +50,7 @@ import { UserController } from './presentation/user.controller';
  * way round.
  */
 @Module({
-  imports: [
-    CqrsModule,
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
-  ],
+  imports: [CqrsModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }])],
   controllers: [UserController, AuthController],
   providers: [
     ...commandHandlers,
@@ -69,6 +68,7 @@ import { UserController } from './presentation/user.controller';
       provide: REFRESH_TOKEN_REPOSITORY,
       useClass: DrizzleRefreshTokenRepository,
     },
+    { provide: SESSION_REPOSITORY, useClass: DrizzleSessionRepository },
     {
       provide: ACCESS_TOKEN_ISSUER,
       useFactory: (config: ConfigService) =>
@@ -90,7 +90,7 @@ import { UserController } from './presentation/user.controller';
       inject: [ConfigService],
     },
     {
-      // The only place the three lifetime keys are read.
+      // The only place the five lifetime keys are read.
       provide: TOKEN_LIFETIMES,
       useFactory: (config: ConfigService): TokenLifetimes => ({
         refreshTokenDays: config.getOrThrow<number>('REFRESH_TOKEN_TTL_DAYS'),
@@ -99,6 +99,10 @@ import { UserController } from './presentation/user.controller';
         ),
         emailVerificationHours: config.getOrThrow<number>(
           'EMAIL_VERIFICATION_TTL_HOURS',
+        ),
+        sessionIdleDays: config.getOrThrow<number>('SESSION_IDLE_TTL_DAYS'),
+        sessionAbsoluteDays: config.getOrThrow<number>(
+          'SESSION_ABSOLUTE_TTL_DAYS',
         ),
       }),
       inject: [ConfigService],

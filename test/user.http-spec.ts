@@ -10,6 +10,7 @@ import {
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
   REFRESH_TOKEN_REPOSITORY,
+  SESSION_REPOSITORY,
   TOKEN_LIFETIMES,
   USER_READ_REPOSITORY,
   USER_WRITE_REPOSITORY,
@@ -20,11 +21,20 @@ import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
 import { InMemoryOneTimeTokenRepository } from '@test/fakes/in-memory-one-time-token.repository';
 import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
 import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
 
 const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+
+const lifetimes = {
+  refreshTokenDays: 30,
+  passwordResetMinutes: 60,
+  emailVerificationHours: 24,
+  sessionIdleDays: 30,
+  sessionAbsoluteDays: 365,
+};
 
 interface ResponseBody {
   id?: string;
@@ -113,11 +123,9 @@ describe('users HTTP contract', () => {
       .overrideProvider(ACCESS_TOKEN_ISSUER)
       .useValue(issuer)
       .overrideProvider(TOKEN_LIFETIMES)
-      .useValue({
-        refreshTokenDays: 30,
-        passwordResetMinutes: 60,
-        emailVerificationHours: 24,
-      })
+      .useValue(lifetimes)
+      .overrideProvider(SESSION_REPOSITORY)
+      .useValue(new InMemorySessionRepository(lifetimes))
       .compile();
 
     app = configureApp(

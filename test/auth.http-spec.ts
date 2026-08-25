@@ -32,6 +32,7 @@ import { InMemorySessionRepository } from '@test/fakes/in-memory-session.reposit
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
 import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
+import { seedSessionCookie } from '@test/support/session-cookie';
 
 const USER_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 const ALLOWED_ORIGIN = 'http://localhost:5173';
@@ -48,10 +49,16 @@ interface ResponseBody {
   code?: string;
   userId?: string;
   role?: string;
+  id?: string;
+  userAgent?: string | null;
+  current?: boolean;
 }
 
 const bodyOf = (response: request.Response): ResponseBody =>
   response.body as ResponseBody;
+
+const listOf = (response: request.Response): ResponseBody[] =>
+  response.body as ResponseBody[];
 
 /** The `session=...` pair from Set-Cookie, ready for `.set('Cookie', ...)`. */
 const sessionCookieOf = (response: request.Response): string => {
@@ -488,6 +495,160 @@ describe('auth HTTP contract', () => {
         .get('/auth/me')
         .set('Cookie', second.cookie)
         .expect(401);
+    });
+  });
+
+  describe('GET /auth/sessions', () => {
+    it('returns 401 with no cookie', async () => {
+      await request(app.getHttpServer()).get('/auth/sessions').expect(401);
+    });
+
+    it('lists the caller’s live sessions, most recent first, marking the current one', async () => {
+      const older = await loginViaHttp('Firefox/142');
+      await loginViaHttp('Safari/26');
+
+      const response = await request(app.getHttpServer())
+        .get('/auth/sessions')
+        .set('Cookie', older.cookie)
+        .expect(200);
+
+      const listed = listOf(response);
+      expect(listed).toHaveLength(2);
+      // The caller's own session was just touched by this very request, so it
+      // is the most recently seen and comes first.
+      expect(listed[0]).toMatchObject({
+        userAgent: 'Firefox/142',
+        current: true,
+      });
+      expect(listed[1]).toMatchObject({
+        userAgent: 'Safari/26',
+        current: false,
+      });
+      expect(listed[0]).toEqual({
+        id: expect.any(String) as string,
+        userAgent: 'Firefox/142',
+        ipAddress: expect.any(String) as string,
+        createdAt: expect.any(String) as string,
+        lastSeenAt: expect.any(String) as string,
+        current: true,
+      });
+    });
+
+    it('leaves a session out once it has been logged out', async () => {
+      const mine = await loginViaHttp('Firefox/142');
+      const other = await loginViaHttp('Safari/26');
+      await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Cookie', other.cookie)
+        .expect(204);
+
+      const response = await request(app.getHttpServer())
+        .get('/auth/sessions')
+        .set('Cookie', mine.cookie)
+        .expect(200);
+
+      expect(listOf(response).map((row) => row.userAgent)).toEqual([
+        'Firefox/142',
+      ]);
+    });
+  });
+
+  describe('DELETE /auth/sessions/:id', () => {
+    const OTHER_USER_ID = '9c858901-8a57-4791-81fe-4c455b099bc9';
+
+    const idOfOtherDevice = async (cookie: string): Promise<string> => {
+      const response = await request(app.getHttpServer())
+        .get('/auth/sessions')
+        .set('Cookie', cookie)
+        .expect(200);
+      const other = listOf(response).find((row) => row.current === false);
+      if (!other?.id) {
+        throw new Error('Expected a second, non-current session.');
+      }
+      return other.id;
+    };
+
+    it('returns 204 and the revoked device answers 401 afterwards', async () => {
+      const mine = await loginViaHttp('Firefox/142');
+      const other = await loginViaHttp('Safari/26');
+      const otherId = await idOfOtherDevice(mine.cookie);
+
+      await request(app.getHttpServer())
+        .delete(`/auth/sessions/${otherId}`)
+        .set('Cookie', mine.cookie)
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', other.cookie)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', mine.cookie)
+        .expect(200);
+    });
+
+    it('clears the cookie when the caller revokes the session it is calling from', async () => {
+      const mine = await loginViaHttp('Firefox/142');
+      const me = await request(app.getHttpServer())
+        .get('/auth/sessions')
+        .set('Cookie', mine.cookie)
+        .expect(200);
+      const myId = listOf(me).find((row) => row.current)?.id ?? '';
+
+      const response = await request(app.getHttpServer())
+        .delete(`/auth/sessions/${myId}`)
+        .set('Cookie', mine.cookie)
+        .expect(204);
+
+      const [cleared, ...rest] = setCookiesOf(response);
+      expect(rest).toEqual([]);
+      expect(cleared).toContain('Max-Age=0');
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', mine.cookie)
+        .expect(401);
+    });
+
+    it('answers 404 for another user’s session, and leaves it live', async () => {
+      // The first ownership rule in this API, enforced by the repository
+      // predicate rather than a comparison in a handler; see ADR 0015.
+      const mine = await loginViaHttp('Firefox/142');
+      const theirs = await seedSessionCookie(sessions, {
+        userId: OTHER_USER_ID,
+        role: 'customer',
+      });
+
+      const response = await request(app.getHttpServer())
+        .delete(`/auth/sessions/${theirs.sessionId}`)
+        .set('Cookie', mine.cookie)
+        .expect(404);
+
+      expect(bodyOf(response).code).toBe('AUTH_SESSION_NOT_FOUND');
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', theirs.cookie)
+        .expect(200);
+    });
+
+    it('answers 404 for an id nobody holds, identically', async () => {
+      const mine = await loginViaHttp();
+
+      const response = await request(app.getHttpServer())
+        .delete('/auth/sessions/3f2504e0-4f89-11d3-9a0c-0305e82c3301')
+        .set('Cookie', mine.cookie)
+        .expect(404);
+
+      expect(bodyOf(response).code).toBe('AUTH_SESSION_NOT_FOUND');
+    });
+
+    it('answers 400 for a malformed id, before any lookup', async () => {
+      const mine = await loginViaHttp();
+
+      await request(app.getHttpServer())
+        .delete('/auth/sessions/not-a-uuid')
+        .set('Cookie', mine.cookie)
+        .expect(400);
     });
   });
 

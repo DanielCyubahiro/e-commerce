@@ -1,6 +1,6 @@
 # Identity
 
-The identity context: one aggregate, fourteen endpoints, nine ports. Layer
+The identity context: one aggregate, sixteen endpoints, nine ports. Layer
 rules, the error mechanism, and the generic fork procedure live in
 [`docs/architecture.md`](../architecture.md); this file carries only what is
 specific to `src/identity/`.
@@ -51,7 +51,7 @@ lasts however active it is (`SESSION_ABSOLUTE_TTL_DAYS`).
 
 ## Endpoints
 
-Fourteen endpoints across two controllers, both under
+Sixteen endpoints across two controllers, both under
 [`src/identity/presentation/`](../../src/identity/presentation/):
 [`UserController`](../../src/identity/presentation/user.controller.ts) at the
 `users` root, and
@@ -83,15 +83,22 @@ else runs.
 | POST | `/auth/verify-email/resend` | Public | 5/hour | 202, no body | [`ResendVerificationDto`](../../src/identity/presentation/dtos/resend-verification.dto.ts) |
 | POST | `/auth/logout` | Protected | none | 204, no body | none, the session comes from the cookie; the cookie is cleared |
 | POST | `/auth/logout-all` | Protected | none | 204, no body | none, the user comes from the cookie; the cookie is cleared |
+| GET | `/auth/sessions` | Protected | none | 200, [`SessionResponseDto`](../../src/identity/presentation/dtos/session-response.dto.ts) array, most recently seen first | none, the user comes from the cookie |
+| DELETE | `/auth/sessions/:id` | Protected | none | 204, no body; the cookie is cleared when `:id` is the caller's own session | [`SessionIdParamDto`](../../src/identity/presentation/dtos/session-id.param.dto.ts) |
 | POST | `/auth/forgot-password` | Public | 5/hour | 202, no body | [`ForgotPasswordDto`](../../src/identity/presentation/dtos/forgot-password.dto.ts) |
 | POST | `/auth/reset-password` | Public | 10/60s | 204, no body | [`ResetPasswordDto`](../../src/identity/presentation/dtos/reset-password.dto.ts) |
 | POST | `/auth/change-password` | Protected | 10/60s | 204, no body | [`ChangePasswordDto`](../../src/identity/presentation/dtos/change-password.dto.ts) |
 
 Authentication and authorization are different concerns here, and only the
-first is built: any authenticated caller may act on any user, and
+first is built for `/users`: any authenticated caller may act on any user, and
 `GET /users` lists everyone with no ownership filter and no role check. See
 [ADR 0015](../adr/0015-authentication-without-authorization.md) for why, and
-what would change it.
+what would change it. The two session endpoints are the one exception:
+`GET /auth/sessions` lists only the caller's own sessions and
+`DELETE /auth/sessions/:id` revokes only the caller's own, because the
+repository predicate carries `user_id = caller` rather than a handler
+comparing ids, so another user's session id answers the same 404 as a made-up
+one.
 
 Two more things this table does not say by itself. `POST /users` answering
 409 on a duplicate email is an account-existence oracle: an unauthenticated

@@ -1,5 +1,4 @@
 import { Order } from '@/ordering/domain';
-import { FakeUnitOfWork } from './fake-unit-of-work';
 import type { InMemoryOrderWriteRepository } from './in-memory-order-write.repository';
 
 /** Places one single-line order straight into the write fake and returns it. */
@@ -27,8 +26,6 @@ export const seedPlaced = async (
       country: 'GB',
     },
   });
-  await new FakeUnitOfWork([orders]).run((tx) =>
-    orders.place({ order, idempotencyKey: null }, tx),
-  );
+  await orders.place({ order, idempotencyKey: null });
   return order;
 };

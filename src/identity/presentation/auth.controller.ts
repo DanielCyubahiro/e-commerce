@@ -1,19 +1,23 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Post,
   Req,
   Res,
   UseGuards,
 } from '@nestjs/common';
-import { CommandBus } from '@nestjs/cqrs';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
 import {
   ChangePasswordCommand,
+  type ListedSession,
+  ListSessionsQuery,
   LoginCommand,
   type LoginResult,
   LogoutAllSessionsCommand,
@@ -21,6 +25,7 @@ import {
   RequestPasswordResetCommand,
   ResendVerificationCommand,
   ResetPasswordCommand,
+  RevokeSessionCommand,
   VerifyEmailCommand,
 } from '../application';
 import { CurrentUser } from '@/shared/presentation/decorators/current-user.decorator';
@@ -32,6 +37,8 @@ import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { LoginDto } from './dtos/login.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
+import { SessionIdParamDto } from './dtos/session-id.param.dto';
+import { SessionResponseDto } from './dtos/session-response.dto';
 import { VerifyEmailDto } from './dtos/verify-email.dto';
 import { originOf } from './request-origin';
 import { SessionCookie } from './session-cookie';
@@ -45,6 +52,7 @@ import { SessionCookie } from './session-cookie';
 export class AuthController {
   constructor(
     private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
     private readonly cookie: SessionCookie,
   ) {}
 
@@ -151,6 +159,40 @@ export class AuthController {
     );
 
     this.cookie.clear(response);
+  }
+
+  /** The caller's own live sessions only; the query is scoped to the user the cookie resolved to. */
+  @Get('sessions')
+  async sessions(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<SessionResponseDto[]> {
+    const listed = await this.queryBus.execute<
+      ListSessionsQuery,
+      ListedSession[]
+    >(new ListSessionsQuery(user.userId, user.sessionId));
+
+    return listed.map((item) => SessionResponseDto.fromListed(item));
+  }
+
+  /**
+   * Owner-scoped by the repository predicate, so another user's id and an
+   * unknown id answer the same 404. When the caller revokes the session it is
+   * calling from, the cookie is cleared too, exactly as logout would.
+   */
+  @Delete('sessions/:id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async revokeSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param() params: SessionIdParamDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
+    await this.commandBus.execute<RevokeSessionCommand, void>(
+      new RevokeSessionCommand(user.userId, params.id),
+    );
+
+    if (params.id === user.sessionId) {
+      this.cookie.clear(response);
+    }
   }
 
   /**

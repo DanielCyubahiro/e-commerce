@@ -401,11 +401,10 @@ are deliberately two codes apiece rather than one: both tokens reach the
 account owner's inbox, so telling the holder "expired, request another"
 leaks nothing to anyone who does not already hold the link, and collapsing
 the two would make a routine expiry read as a broken one.
-`AUTH_REFRESH_TOKEN_INVALID` deliberately does the opposite, one code for
-every failure mode (replayed, expired, revoked, unknown), because a refresh
-token is held by whoever presents it, not delivered to an inbox, so naming
-which check fired would tell an attacker that reuse detection triggered and
-which copy of a stolen token they hold.
+`AUTH_UNAUTHENTICATED` deliberately does the opposite, one code for every
+failure mode (no cookie, unknown, revoked, idle-expired, absolutely expired),
+because a session cookie is held by whoever presents it, not delivered to an
+inbox, so naming which check fired would tell a forger which part to fix.
 
 ## Fork notes
 

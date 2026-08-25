@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "4459891e-76a2-4800-a16a-9593ec6664d6",
     "name": "e-commerce API · users",
-    "description": "The user endpoints of the e-commerce learning repo, served by `UserController` at the `users` root.\n\n**Before running:** start the API with `pnpm start:dev`, which brings up Postgres, Mongo and Mailpit through Docker Compose and boots Nest on the port in `.env` (3000 by default).\n\n**Variables:** `baseUrl` and the account credentials come from the shared **e-commerce (local)** environment; select it before running. Only `userId` stays a collection variable, because nothing outside this collection reads it.\n\n**Auth model:** `JwtAuthGuard` is registered as `APP_GUARD`, so every endpoint here except the public `POST /users` needs a bearer access token. The collection sets bearer `{{accessToken}}` at the collection level; run Login in the auth-context collection to populate it.\n\n**Run order:** `Create user` stores the new id in the `userId` collection variable, and every later request reads it. Run it first, or set `userId` by hand.\n\n**What the domain normalises**, so a value comes back different from what you sent: the email is trimmed and lowercased in full, so `Bob@Example.com` and `bob@example.com` are one identity and the unique constraint compares case-insensitively; the phone has spaces, dots, hyphens and parentheses stripped and is stored as a leading `+` followed by 8 to 15 digits; the role is trimmed and lowercased, so `Seller` is accepted and stored as `seller`.\n\n**Status codes:** 400 comes from the validation pipe and carries no `code` field, while 422, 404 and 409 come from the typed exception filters and carry a stable `code`. Validity is decided before existence, so a request that is both invalid and aimed at a missing id answers 422, not 404.",
+    "description": "The user endpoints of the e-commerce learning repo, served by `UserController` at the `users` root.\n\n**Before running:** start the API with `pnpm start:dev`, which brings up Postgres, Mongo and Mailpit through Docker Compose and boots Nest on the port in `.env` (3000 by default).\n\n**Where this lives:** the repo's `postman/` directory is the source of truth and `pnpm postman:push` publishes it here. An edit made in the app is overwritten by the next push; change the file instead.\n\n**Variables:** `baseUrl` and the account credentials come from the shared **e-commerce (local)** environment; select it before running. Only `userId` stays a collection variable, because nothing outside this collection reads it.\n\n**Auth model:** `SessionAuthGuard` is registered as `APP_GUARD`, so every endpoint here except the public `POST /users` needs a live session cookie. Run Login in the auth collection first: Postman's cookie jar keeps the `session` cookie it sets and attaches it to every request against the same host, so nothing here configures auth at all.\n\n**Run order:** `Create user` stores the new id in the `userId` collection variable, and every later request reads it. Run it first, or set `userId` by hand. `Delete user` at the end removes the account the auth collection logs in as, sessions included.\n\n**What the domain normalises**, so a value comes back different from what you sent: the email is trimmed and lowercased in full, so `Bob@Example.com` and `bob@example.com` are one identity and the unique constraint compares case-insensitively; the phone has spaces, dots, hyphens and parentheses stripped and is stored as a leading `+` followed by 8 to 15 digits; the role is trimmed and lowercased, so `Seller` is accepted and stored as `seller`.\n\n**Status codes:** 400 comes from the validation pipe and carries no `code` field, while 422, 404 and 409 come from the typed exception filters and carry a stable `code`. Validity is decided before existence, so a request that is both invalid and aimed at a missing id answers 422, not 404.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -261,9 +261,6 @@
       ],
       "id": "b167ccd8-6a20-4c89-977b-15d7263e3cbb",
       "request": {
-        "auth": {
-          "type": "noauth"
-        },
         "method": "POST",
         "header": [
           {
@@ -289,7 +286,7 @@
             "users"
           ]
         },
-        "description": "Creates a user and captures its id. Registration is the one public endpoint on this controller, so the request overrides auth to No Auth.\n\n`password` is required and must be 12 to 128 characters; `Password.create` owns the floor and answers 422 below it. The body reads `{{userEmail}}` and `{{userPassword}}` from the shared environment, the same values Login in the auth-context collection verifies against, so the two collections cannot drift apart. Registration also sends the verification email that collection consumes."
+        "description": "Creates a user and captures its id. Registration is the one public endpoint on this controller, so no session is needed.\n\n`password` is required and must be 12 to 128 characters; `Password.create` owns the floor and answers 422 below it. The body reads `{{userEmail}}` and `{{userPassword}}` from the shared environment, the same values Login in the auth collection verifies against, so the two collections cannot drift apart. Registration also sends the verification email that collection consumes."
       },
       "response": []
     },
@@ -504,7 +501,7 @@
             "{{userId}}"
           ]
         },
-        "description": "Removes the user row."
+        "description": "Removes the user row. Its sessions go with it through the `sessions.user_id` cascade, so deleting the account you are logged in as ends your own session: the next protected request answers 401. Re-register with `Create user` and log in again to continue."
       },
       "response": []
     }

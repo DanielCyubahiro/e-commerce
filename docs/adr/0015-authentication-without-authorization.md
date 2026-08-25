@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted.
+Accepted. Narrowed by [ADR 0020](0020-role-granted-never-claimed.md).
 
 ## Context
 

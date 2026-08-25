@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted. Narrows [ADR 0010](0010-one-user-aggregate-with-a-role.md) and
+[ADR 0015](0015-authentication-without-authorization.md).
 
 ## Context
 
@@ -49,6 +50,21 @@ endpoint can produce one.
   changed value.** Rejected: a request could still probe the check by
   observing whether it fires, and a runtime check duplicates a rule the type
   system can make impossible outright by removing the field.
+- **Making role immutable only after registration**, the same shape
+  [ADR 0014](0014-email-is-immutable-after-registration.md) gives email:
+  keep `role` on `UserProfile`, accept it at registration, but never let
+  `PUT /users/:id` touch it again. Rejected: that only closes the door on
+  changing a role after creation, not on choosing one at creation; an
+  attacker who wants `seller` would simply register a second account with
+  `role: 'seller'` and never touch `PUT` at all.
+- **Accepting the hole and documenting it**, the way this codebase already
+  treats the account-existence oracle (see `docs/contexts/identity.md`'s
+  "The 409 is not a bug to fix" paragraph). Rejected: that pattern fits a
+  narrow, understood information leak, an unauthenticated caller learning
+  an email is taken, not a capability grant; once an endpoint depends on
+  the role, as ordering's staff transitions will, a self-granted role is
+  privilege escalation, not disclosure, and documenting it would not make
+  it safe to leave open.
 
 ## Consequences
 
@@ -63,3 +79,10 @@ endpoint can produce one.
   grant it.
 - Ordering's staff-only endpoints, gated on `seller`, are now gating
   something a caller cannot grant themselves.
+- [ADR 0015](0015-authentication-without-authorization.md)'s authorization
+  gap is narrowed, not closed: any authenticated caller can still read,
+  replace the profile of, or delete any user through `/users`, including
+  one that is not their own. What changed is negative only, no caller can
+  grant themselves a role through that same surface, which is what makes
+  ordering's staff transitions the first role-gated endpoints this codebase
+  has.

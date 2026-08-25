@@ -197,7 +197,7 @@
         },
         {
           "name": "401 · A protected endpoint with no cookie",
-          "id": "58d08728-44c4-4fb5-a795-f6da1feef630",
+          "id": "eaceb88b-ec41-44de-b7c6-937ce3af0309",
           "request": {
             "method": "GET",
             "header": [],

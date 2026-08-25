@@ -50,7 +50,10 @@ Login. Change password and Reset password rotate the environment's current
 - **Variables.** Anything two collections share lives in the environment.
   An id only one collection reads (`userId`, `productId`, `otherSessionId`)
   is a collection variable. Every variable a collection references must be
-  declared in one of the two; the docs test project checks that.
+  declared in one of the two;
+  [postman.docs-spec.ts](../test/docs/postman.docs-spec.ts) checks that,
+  along with one collection per controller, a happy-path request per route,
+  and a live route per request.
 - **Emailed tokens.** Verification and reset tokens never travel over HTTP.
   The auth collection's pre-request script fetches the newest matching email
   from Mailpit at `{{mailpitUrl}}` just before Verify email and Reset

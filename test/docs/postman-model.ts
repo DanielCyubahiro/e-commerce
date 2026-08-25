@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REPO_ROOT } from './docs-model';
 
-export const POSTMAN_DIR = 'postman';
+const POSTMAN_DIR = 'postman';
 const COLLECTION_SUFFIX = '.postman_collection.json';
 const ENVIRONMENT_SUFFIX = '.postman_environment.json';
 
@@ -43,7 +43,8 @@ interface RawCollection {
 }
 
 const MUSTACHE = /\{\{([^{}]+)\}\}/g;
-const SCRIPT_GET = /pm\.(?:environment|collectionVariables)\.get\('([^']+)'\)/g;
+const SCRIPT_GET =
+  /pm\.(?:environment|collectionVariables)\.get\((['"])([^'"]+)\1\)/g;
 
 /** Reads every `postman/*.postman_collection.json`, sorted by filename. */
 export function readCollections(): Collection[] {
@@ -128,7 +129,7 @@ function referencesIn(text: string): string[] {
     if (name !== undefined && !name.startsWith('$')) names.add(name);
   }
   for (const match of text.matchAll(SCRIPT_GET)) {
-    const name = match[1];
+    const name = match[2];
     if (name !== undefined) names.add(name);
   }
   return [...names].sort();

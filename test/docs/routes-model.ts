@@ -4,6 +4,8 @@ import 'reflect-metadata';
 import { readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { RequestMethod } from '@nestjs/common';
+// A deep import into a compiled file, not a documented public path: a Nest
+// upgrade can move or rename this without a deprecation notice.
 import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { REPO_ROOT } from './docs-model';
 
@@ -19,7 +21,15 @@ export interface Route {
  * Reads the routes off the controllers' own decorator metadata, the same
  * keys Nest's router reads, so this cannot disagree with what the app
  * serves. Imports every `src/<context>/presentation/*.controller.ts`; each
- * must export its controller class. Sorted by file, then declaration order.
+ * must export its controller class, and discovery requires the file's
+ * parent directory to be named `presentation`. Sorted by file, then
+ * declaration order.
+ *
+ * Limits: a `@Controller()` root must be a single string; an array root
+ * (`@Controller(['a', 'b'])`) is skipped entirely. A bare `@Controller()`
+ * with no argument yields root `/`, which no filename under the naming rule
+ * can satisfy. Only handlers on the class's own prototype are read;
+ * handlers inherited from a base class are invisible here.
  */
 export function readRoutes(): Route[] {
   return controllerFiles().flatMap((file) => {

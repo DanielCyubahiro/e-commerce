@@ -20,10 +20,13 @@ Why, and what was rejected: [ADR 0022](../docs/adr/0022-postman-collections-in-t
 1. `pnpm start:dev`: Postgres, Mongo and Mailpit through Docker Compose, then
    Nest on the port in `.env` (3000 by default).
 2. In the Postman app, import the four files (File > Import, drop the
-   directory) or open the published copies in the workspace.
-3. Select the **e-commerce (local)** environment. A collection-level guard
-   aborts every request with a clear error when none is active, because
-   variable writes would otherwise vanish silently.
+   directory) or open the published copies in the workspace. Use the desktop
+   app, or the desktop agent if running Postman in a browser: the browser
+   agent sends Postman's own `Origin` header, which the API's Origin check
+   answers with 403, and it cannot reach `localhost` anyway.
+3. Select the **e-commerce (local)** environment. The pre-request script's
+   environment check aborts every request with a clear error when none is
+   active, because variable writes would otherwise vanish silently.
 4. Run `Create user` in the users collection, then the auth collection top
    to bottom, then whatever else you want to try.
 
@@ -58,8 +61,10 @@ Login. Change password and Reset password rotate the environment's current
 - **Emailed tokens.** Verification and reset tokens never travel over HTTP.
   The auth collection's pre-request script fetches the newest matching email
   from Mailpit at `{{mailpitUrl}}` just before Verify email and Reset
-  password run. No email means a loud error naming the request to run
-  first.
+  password run. No email produces a loud script error naming the request to
+  run first, but does not stop the request that triggered it: a `throw`
+  inside that async lookup cannot abort the send, so the request still goes
+  out and answers 401 next to the error.
 - **No cookie on purpose.** Two failure paths go to `{{cookielessBaseUrl}}`,
   `http://127.0.0.1:3000`: the same server under a different host name, so
   the jar has nothing to attach whatever is logged in.

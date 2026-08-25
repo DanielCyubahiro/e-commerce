@@ -1,0 +1,875 @@
+{
+  "info": {
+    "_postman_id": "2f9fcb52-2257-4678-9f7f-4881ce2da740",
+    "name": "e-commerce API · auth",
+    "description": "The nine authentication endpoints of the e-commerce learning repo, served by `AuthController` at the `auth` root. These are the endpoints the two sibling collections do not cover: **e-commerce API (user context)** covers the five on `UserController`, **e-commerce API (product context)** the five on `ProductController`.\n\n**Before running:** start the API with `pnpm start:dev`, which brings up Postgres, Mongo and Mailpit through Docker Compose and boots Nest on the port in `.env` (3000 by default).\n\n**Variables:** everything shared (base URL, tokens, credentials, emailed tokens) lives in the **e-commerce (local)** environment rather than in collection variables, so all three collections read one session. Select that environment before running anything here or in the sibling collections; a collection pre-request guard aborts every request with a clear error when no environment is active, because the token writes would otherwise vanish silently.\n\n**Run order:** create the account first, with `Create user` in the user-context collection; it reads the same `{{userEmail}}` and `{{userPassword}}` from the environment, so the credentials match automatically. This collection deliberately does not duplicate `POST /users`, so that endpoint has one definition rather than two. Then run top to bottom: Resend verification, Verify email, Login, Refresh session, Change password, Logout, Logout all sessions, Forgot password, Reset password. Login and Refresh session store the tokens in the environment that every protected request in all three collections reads.\n\n**Two tokens never arrive over HTTP.** Verification and reset tokens are only ever emailed. Trigger the endpoint that sends the mail, then read the token out of Mailpit at http://localhost:8025 and paste it into `verificationToken` or `resetToken` in the environment.\n\n**Auth model:** `JwtAuthGuard` is registered as `APP_GUARD`, so every handler needs a bearer access token unless it carries `@Public()`. This collection sets bearer `{{accessToken}}` at the collection level and overrides the six public endpoints to No Auth. Authorization does not exist yet: any authenticated caller may act on any user (ADR 0015).\n\n**Status codes:** 400 comes from the validation pipe and carries no `code` field, while 422, 409, 404, 403 and 401 come from the typed exception filters and carry a stable `code`. A caller over a named throttle limit gets a 429 with no `code`. Four endpoints are throttled: login and reset-password at 10 per 60s, change-password at 10 per 60s, forgot-password and verify-email/resend at 5 per hour.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Failure paths",
+      "item": [
+        {
+          "name": "401 · Login with a wrong password",
+          "id": "c43e776a-7030-4d9c-bf1c-a470777a2fbb",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"wrong-password-entirely\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Login with an unknown address",
+          "id": "a16c681d-e229-4d3d-921c-939739c0bbe6",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody-here@example.com\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "403 · Login before verifying the email",
+          "id": "aaa31fec-7aae-4e16-a27f-d6ac6ac7f7a3",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"unverified@example.com\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Verify email with a spent token",
+          "id": "3a718318-528c-4f85-a53a-54ecfc088b65",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Refresh with a replayed token",
+          "id": "b524f7c3-709d-4ae7-bf47-e549a9b6c775",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"a-refresh-token-already-rotated-away\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "401 · A protected endpoint with no token",
+          "id": "eaceb88b-ec41-44de-b7c6-937ce3af0309",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Change password with a wrong current password",
+          "id": "8f4df605-74dc-4c06-8a36-edf1b8ff9538",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"not-the-current-one\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "422 · Reset password below the 12-character minimum",
+          "id": "57b18d69-778c-4785-b3a5-b09b1a9ce2a7",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"this-token-is-nonsense\",\n  \"newPassword\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Reset password with a garbage token",
+          "id": "65f17a0d-f4eb-439e-bb2e-e6f916c1790a",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"this-token-is-nonsense\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "400 · Login with an unrecognised field",
+          "id": "6c546815-8244-41e2-9db1-6307b6d315ec",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"rememberMe\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "202 · Forgot password for an address that does not exist",
+          "id": "1f63c690-48a5-4dfb-9d59-29345523378e",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody-here@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "id": "b69cfa5d-439d-4863-ba05-cb85c43fc9d5",
+      "description": "Each request here is named for the status it should produce. Several exist to document an *ordering* the happy paths cannot show: which check fires first when a request is wrong in two ways at once.",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Every request in this folder is named for the status it should",
+              "// return, so one assertion here covers all of them and cannot drift",
+              "// from the names the way eleven copies would.",
+              "const expected = Number(pm.info.requestName.match(/^(\\d{3})/)[1]);",
+              "",
+              "pm.test(`${expected}`, () => pm.response.to.have.status(expected));",
+              "",
+              "// 400 comes from the validation pipe and carries no `code`; the typed",
+              "// exception filters all do. 202 has no body at all.",
+              "if (![202, 400].includes(expected)) {",
+              "  pm.test('carries a stable code', () =>",
+              "    pm.expect(pm.response.json().code).to.be.a('string'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Resend verification",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('202', () => pm.response.to.have.status(202));"
+            ]
+          }
+        }
+      ],
+      "id": "67866b03-9538-46e5-9f77-7aa3febbca58",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/verify-email/resend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "verify-email",
+            "resend"
+          ]
+        },
+        "description": "202 whether or not the address exists, and 202 again if it is already verified with no mail sent. It cannot be used to probe for accounts.\n\nThrottled to 5 per hour: a hit spends someone else's inbox, not the caller's own resource. Read the token out of Mailpit and put it in `verificationToken`."
+      },
+      "response": []
+    },
+    {
+      "name": "Verify email",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ],
+      "id": "6d04c274-1fb3-4a11-82f3-8312ed0778e5",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/verify-email",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "verify-email"
+          ]
+        },
+        "description": "204 on success.\n\nA POST carrying the token in the body, not a clickable GET. Link prefetchers, spam filters and corporate mail scanners follow links, and a GET that consumes a token gets consumed by a robot before the user clicks. The emailed link points at the frontend, which posts here.\n\nTTL comes from EMAIL_VERIFICATION_TTL_HOURS, 24h by default. An expired token answers 401 `AUTH_VERIFICATION_TOKEN_EXPIRED`, a spent or unknown one 401 `AUTH_VERIFICATION_TOKEN_INVALID`. Two codes rather than one is deliberate: the token reaches the account owner's inbox, so telling the holder \"expired, request another\" leaks nothing to anyone who does not already hold the link."
+      },
+      "response": []
+    },
+    {
+      "name": "Login",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('returns a bearer session', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.tokenType).to.eql('Bearer');",
+              "  pm.expect(body.expiresIn).to.be.a('number');",
+              "});",
+              "",
+              "// Written to the shared environment so every protected request in",
+              "// all three collections reads the same session.",
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  pm.environment.set('accessToken', body.accessToken);",
+              "  pm.environment.set('refreshToken', body.refreshToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "id": "4562523d-38f7-4f50-8a29-017084c1e0ca",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "200 with an access token, a refresh token, and the access token's TTL in seconds.\n\nA wrong password and an unknown address answer identically, 401 `AUTH_INVALID_CREDENTIALS`, so this endpoint is not an account-existence oracle. `POST /users` is one: it answers 409 on a duplicate email.\n\nAn unverified address answers 403 `AUTH_EMAIL_NOT_VERIFIED`.\n\nThrottled to 10 per 60s. Every attempt spends 19 MiB in argon2 whether the password is right or not, so the limit pays for that cost decision rather than only guarding against brute force."
+      },
+      "response": []
+    },
+    {
+      "name": "Refresh session",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "",
+              "// The presented token is dead after this call, so overwriting is",
+              "// mandatory, not a convenience.",
+              "if (pm.response.code === 200) {",
+              "  const body = pm.response.json();",
+              "  pm.environment.set('accessToken', body.accessToken);",
+              "  pm.environment.set('refreshToken', body.refreshToken);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "id": "fd082903-e40a-4df7-9b9f-2ea37dc8a2d8",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/refresh",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "refresh"
+          ]
+        },
+        "description": "200 with a fresh access token and a **rotated** refresh token. Public: presenting the refresh token is the authentication.\n\nThe presented token is dead once this succeeds, so replaying one answers 401 `AUTH_REFRESH_TOKEN_INVALID` and the reuse also kills the chain. The test script overwrites `refreshToken`, so run this once per stored token.\n\nReplayed, expired, revoked and unknown all answer that one code, the opposite of the two-code split on the emailed tokens: a refresh token is held by whoever presents it rather than delivered to an inbox, so naming which check fired would tell an attacker that reuse detection triggered."
+      },
+      "response": []
+    },
+    {
+      "name": "Change password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "",
+              "// Keeps Login runnable: the old password no longer exists.",
+              "if (pm.response.code === 204) {",
+              "  pm.environment.set('userPassword', pm.environment.get('newPassword'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "id": "5889a112-65b8-4387-b577-8608514858ac",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"{{userPassword}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/change-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "change-password"
+          ]
+        },
+        "description": "204 on success. Protected, and the body still carries the current password: a valid access token proves the caller holds a token, not that they are the account owner. Requiring the current password is what stops a stolen access token turning into permanent account takeover inside its fifteen-minute window.\n\nRevokes every **other** session and spares this one, which is what a user expects from changing their own password rather than recovering it. Reset password does the opposite.\n\nA wrong `currentPassword` answers 401 `AUTH_INVALID_CREDENTIALS`. The new password's length is checked *before* that, so a new password outside 12 to 128 characters answers 422 `USER_PASSWORD_INVALID` even when the current password is wrong.\n\nThrottled to 10 per 60s, because the check is an argon2 verify against a caller-supplied guess: without a limit a stolen access token would buy an attacker one guess per request for the token's whole life."
+      },
+      "response": []
+    },
+    {
+      "name": "Logout",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ],
+      "id": "a2e5d124-6599-4a84-9743-ce1e17a14d57",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout"
+          ]
+        },
+        "description": "204, no body sent and none returned. The session comes from the access token's `sid` claim, so a client that has lost its refresh token can still end the session.\n\nEnds renewal, not access: the guard does no per-request revocation lookup, so `{{accessToken}}` keeps working until it expires. That is why Logout all sessions still succeeds after this one."
+      },
+      "response": []
+    },
+    {
+      "name": "Logout all sessions",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ],
+      "id": "fb8d1325-b849-4cec-92ae-f29fee8eaba2",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout-all",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout-all"
+          ]
+        },
+        "description": "204. Revokes every refresh chain of the caller's user, including the one it was called from.\n\nSame caveat as Logout: renewal stops, existing access tokens keep working until they expire."
+      },
+      "response": []
+    },
+    {
+      "name": "Forgot password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('202', () => pm.response.to.have.status(202));"
+            ]
+          }
+        }
+      ],
+      "id": "a8b4ccfe-9b01-4dfb-be4f-1a2220d29832",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/forgot-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "forgot-password"
+          ]
+        },
+        "description": "202 whether or not the address exists, so it cannot be used to probe for accounts.\n\nThrottled to 5 per hour: a hit spends someone else's inbox. Read the emailed token out of Mailpit and put it in `resetToken`. Link TTL comes from PASSWORD_RESET_TTL_MINUTES, 60 by default."
+      },
+      "response": []
+    },
+    {
+      "name": "Reset password",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "",
+              "// Every session is gone now, including this collection's.",
+              "if (pm.response.code === 204) {",
+              "  pm.environment.set('userPassword', pm.environment.get('newPassword'));",
+              "  pm.environment.set('accessToken', '');",
+              "  pm.environment.set('refreshToken', '');",
+              "}"
+            ]
+          }
+        }
+      ],
+      "id": "e429ea5d-945d-4393-900d-a35ecc801001",
+      "request": {
+        "auth": {
+          "type": "noauth"
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/reset-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "reset-password"
+          ]
+        },
+        "description": "204 on success. Public: presenting the reset token is the authentication.\n\nRevokes **every** session including any the caller holds, because whoever prompted the reset may be holding one. Change password spares the current session; this deliberately does not.\n\nThe new password is validated and hashed *before* the token is touched, so a policy rejection does not cost the user their link. That ordering is observable: a short password with a garbage token answers 422 `USER_PASSWORD_INVALID`, not 401.\n\nOn the token itself, expired answers 401 `AUTH_RESET_TOKEN_EXPIRED` and spent or unknown 401 `AUTH_RESET_TOKEN_INVALID`.\n\nThrottled to 10 per 60s: because hashing happens first, a garbage token would otherwise buy a full argon2 hash for free every time."
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "id": "5899fd37-28a8-476c-921d-8ec8091f4544",
+        "type": "text/javascript",
+        "exec": [
+          "// Without an active environment, pm.environment.set stores tokens",
+          "// nowhere and {{accessToken}} resolves to nothing, both silently.",
+          "// Fail loudly instead.",
+          "if (!pm.environment.name) {",
+          "  throw new Error('No environment selected. Pick \"e-commerce (local)\" in the environment picker (top right).');",
+          "}"
+        ]
+      }
+    }
+  ]
+}

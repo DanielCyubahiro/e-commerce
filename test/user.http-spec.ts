@@ -4,12 +4,10 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { configureApp } from '@/app.config';
 import {
-  ACCESS_TOKEN_ISSUER,
   CREDENTIAL_REPOSITORY,
   EMAIL_SENDER,
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
-  REFRESH_TOKEN_REPOSITORY,
   SESSION_REPOSITORY,
   TOKEN_LIFETIMES,
   USER_READ_REPOSITORY,
@@ -20,15 +18,14 @@ import {
   AUTH_WEB_SETTINGS,
   authWebSettingsFrom,
 } from '@/identity/presentation/auth-web-settings';
-import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
 import { InMemoryOneTimeTokenRepository } from '@test/fakes/in-memory-one-time-token.repository';
-import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
 import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
 import { RecordingEmailSender } from '@test/fakes/recording-email.sender';
+import { seedSessionCookie } from '@test/support/session-cookie';
 
 const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
 const ALLOWED_ORIGIN = 'http://localhost:5173';
@@ -81,33 +78,22 @@ const updateBody = (
   ...overrides,
 });
 
-// The single instance backing both this suite's ACCESS_TOKEN_ISSUER override
-// and the token minted below, so the guard verifies against the same secret.
-const issuer = new FakeAccessTokenIssuer();
-
 describe('users HTTP contract', () => {
   let app: INestApplication<App>;
-  let authHeader: string;
-
-  beforeAll(async () => {
-    const { token } = await issuer.issue({
-      userId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
-      role: 'seller',
-      sessionId: '9c858901-8a57-4791-81fe-4c455b099bc9',
-    });
-    authHeader = `Bearer ${token}`;
-  });
+  let authCookie: string;
 
   beforeEach(async () => {
     const writes = new InMemoryUserWriteRepository();
+    const sessions = new InMemorySessionRepository(lifetimes);
 
     // The providers `identity.module.ts` binds via `useFactory` or a Drizzle
     // adapter need `ConfigService`, or reach a real Postgres/SMTP connection
     // through `DRIZZLE`. This suite imports only `IdentityModule`, not
     // `AppModule`, so none of that is available; every one is overridden with
     // the same fakes the unit suites use. `IdentityModule` already registers
-    // JwtAuthGuard as `APP_GUARD` (identity.module.ts), so this suite need not
-    // wire the guard again, only override the token issuer it injects.
+    // `SessionAuthGuard` as `APP_GUARD` (identity.module.ts), so this suite
+    // need not wire the guard again, only override the session repository it
+    // resolves through.
     const moduleRef = await Test.createTestingModule({
       imports: [IdentityModule],
     })
@@ -123,14 +109,10 @@ describe('users HTTP contract', () => {
       .useValue(new InMemoryCredentialRepository())
       .overrideProvider(ONE_TIME_TOKEN_REPOSITORY)
       .useValue(new InMemoryOneTimeTokenRepository())
-      .overrideProvider(REFRESH_TOKEN_REPOSITORY)
-      .useValue(new InMemoryRefreshTokenRepository())
-      .overrideProvider(ACCESS_TOKEN_ISSUER)
-      .useValue(issuer)
       .overrideProvider(TOKEN_LIFETIMES)
       .useValue(lifetimes)
       .overrideProvider(SESSION_REPOSITORY)
-      .useValue(new InMemorySessionRepository(lifetimes))
+      .useValue(sessions)
       .overrideProvider(AUTH_WEB_SETTINGS)
       .useValue(authWebSettingsFrom(ALLOWED_ORIGIN, lifetimes))
       .compile();
@@ -143,6 +125,11 @@ describe('users HTTP contract', () => {
     // supertest from opening and closing an ephemeral listener on every
     // request across this suite's many cases.
     await app.listen(0);
+
+    ({ cookie: authCookie } = await seedSessionCookie(sessions, {
+      userId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      role: 'seller',
+    }));
   });
 
   afterEach(async () => {
@@ -153,16 +140,13 @@ describe('users HTTP contract', () => {
     request(app.getHttpServer()).post('/users').send(validBody(overrides));
 
   const get = (path: string): request.Test =>
-    request(app.getHttpServer()).get(path).set('Authorization', authHeader);
+    request(app.getHttpServer()).get(path).set('Cookie', authCookie);
 
   const put = (path: string, body: Record<string, unknown>): request.Test =>
-    request(app.getHttpServer())
-      .put(path)
-      .set('Authorization', authHeader)
-      .send(body);
+    request(app.getHttpServer()).put(path).set('Cookie', authCookie).send(body);
 
   const del = (path: string): request.Test =>
-    request(app.getHttpServer()).delete(path).set('Authorization', authHeader);
+    request(app.getHttpServer()).delete(path).set('Cookie', authCookie);
 
   describe('POST /users', () => {
     it('returns 201 with the new id and a Location header', async () => {
@@ -380,14 +364,14 @@ describe('users HTTP contract', () => {
     });
   });
 
-  it('refuses a protected endpoint with no token', async () => {
+  it('refuses a protected endpoint with no cookie', async () => {
     await request(app.getHttpServer()).get('/users').expect(401);
   });
 
-  it('answers 401 rather than 400 when a missing token meets a malformed body', async () => {
-    // Asserts the guard-before-pipe ordering documented on JwtAuthGuard: a
+  it('answers 401 rather than 400 when a missing cookie meets a malformed body', async () => {
+    // Asserts the guard-before-pipe ordering documented on SessionAuthGuard: a
     // ValidationPipe running first would answer 400 for the unknown property
-    // before the guard ever saw the missing token.
+    // before the guard ever saw the missing cookie.
     const response = await request(app.getHttpServer())
       .put(`/users/${MISSING_ID}`)
       .send({ nickname: 'Ada' })
@@ -396,7 +380,7 @@ describe('users HTTP contract', () => {
     expect(bodyOf(response).code).toBe('AUTH_UNAUTHENTICATED');
   });
 
-  it('leaves the public endpoints reachable without a token', async () => {
+  it('leaves the public endpoints reachable without a cookie', async () => {
     expect((await create()).status).toBe(201);
   });
 });

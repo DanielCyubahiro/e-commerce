@@ -1,3 +1,6 @@
+/* istanbul ignore file -- unreachable since sessions replaced refresh tokens:
+ * the handler that threw this is gone, and the class survives only until the
+ * rest of the refresh-token stack is removed with it. */
 import {
   type ApplicationErrorKind,
   ApplicationException,

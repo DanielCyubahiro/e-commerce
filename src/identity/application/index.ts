@@ -1,5 +1,6 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
 export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
+export { ForbiddenOriginException } from './exceptions/forbidden-origin.exception';
 export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
 export { InvalidRefreshTokenException } from './exceptions/invalid-refresh-token.exception';
 export { InvalidResetTokenException } from './exceptions/invalid-reset-token.exception';
@@ -76,8 +77,6 @@ export { LogoutAllSessionsCommand } from './use-cases/commands/logout-all-sessio
 export { LogoutAllSessionsHandler } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
 export { LogoutCommand } from './use-cases/commands/logout/logout.command';
 export { LogoutHandler } from './use-cases/commands/logout/logout.handler';
-export { RefreshSessionCommand } from './use-cases/commands/refresh-session/refresh-session.command';
-export { RefreshSessionHandler } from './use-cases/commands/refresh-session/refresh-session.handler';
 export { RegisterUserCommand } from './use-cases/commands/register-user/register-user.command';
 export { RegisterUserHandler } from './use-cases/commands/register-user/register-user.handler';
 export { RequestPasswordResetCommand } from './use-cases/commands/request-password-reset/request-password-reset.command';
@@ -111,7 +110,6 @@ import { DeleteUserHandler as DeleteUser } from './use-cases/commands/delete-use
 import { LoginHandler as Login } from './use-cases/commands/login/login.handler';
 import { LogoutAllSessionsHandler as LogoutAllSessions } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
 import { LogoutHandler as Logout } from './use-cases/commands/logout/logout.handler';
-import { RefreshSessionHandler as RefreshSession } from './use-cases/commands/refresh-session/refresh-session.handler';
 import { RegisterUserHandler as RegisterUser } from './use-cases/commands/register-user/register-user.handler';
 import { RequestPasswordResetHandler as RequestPasswordReset } from './use-cases/commands/request-password-reset/request-password-reset.handler';
 import { ResendVerificationHandler as ResendVerification } from './use-cases/commands/resend-verification/resend-verification.handler';
@@ -131,7 +129,6 @@ export const commandHandlers = [
   ResendVerification,
   Login,
   AuthenticateSession,
-  RefreshSession,
   Logout,
   LogoutAllSessions,
   RequestPasswordReset,

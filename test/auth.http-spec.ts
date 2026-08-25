@@ -4,12 +4,10 @@ import request from 'supertest';
 import type { App } from 'supertest/types';
 import { configureApp } from '@/app.config';
 import {
-  ACCESS_TOKEN_ISSUER,
   CREDENTIAL_REPOSITORY,
   EMAIL_SENDER,
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
-  REFRESH_TOKEN_REPOSITORY,
   SESSION_REPOSITORY,
   TOKEN_LIFETIMES,
   USER_READ_REPOSITORY,
@@ -27,11 +25,9 @@ import {
   TokenPurpose,
   UserId,
 } from '@/identity/domain';
-import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakePasswordHasher } from '@test/fakes/fake-password.hasher';
 import { InMemoryCredentialRepository } from '@test/fakes/in-memory-credential.repository';
 import { InMemoryOneTimeTokenRepository } from '@test/fakes/in-memory-one-time-token.repository';
-import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
 import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
 import { InMemoryUserReadRepository } from '@test/fakes/in-memory-user-read.repository';
 import { InMemoryUserWriteRepository } from '@test/fakes/in-memory-user-write.repository';
@@ -50,29 +46,44 @@ const lifetimes = {
 
 interface ResponseBody {
   code?: string;
-  accessToken?: string;
-  tokenType?: string;
-  refreshToken?: string;
+  userId?: string;
+  role?: string;
 }
 
 const bodyOf = (response: request.Response): ResponseBody =>
   response.body as ResponseBody;
 
-// No Authorization header anywhere below: login, verify-email, and
-// verify-email/resend are all marked @Public() (auth.controller.ts), since a
-// client cannot hold a token before any of them succeeds.
+/** The `session=...` pair from Set-Cookie, ready for `.set('Cookie', ...)`. */
+const sessionCookieOf = (response: request.Response): string => {
+  const pair = (response.get('Set-Cookie') ?? [])
+    .find((header) => header.startsWith('session='))
+    ?.split(';')[0];
+
+  if (!pair) {
+    throw new Error('Expected a session cookie on the response.');
+  }
+
+  return pair;
+};
+
+const setCookiesOf = (response: request.Response): string[] =>
+  response.get('Set-Cookie') ?? [];
+
+// No cookie on the login, verify-email, and verify-email/resend cases below:
+// all three are marked @Public() (auth.controller.ts), since a client cannot
+// hold a session before any of them succeeds.
 describe('auth HTTP contract', () => {
   let app: INestApplication<App>;
   let tokens: InMemoryOneTimeTokenRepository;
   let credentials: InMemoryCredentialRepository;
-  let refreshTokens: InMemoryRefreshTokenRepository;
+  let sessions: InMemorySessionRepository;
   let hasher: FakePasswordHasher;
 
   beforeEach(async () => {
     const writes = new InMemoryUserWriteRepository();
     tokens = new InMemoryOneTimeTokenRepository();
     credentials = new InMemoryCredentialRepository();
-    refreshTokens = new InMemoryRefreshTokenRepository();
+    sessions = new InMemorySessionRepository(lifetimes);
     hasher = new FakePasswordHasher();
 
     // Same rationale as user.http-spec.ts: this suite imports only
@@ -94,14 +105,10 @@ describe('auth HTTP contract', () => {
       .useValue(credentials)
       .overrideProvider(ONE_TIME_TOKEN_REPOSITORY)
       .useValue(tokens)
-      .overrideProvider(REFRESH_TOKEN_REPOSITORY)
-      .useValue(refreshTokens)
-      .overrideProvider(ACCESS_TOKEN_ISSUER)
-      .useValue(new FakeAccessTokenIssuer())
       .overrideProvider(TOKEN_LIFETIMES)
       .useValue(lifetimes)
       .overrideProvider(SESSION_REPOSITORY)
-      .useValue(new InMemorySessionRepository(lifetimes))
+      .useValue(sessions)
       .overrideProvider(AUTH_WEB_SETTINGS)
       .useValue(authWebSettingsFrom(ALLOWED_ORIGIN, lifetimes))
       .compile();
@@ -120,14 +127,13 @@ describe('auth HTTP contract', () => {
     await app.close();
   });
 
-  // Shared by the refresh, logout, and logout-all suites below: each needs a
-  // real session minted through the actual login endpoint, not seeded
-  // directly, since what is under test is how the session responds to being
-  // presented back to the API.
-  const loginViaHttp = async (): Promise<{
-    accessToken: string;
-    refreshToken: string;
-  }> => {
+  // Shared by the me, logout, logout-all and change-password suites below:
+  // each needs a real session minted through the actual login endpoint, not
+  // seeded directly, since what is under test is how the session responds to
+  // being presented back to the API.
+  const loginViaHttp = async (
+    userAgent = 'Firefox/142',
+  ): Promise<{ cookie: string }> => {
     const hash = await hasher.hash(Password.create('correct horse battery'));
     credentials.seed({
       userId: USER_ID,
@@ -136,20 +142,17 @@ describe('auth HTTP contract', () => {
       passwordHash: hash.value,
       emailVerifiedAt: new Date(),
     });
-    // The fake models no `users` table, so `rotate` cannot join for a role;
+    // The fake models no `users` table, so `touch` cannot join for a role;
     // this seam stands in for that join.
-    refreshTokens.seedUserRole(USER_ID, 'seller');
+    sessions.seedUserRole(USER_ID, 'seller');
 
     const response = await request(app.getHttpServer())
       .post('/auth/login')
+      .set('User-Agent', userAgent)
       .send({ email: 'ada@example.com', password: 'correct horse battery' })
       .expect(200);
 
-    const body = bodyOf(response);
-    return {
-      accessToken: body.accessToken as string,
-      refreshToken: body.refreshToken as string,
-    };
+    return { cookie: sessionCookieOf(response) };
   };
 
   describe('POST /auth/verify-email', () => {
@@ -243,18 +246,46 @@ describe('auth HTTP contract', () => {
       });
     };
 
-    it('returns 200 with a bearer session for good credentials', async () => {
+    it('returns 200 with the caller identity and sets the session cookie', async () => {
       await seedAccount();
+      sessions.seedUserRole(USER_ID, 'seller');
 
       const response = await request(app.getHttpServer())
         .post('/auth/login')
         .send({ email: 'ada@example.com', password: 'correct horse battery' })
         .expect(200);
 
-      const body = bodyOf(response);
-      expect(body.tokenType).toBe('Bearer');
-      expect(body.accessToken).toEqual(expect.any(String));
-      expect(body.refreshToken).toEqual(expect.any(String));
+      expect(response.body).toEqual({ userId: USER_ID, role: 'seller' });
+      const [cookie, ...rest] = setCookiesOf(response);
+      expect(rest).toEqual([]);
+      expect(cookie).toMatch(/^session=[A-Za-z0-9_-]+;/);
+      expect(cookie).toContain('Max-Age=2592000');
+      expect(cookie).toContain('HttpOnly');
+      expect(cookie).toContain('SameSite=Lax');
+      expect(cookie).not.toContain('Secure');
+    });
+
+    it('refuses a cross-site Origin with 403 before touching credentials', async () => {
+      // Login CSRF: without this, a form on another site could sign the
+      // victim's browser into the attacker's account.
+      const response = await request(app.getHttpServer())
+        .post('/auth/login')
+        .set('Origin', 'https://evil.example')
+        .send({ email: 'ada@example.com', password: 'correct horse battery' })
+        .expect(403);
+
+      expect(bodyOf(response).code).toBe('AUTH_ORIGIN_FORBIDDEN');
+    });
+
+    it('accepts the frontend Origin', async () => {
+      await seedAccount();
+      sessions.seedUserRole(USER_ID, 'seller');
+
+      await request(app.getHttpServer())
+        .post('/auth/login')
+        .set('Origin', ALLOWED_ORIGIN)
+        .send({ email: 'ada@example.com', password: 'correct horse battery' })
+        .expect(200);
     });
 
     it('returns 401 with a typed code for a wrong password', async () => {
@@ -341,84 +372,122 @@ describe('auth HTTP contract', () => {
     });
   });
 
-  describe('POST /auth/refresh', () => {
-    it('returns 200 with a refresh token different from the one presented', async () => {
-      const { refreshToken } = await loginViaHttp();
+  describe('GET /auth/me', () => {
+    it('returns 401 with no cookie', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/auth/me')
+        .expect(401);
+
+      expect(bodyOf(response).code).toBe('AUTH_UNAUTHENTICATED');
+    });
+
+    it('returns 200 with the caller identity for a live session', async () => {
+      const { cookie } = await loginViaHttp();
 
       const response = await request(app.getHttpServer())
-        .post('/auth/refresh')
-        .send({ refreshToken })
+        .get('/auth/me')
+        .set('Cookie', cookie)
         .expect(200);
 
-      expect(bodyOf(response).refreshToken).toEqual(expect.any(String));
-      expect(bodyOf(response).refreshToken).not.toBe(refreshToken);
+      expect(response.body).toEqual({ userId: USER_ID, role: 'seller' });
     });
 
-    it('answers a replayed refresh token, and the successor it issued before dying, both with 401', async () => {
-      const { refreshToken } = await loginViaHttp();
+    it('re-sends the cookie on every authenticated response, so the browser slides with the row', async () => {
+      const { cookie } = await loginViaHttp();
 
-      const rotated = await request(app.getHttpServer())
-        .post('/auth/refresh')
-        .send({ refreshToken })
+      const response = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', cookie)
         .expect(200);
 
-      const replay = await request(app.getHttpServer())
-        .post('/auth/refresh')
-        .send({ refreshToken })
-        .expect(401);
-      expect(bodyOf(replay).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
-
-      // The point of revoking the chain rather than the token: the successor,
-      // never presented by an attacker, is dead too.
-      const successor = await request(app.getHttpServer())
-        .post('/auth/refresh')
-        .send({ refreshToken: bodyOf(rotated).refreshToken })
-        .expect(401);
-      expect(bodyOf(successor).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
+      const [reissued, ...rest] = setCookiesOf(response);
+      expect(rest).toEqual([]);
+      expect(reissued?.split(';')[0]).toBe(cookie);
+      expect(reissued).toContain('Max-Age=2592000');
     });
 
-    it('does not throttle refresh, which neither hashes nor mails', async () => {
-      // 20 exceeds every limit set elsewhere in this file (10 or 5), so a
-      // 429 here would prove a limit leaked onto this route rather than
-      // proving anything about refresh itself.
-      for (let i = 0; i < 20; i += 1) {
-        await request(app.getHttpServer())
-          .post('/auth/refresh')
-          .send({ refreshToken: 'not-a-real-token' })
-          .expect(401);
-      }
+    it('refuses a cross-site Origin on a protected route', async () => {
+      const { cookie } = await loginViaHttp();
+
+      const response = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', cookie)
+        .set('Origin', 'https://evil.example')
+        .expect(403);
+
+      expect(bodyOf(response).code).toBe('AUTH_ORIGIN_FORBIDDEN');
+    });
+
+    it('answers 404 for the refresh endpoint that no longer exists', async () => {
+      await request(app.getHttpServer())
+        .post('/auth/refresh')
+        .send({ refreshToken: 'anything' })
+        .expect(404);
     });
   });
 
   describe('POST /auth/logout', () => {
-    it('returns 401 with no access token, since the endpoint is protected', async () => {
+    it('returns 401 with no cookie, since the endpoint is protected', async () => {
       await request(app.getHttpServer()).post('/auth/logout').expect(401);
     });
 
-    it('returns 204 and revokes the session, so its refresh token stops working', async () => {
-      const { accessToken, refreshToken } = await loginViaHttp();
+    it('returns 204, clears the cookie, and the same cookie answers 401 afterwards', async () => {
+      // The headline of this feature: revocation reaches the very next
+      // request, with no token lifetime to wait out.
+      const { cookie } = await loginViaHttp();
+
+      const logout = await request(app.getHttpServer())
+        .post('/auth/logout')
+        .set('Cookie', cookie)
+        .expect(204);
+
+      const [cleared, ...rest] = setCookiesOf(logout);
+      expect(rest).toEqual([]);
+      expect(cleared).toContain('session=;');
+      expect(cleared).toContain('Max-Age=0');
+
+      const response = await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', cookie)
+        .expect(401);
+      expect(bodyOf(response).code).toBe('AUTH_UNAUTHENTICATED');
+    });
+
+    it('leaves the user’s other devices signed in', async () => {
+      const first = await loginViaHttp('Firefox/142');
+      const second = await loginViaHttp('Safari/26');
 
       await request(app.getHttpServer())
         .post('/auth/logout')
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set('Cookie', first.cookie)
         .expect(204);
 
-      const response = await request(app.getHttpServer())
-        .post('/auth/refresh')
-        .send({ refreshToken })
-        .expect(401);
-      expect(bodyOf(response).code).toBe('AUTH_REFRESH_TOKEN_INVALID');
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', second.cookie)
+        .expect(200);
     });
   });
 
   describe('POST /auth/logout-all', () => {
-    it('returns 204', async () => {
-      const { accessToken } = await loginViaHttp();
+    it('signs out every device at once, including the caller', async () => {
+      const first = await loginViaHttp('Firefox/142');
+      const second = await loginViaHttp('Safari/26');
+
+      const logout = await request(app.getHttpServer())
+        .post('/auth/logout-all')
+        .set('Cookie', first.cookie)
+        .expect(204);
+      expect(setCookiesOf(logout)[0]).toContain('Max-Age=0');
 
       await request(app.getHttpServer())
-        .post('/auth/logout-all')
-        .set('Authorization', `Bearer ${accessToken}`)
-        .expect(204);
+        .get('/auth/me')
+        .set('Cookie', first.cookie)
+        .expect(401);
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', second.cookie)
+        .expect(401);
     });
   });
 
@@ -485,6 +554,21 @@ describe('auth HTTP contract', () => {
       expect(bodyOf(response).code).toBe('AUTH_INVALID_CREDENTIALS');
     });
 
+    it('signs out every session the account had', async () => {
+      const { cookie } = await loginViaHttp();
+      const { plaintext } = await seedResetToken(new Date(Date.now() + 60_000));
+
+      await request(app.getHttpServer())
+        .post('/auth/reset-password')
+        .send({ token: plaintext, newPassword: 'a new long password' })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', cookie)
+        .expect(401);
+    });
+
     it('returns 401 with a typed code for an expired token', async () => {
       const { plaintext } = await seedResetToken(new Date(Date.now() - 1000));
 
@@ -509,7 +593,7 @@ describe('auth HTTP contract', () => {
   });
 
   describe('POST /auth/change-password', () => {
-    it('returns 401 with no access token, since the endpoint is protected', async () => {
+    it('returns 401 with no cookie, since the endpoint is protected', async () => {
       await request(app.getHttpServer())
         .post('/auth/change-password')
         .send({
@@ -520,11 +604,11 @@ describe('auth HTTP contract', () => {
     });
 
     it('returns 401 with a typed code for a wrong current password', async () => {
-      const { accessToken } = await loginViaHttp();
+      const { cookie } = await loginViaHttp();
 
       const response = await request(app.getHttpServer())
         .post('/auth/change-password')
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set('Cookie', cookie)
         .send({ currentPassword: 'wrong', newPassword: 'a new long password' })
         .expect(401);
 
@@ -532,16 +616,39 @@ describe('auth HTTP contract', () => {
     });
 
     it('returns 204 for the right current password', async () => {
-      const { accessToken } = await loginViaHttp();
+      const { cookie } = await loginViaHttp();
 
       await request(app.getHttpServer())
         .post('/auth/change-password')
-        .set('Authorization', `Bearer ${accessToken}`)
+        .set('Cookie', cookie)
         .send({
           currentPassword: 'correct horse battery',
           newPassword: 'a new long password',
         })
         .expect(204);
+    });
+
+    it('keeps the caller signed in and signs out every other device', async () => {
+      const mine = await loginViaHttp('Firefox/142');
+      const other = await loginViaHttp('Safari/26');
+
+      await request(app.getHttpServer())
+        .post('/auth/change-password')
+        .set('Cookie', mine.cookie)
+        .send({
+          currentPassword: 'correct horse battery',
+          newPassword: 'a new long password',
+        })
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', mine.cookie)
+        .expect(200);
+      await request(app.getHttpServer())
+        .get('/auth/me')
+        .set('Cookie', other.cookie)
+        .expect(401);
     });
   });
 });

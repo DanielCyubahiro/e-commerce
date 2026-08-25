@@ -82,11 +82,11 @@ Authentication's global guard is registered separately, as `APP_GUARD` in
 handed to Nest's `useGlobalGuards` (which `configureApp` would have to call)
 is constructed outside the DI container and cannot inject a port; `APP_GUARD`
 is the one registration form Nest resolves through the container, so
-[`JwtAuthGuard`](../src/identity/presentation/guards/jwt-auth.guard.ts) can
-`@Inject(ACCESS_TOKEN_ISSUER)`. A request therefore passes through the guard
-before it reaches `configureApp`'s pipe: guards run before pipes, so a bad
-token on a protected endpoint answers 401 before a malformed body could
-answer 400.
+[`SessionAuthGuard`](../src/identity/presentation/guards/session-auth.guard.ts)
+can inject the `CommandBus` and `SessionCookie`. A request therefore passes
+through the guard before it reaches `configureApp`'s pipe: guards run before
+pipes, so a dead cookie on a protected endpoint answers 401 before a
+malformed body could answer 400.
 
 ## Error path
 

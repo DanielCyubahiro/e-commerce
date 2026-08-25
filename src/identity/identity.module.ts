@@ -4,14 +4,12 @@ import { APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ThrottlerModule } from '@nestjs/throttler';
 import {
-  ACCESS_TOKEN_ISSUER,
   commandHandlers,
   CREDENTIAL_REPOSITORY,
   EMAIL_SENDER,
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
   queryHandlers,
-  REFRESH_TOKEN_REPOSITORY,
   SESSION_REPOSITORY,
   TOKEN_LIFETIMES,
   type TokenLifetimes,
@@ -22,11 +20,9 @@ import {
   Argon2PasswordHasher,
   DrizzleCredentialRepository,
   DrizzleOneTimeTokenRepository,
-  DrizzleRefreshTokenRepository,
   DrizzleSessionRepository,
   DrizzleUserReadRepository,
   DrizzleUserWriteRepository,
-  JoseAccessTokenIssuer,
   SmtpEmailSender,
 } from './infrastructure';
 import {
@@ -35,7 +31,7 @@ import {
   authWebSettingsFrom,
 } from './presentation/auth-web-settings';
 import { AuthController } from './presentation/auth.controller';
-import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard';
+import { SessionAuthGuard } from './presentation/guards/session-auth.guard';
 import { SessionCookie } from './presentation/session-cookie';
 import { UserController } from './presentation/user.controller';
 
@@ -61,7 +57,7 @@ import { UserController } from './presentation/user.controller';
   providers: [
     ...commandHandlers,
     ...queryHandlers,
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: USER_WRITE_REPOSITORY, useClass: DrizzleUserWriteRepository },
     { provide: USER_READ_REPOSITORY, useClass: DrizzleUserReadRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
@@ -70,20 +66,7 @@ import { UserController } from './presentation/user.controller';
       provide: ONE_TIME_TOKEN_REPOSITORY,
       useClass: DrizzleOneTimeTokenRepository,
     },
-    {
-      provide: REFRESH_TOKEN_REPOSITORY,
-      useClass: DrizzleRefreshTokenRepository,
-    },
     { provide: SESSION_REPOSITORY, useClass: DrizzleSessionRepository },
-    {
-      provide: ACCESS_TOKEN_ISSUER,
-      useFactory: (config: ConfigService) =>
-        new JoseAccessTokenIssuer(
-          config.getOrThrow<string>('JWT_SECRET'),
-          config.getOrThrow<number>('ACCESS_TOKEN_TTL_SECONDS'),
-        ),
-      inject: [ConfigService],
-    },
     {
       provide: EMAIL_SENDER,
       useFactory: (config: ConfigService) =>

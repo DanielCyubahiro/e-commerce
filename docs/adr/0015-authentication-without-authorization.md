@@ -6,8 +6,7 @@ Accepted.
 
 ## Context
 
-This feature adds authentication: proving who is asking, via
-[`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts)
+This feature adds authentication: proving who is asking, via `JwtAuthGuard`
 and a valid access token. It adds no authorization: deciding what the asker
 is allowed to do. [`AccessClaims`](../../src/identity/application/ports/access-token.issuer.ts)
 carries a `role`, and its own comment says directly that nothing branches on

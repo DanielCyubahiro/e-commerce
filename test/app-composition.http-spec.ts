@@ -94,7 +94,7 @@ describe('AppModule composition', () => {
     await request(app.getHttpServer()).get('/products').expect(200);
   });
 
-  it('still guards a CatalogueModule endpoint with no token', async () => {
+  it('still guards a CatalogueModule endpoint with no cookie', async () => {
     const response = await request(app.getHttpServer())
       .post('/products')
       .send({});

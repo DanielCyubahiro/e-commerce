@@ -1,20 +1,23 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { CommandBus } from '@nestjs/cqrs';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import type { Request, Response } from 'express';
 import {
   ChangePasswordCommand,
   LoginCommand,
   type LoginResult,
   LogoutAllSessionsCommand,
   LogoutCommand,
-  RefreshSessionCommand,
   RequestPasswordResetCommand,
   ResendVerificationCommand,
   ResetPasswordCommand,
@@ -24,39 +27,64 @@ import { CurrentUser } from '@/shared/presentation/decorators/current-user.decor
 import { Public } from '@/shared/presentation/decorators/public.decorator';
 import type { AuthenticatedUser } from '@/shared/presentation/authenticated-request';
 import { ChangePasswordDto } from './dtos/change-password.dto';
+import { CurrentUserResponseDto } from './dtos/current-user-response.dto';
 import { ForgotPasswordDto } from './dtos/forgot-password.dto';
 import { LoginDto } from './dtos/login.dto';
-import { RefreshDto } from './dtos/refresh.dto';
 import { ResendVerificationDto } from './dtos/resend-verification.dto';
 import { ResetPasswordDto } from './dtos/reset-password.dto';
-import { SessionResponseDto } from './dtos/session-response.dto';
 import { VerifyEmailDto } from './dtos/verify-email.dto';
+import { originOf } from './request-origin';
+import { SessionCookie } from './session-cookie';
 
 /**
- * Translates HTTP to a command and back; holds no logic of its own, which is
- * why it has no unit tests beyond the http-spec suite.
+ * Translates HTTP to a command and back, and moves the session cookie; holds
+ * no logic of its own, which is why it has no unit tests beyond the http-spec
+ * suite.
  */
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly commandBus: CommandBus) {}
+  constructor(
+    private readonly commandBus: CommandBus,
+    private readonly cookie: SessionCookie,
+  ) {}
 
   /**
    * Every attempt costs the server 19 MiB in argon2, correct password or not,
    * so this needs a limit even though argon2id already makes guessing
    * expensive for the attacker: it is paying for that cost decision, not
    * just guarding against brute force.
+   *
+   * Answers the caller identity rather than an empty body so a fresh login
+   * needs no second round trip to `GET /auth/me`.
    */
   @Public()
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Post('login')
   @HttpCode(HttpStatus.OK)
-  async login(@Body() body: LoginDto): Promise<SessionResponseDto> {
+  async login(
+    @Body() body: LoginDto,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<CurrentUserResponseDto> {
     const result = await this.commandBus.execute<LoginCommand, LoginResult>(
-      new LoginCommand(body.email, body.password),
+      new LoginCommand(body.email, body.password, originOf(request)),
     );
 
-    return SessionResponseDto.fromResult(result);
+    this.cookie.write(response, result.token);
+
+    return CurrentUserResponseDto.from(result);
+  }
+
+  /**
+   * Who the cookie belongs to, from what the guard already loaded. The SPA
+   * cannot read an HttpOnly cookie, so on a cold start this is its only way
+   * to learn whether it is signed in, and as whom. No bus: the touch every
+   * protected request pays is the only read.
+   */
+  @Get('me')
+  me(@CurrentUser() user: AuthenticatedUser): CurrentUserResponseDto {
+    return CurrentUserResponseDto.from(user);
   }
 
   /**
@@ -90,43 +118,39 @@ export class AuthController {
     );
   }
 
-  /** Public: presenting the refresh token is the authentication. */
-  @Public()
-  @Post('refresh')
-  @HttpCode(HttpStatus.OK)
-  async refresh(@Body() body: RefreshDto): Promise<SessionResponseDto> {
-    const result = await this.commandBus.execute<
-      RefreshSessionCommand,
-      LoginResult
-    >(new RefreshSessionCommand(body.refreshToken));
-
-    return SessionResponseDto.fromResult(result);
-  }
-
   /**
-   * Takes no body: the session comes from the access token's `sid` claim, so
-   * a client that has lost its refresh token can still end the session.
+   * Takes no body: the session comes from the cookie the guard resolved. The
+   * cookie is cleared as well as the row revoked, so the browser stops
+   * sending a dead credential that would cost a lookup and a 401 per request.
    */
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logout(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+  async logout(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     await this.commandBus.execute<LogoutCommand, void>(
-      new LogoutCommand(user.sessionId),
+      new LogoutCommand(user.userId, user.sessionId),
     );
+
+    this.cookie.clear(response);
   }
 
   /**
-   * Revokes every refresh chain of the caller's user, including the one it was
-   * called from. That ends renewal, not access: the guard does no per-request
-   * revocation lookup, so the caller's current access token keeps working
-   * until it expires.
+   * Revokes every session of the caller's user, including the one it was
+   * called from. Every one of them answers 401 on its next request.
    */
   @Post('logout-all')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {
+  async logoutAll(
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<void> {
     await this.commandBus.execute<LogoutAllSessionsCommand, void>(
       new LogoutAllSessionsCommand(user.userId),
     );
+
+    this.cookie.clear(response);
   }
 
   /**
@@ -164,11 +188,11 @@ export class AuthController {
   }
 
   /**
-   * Protected: a bearer token alone is not proof of the account owner, which
+   * Protected: a live session alone is not proof of the account owner, which
    * is why the command still carries the current password for the handler to
    * check. Throttled because that check is an argon2 verify against a
-   * caller-supplied guess: a stolen access token would otherwise buy an
-   * attacker one guess per request for the token's whole life.
+   * caller-supplied guess: a stolen cookie would otherwise buy an attacker one
+   * guess per request for as long as the session lives.
    */
   @UseGuards(ThrottlerGuard)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })

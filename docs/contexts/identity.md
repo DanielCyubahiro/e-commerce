@@ -30,10 +30,10 @@ only way to construct one, over one shared validation path:
   table.
 
 A credential, a session, and a one-time token are deliberately not modelled
-as aggregates. None of their rows carries a
-cross-field invariant a construction path would need to validate; each is a
-state machine on one or two timestamp columns, guarded by the write itself
-rather than by a domain object. See
+as aggregates. None of their rows carries a cross-field invariant a
+construction path would need to validate; each is a state machine on one to
+three timestamp columns, guarded by the write itself rather than by a domain
+object. See
 [ADR 0013](../adr/0013-guarded-writes-never-rehydration.md) for the
 mechanism and why a persistence factory was rejected.
 
@@ -118,7 +118,12 @@ on every request, so there is no issued credential left to outlive its
 revocation. The cost is one write per authenticated request, since the same
 statement that checks liveness also moves `last_seen_at`;
 `SESSION_IDLE_TTL_DAYS` and `SESSION_ABSOLUTE_TTL_DAYS` bound how long an
-untouched or a very old session stays live.
+untouched or a very old session stays live. See
+[ADR 0020](../adr/0020-server-side-sessions-replace-jwts.md) for the
+credential model and
+[ADR 0021](../adr/0021-cookie-transport-with-lax-and-origin-check.md) for
+the cookie and the Origin check, including the constraint that the frontend
+be same-site with the API.
 
 ## Ports and adapters
 
@@ -417,7 +422,7 @@ fork that keeps the column but omits the trigger leaves it frozen at insert
 time with no error anywhere. [ADR 0009](../adr/0009-postgres-owns-updated-at.md)
 records why the database owns the column.
 
-Two couplings are new with this feature. The `token_purpose` Postgres enum
+Two couplings are new with authentication. The `token_purpose` Postgres enum
 in
 [`one-time-tokens.schema.ts`](../../src/shared/infrastructure/database/postgres/schema/one-time-tokens.schema.ts)
 duplicates the value set
@@ -436,6 +441,16 @@ drops that transaction, issuing three separate inserts instead, can persist
 a `users` row with no matching `credentials` row, and that user can never
 log in again, with no error anywhere to surface the gap; see
 [ADR 0013](../adr/0013-guarded-writes-never-rehydration.md).
+
+Three couplings are new with sessions. `sessions.token_hash` is `varchar(64)`
+and must stay equal to `TokenHash.LENGTH`, the same by-hand coupling
+`one_time_tokens.token_hash` carries. `sessions.user_agent` and
+`sessions.ip_address` are `text` on purpose, so there is no column length for
+[`originOf`](../../src/identity/presentation/request-origin.ts)'s ceilings to
+drift from. Liveness has no column at all: a fork that adds an `expires_at`
+and computes it once at login reintroduces the frozen-TTL behaviour
+[ADR 0020](../adr/0020-server-side-sessions-replace-jwts.md) rejects, with
+nothing failing to say so.
 
 `credentials` has no `updated_at` column and therefore no trigger, and that
 absence is deliberate, not an oversight of the `updated_at` coupling above:

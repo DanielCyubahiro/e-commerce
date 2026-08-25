@@ -1,5 +1,5 @@
 /**
- * `userId` comes from the caller's own session as the guard attached it,
+ * `userId` comes from the caller's own session as the guard attached it;
  * `sessionId` is the route parameter. The repository scopes the write to
  * both, which is the whole ownership check.
  */

@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted.
+Superseded by [0020](0020-server-side-sessions-replace-jwts.md). The
+rotation chain this record describes no longer exists; the text below is
+kept as the reasoning that held while it did.
 
 ## Context
 

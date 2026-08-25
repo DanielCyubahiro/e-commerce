@@ -6,6 +6,7 @@ import { MongoModule } from './shared/infrastructure/database/mongo/mongo.module
 import { DrizzleModule } from './shared/infrastructure/database/postgres/drizzle.module';
 import { CatalogueModule } from './catalogue/catalogue.module';
 import { IdentityModule } from './identity/identity.module';
+import { OrderingModule } from './ordering/ordering.module';
 
 /**
  * `validate: validateEnv` is what makes a malformed environment abort at
@@ -32,6 +33,7 @@ import { IdentityModule } from './identity/identity.module';
     CqrsModule,
     CatalogueModule,
     IdentityModule,
+    OrderingModule,
   ],
   controllers: [],
   providers: [],

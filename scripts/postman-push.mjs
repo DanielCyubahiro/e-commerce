@@ -21,7 +21,13 @@ const COLLECTION_SUFFIX = '.postman_collection.json';
 const ENVIRONMENT_SUFFIX = '.postman_environment.json';
 
 // Added by the API on read, never meaningful on write, and they churn diffs.
-const CLOUD_NOISE = new Set(['createdAt', 'updatedAt', 'lastUpdatedBy', 'owner', 'uid']);
+const CLOUD_NOISE = new Set([
+  'createdAt',
+  'updatedAt',
+  'lastUpdatedBy',
+  'owner',
+  'uid',
+]);
 
 /** Drops the fields the Postman API adds on read, at every depth. */
 function stripCloudNoise(value) {
@@ -61,7 +67,9 @@ async function pushCollection(apiKey, workspaceId, file) {
   const id = collection.info?._postman_id;
 
   if (id) {
-    const { status } = await call(apiKey, 'PUT', `/collections/${id}`, { collection });
+    const { status } = await call(apiKey, 'PUT', `/collections/${id}`, {
+      collection,
+    });
     return `${status} PUT  ${basename(file)}  ${collection.info.name}`;
   }
 
@@ -70,8 +78,17 @@ async function pushCollection(apiKey, workspaceId, file) {
       `${basename(file)} has no info._postman_id. Export POSTMAN_WORKSPACE_ID to create it.`,
     );
   }
-  const created = await call(apiKey, 'POST', `/collections?workspace=${workspaceId}`, { collection });
-  const fresh = await call(apiKey, 'GET', `/collections/${created.json.collection.id}`);
+  const created = await call(
+    apiKey,
+    'POST',
+    `/collections?workspace=${workspaceId}`,
+    { collection },
+  );
+  const fresh = await call(
+    apiKey,
+    'GET',
+    `/collections/${created.json.collection.id}`,
+  );
   await writeFile(file, serialize(stripCloudNoise(fresh.json.collection)));
   return `${created.status} POST ${basename(file)}  ${collection.info.name}  (rewritten with cloud ids)`;
 }
@@ -96,7 +113,9 @@ async function main() {
   const names = (await readdir(POSTMAN_DIR)).sort();
 
   for (const name of names.filter((n) => n.endsWith(COLLECTION_SUFFIX))) {
-    console.log(await pushCollection(apiKey, workspaceId, join(POSTMAN_DIR, name)));
+    console.log(
+      await pushCollection(apiKey, workspaceId, join(POSTMAN_DIR, name)),
+    );
   }
   for (const name of names.filter((n) => n.endsWith(ENVIRONMENT_SUFFIX))) {
     console.log(await pushEnvironment(apiKey, join(POSTMAN_DIR, name)));

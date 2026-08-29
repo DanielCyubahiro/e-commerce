@@ -36,7 +36,7 @@ through that neighbour's `application` barrel, which is its published
 interface; its domain, adapters, and controllers are private. Catalogue
 publishes `StockAllocator` this way and ordering consumes it; nothing else
 crosses a context line. See [Published interface](./concepts.md#published-interface)
-and [ADR 0022](./adr/0022-contexts-integrate-through-published-ports.md).
+and [ADR 0025](./adr/0025-contexts-integrate-through-published-ports.md).
 
 ### Enforcement
 
@@ -79,18 +79,22 @@ divide that work in general, and
 split is drawn where it is.
 
 The pipeline itself is described in two files, not one.
-[`configureApp`](../src/app.config.ts) installs the global `ValidationPipe`
-and the three exception filters, and every context relies on it for those.
+[`configureApp`](../src/app.config.ts) installs cookie parsing, CORS for the
+one origin `WEB_BASE_URL` names (with credentials, never reflected), the
+global `ValidationPipe`, and the three exception filters, and every context
+relies on it for those. It takes that origin as a parameter because the
+http-specs bootstrap it without `ConfigModule`; `main.ts` reads it from the
+same `AUTH_WEB_SETTINGS` the guard uses.
 Authentication's global guard is registered separately, as `APP_GUARD` in
 [`identity.module.ts`](../src/identity/identity.module.ts), because a guard
 handed to Nest's `useGlobalGuards` (which `configureApp` would have to call)
 is constructed outside the DI container and cannot inject a port; `APP_GUARD`
 is the one registration form Nest resolves through the container, so
-[`JwtAuthGuard`](../src/identity/presentation/guards/jwt-auth.guard.ts) can
-`@Inject(ACCESS_TOKEN_ISSUER)`. A request therefore passes through the guard
-before it reaches `configureApp`'s pipe: guards run before pipes, so a bad
-token on a protected endpoint answers 401 before a malformed body could
-answer 400.
+[`SessionAuthGuard`](../src/identity/presentation/guards/session-auth.guard.ts)
+can inject the `CommandBus` and `SessionCookie`. A request therefore passes
+through the guard before it reaches `configureApp`'s pipe: guards run before
+pipes, so a dead cookie on a protected endpoint answers 401 before a
+malformed body could answer 400.
 
 Authorization by role is a second guard,
 [`RolesGuard`](../src/shared/presentation/guards/roles.guard.ts), applied
@@ -180,15 +184,14 @@ The procedure:
    tool will not reproduce by accident. Each context page records its own
    couplings; catalogue's are in
    [Fork notes](./contexts/catalogue.md#fork-notes), and identity's,
-   including three new to authentication, are in
-   [Fork notes](./contexts/identity.md#fork-notes). Identity's six ports
+   including two new to authentication, are in
+   [Fork notes](./contexts/identity.md#fork-notes). Identity's five ports
    added by authentication, `PasswordHasher`, `CredentialRepository`,
-   `OneTimeTokenRepository`, `RefreshTokenRepository`, `AccessTokenIssuer`,
-   and `EmailSender`, are the sharper case for matching the contract rather
-   than the signature: a fork's `RefreshTokenRepository.rotate` has to
-   reproduce the guarded single-statement race behaviour
-   [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) documents, not
-   only return the same TypeScript shape. Ordering's ports and catalogue's
+   `OneTimeTokenRepository`, `SessionRepository`, and `EmailSender`, are the
+   sharper case for matching the contract rather than the signature: a fork's
+   `SessionRepository.touch` has to reproduce the guarded single-statement
+   behaviour [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md)
+   documents, not only return the same TypeScript shape. Ordering's ports and catalogue's
    `StockAllocator` are the sharpest cases for the contract rather than the
    signature: `allocate` has to keep its guarded per-row decrement and
    product id ordering, and `save` its version predicate, or the concurrency

@@ -63,20 +63,20 @@ and no factory, so `toThrow` would actually compile against it, but
 - **No rule is written twice.** If a check exists in the domain, the DTO does
   not repeat it.
 - **Auth state transitions are guarded targeted writes, not replacements.** A
-  credential's verification flag, a refresh token's rotation, and a one-time
-  token's consumption are each one `UPDATE ... WHERE <precondition>`, never a
-  read followed by a check followed by a write. See
+  credential's verification flag, a session's touch and revocation, and a
+  one-time token's consumption are each one `UPDATE ... WHERE <precondition>`,
+  never a read followed by a check followed by a write. See
   [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
 - **Cross-context calls go through a published port.** Ordering never reads
   `products`; it calls catalogue's `StockAllocator` on its own transaction.
   A context may import a neighbour only through that neighbour's
   `application` barrel, and `pnpm lint` enforces it. See
-  [ADR 0022](docs/adr/0022-contexts-integrate-through-published-ports.md).
+  [ADR 0025](docs/adr/0025-contexts-integrate-through-published-ports.md).
 - **Aggregates with a lifecycle are reconstituted; counters and tokens are
   guarded statements.** `Order` is loaded through `findById`, moved by a
   method, and saved under `WHERE version = $expected`; `products.stock` and
   every token row are moved by one `UPDATE ... WHERE <precondition>`. See
-  [ADR 0024](docs/adr/0024-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
+  [ADR 0027](docs/adr/0027-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
   and [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
 
 ## Docs that must change with the code
@@ -91,6 +91,7 @@ discipline alone, because no check here reads a sentence for staleness.
 | Add a bounded context | New `docs/contexts/<name>.md` with all five headings, a row in every `docs/concepts.md` instance table, and README's context list. Name it for the capability, not the entity; see docs/concepts.md's Bounded context entry. | Yes: the page, its headings, the glossary row, and README's link to the page (`context-pages.docs-spec.ts`, `glossary.docs-spec.ts`). |
 | Add or change a port | That context's `## Ports and adapters`, both tables | No |
 | Add an endpoint, or change its status | That context's `## Endpoints` | No |
+| Add an endpoint, or change its method, path, status, body or auth | Its controller's collection under `postman/`: the happy-path request, the failure paths the change warrants, the descriptions; then `pnpm postman:push`. See [postman/README.md](postman/README.md). | Partly: one collection per controller, every route with a happy-path request, every request on a live route, every referenced variable declared (`postman.docs-spec.ts`). Not statuses, descriptions, scripts or auth settings. |
 | Add an exception | That context's `## Error codes`, plus the `## Error path` table in `docs/architecture.md` (columns Failure, Base, Filter, Status) if the *kind* is new | No |
 | Introduce a term the glossary lacks | A new `docs/concepts.md` entry, with a table or the repo-wide-rule marker | Partly: once the entry exists, its shape and context coverage (`glossary.docs-spec.ts`). Not that you added one. |
 | Make a non-obvious call | A new ADR, plus its row in `docs/adr/README.md` | Partly: once the ADR file exists, its row (`adr-index.docs-spec.ts`). Not that you wrote one. |
@@ -136,6 +137,7 @@ Worked instances, copy these shapes:
 | Every glossary entry covers every context | `test/docs/glossary.docs-spec.ts` |
 | Doc links resolve, name real symbols, and carry no line anchors | `test/docs/links.docs-spec.ts` |
 | Every ADR on disk is indexed, and no index row points at a missing ADR | `test/docs/adr-index.docs-spec.ts` |
+| Every controller has a Postman collection, every route a happy-path request, every request a live route, every referenced variable a declaration | `test/docs/postman.docs-spec.ts` |
 
 `pnpm lint` enforces the import rules above; `pnpm test:cov` enforces the
 coverage row; `pnpm test` runs the docs rules alongside the unit project. None
@@ -172,4 +174,5 @@ in for a fix, or write an `@param` that retypes the parameter list.
 | "I will document the context after the feature lands" | `pnpm test` is red until the page exists. The page is part of the feature. |
 | "This context has no read model, so I will leave the row out" | A missing row and a forgotten edit are indistinguishable. Write `none`. |
 | "I will load the credential, check it, then save it" | That is load-modify-save: two concurrent callers both pass the check. Guarded single statements, see [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md). |
+| "I will update the Postman collection after the PR merges" | The collection is part of the endpoint's change. `pnpm test` is red until the route has a request, and the descriptions are reviewed in the same diff as the code. A plan puts the collection update inside the task that changes the endpoint, never in a task of its own. |
 | "Ordering can just read the products table" | That is an integration database. Call catalogue's published port, on your transaction, and let the contract keep it honest. |

@@ -3,7 +3,7 @@
 ## Status
 
 Accepted for state that is not an aggregate: credentials, tokens, and stock
-counters. [0024](0024-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
+counters. [0027](0027-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
 records that an aggregate with a lifecycle is reconstituted and saved under a
 version guard, which is this record's mechanism applied to a version column.
 
@@ -13,7 +13,8 @@ Authentication introduces three kinds of state that need to change under
 concurrent access: a credential's password hash and verification timestamp
 ([`CredentialRepository`](../../src/identity/application/ports/credential.repository.ts)),
 a refresh token's rotation
-([`RefreshTokenRepository`](../../src/identity/application/ports/refresh-token.repository.ts)),
+(`RefreshTokenRepository`, since replaced by `SessionRepository`, see
+[ADR 0020](0020-server-side-sessions-replace-jwts.md)),
 and a one-time token's consumption
 ([`OneTimeTokenRepository`](../../src/identity/application/ports/one-time-token.repository.ts)).
 None of these rows carries a cross-field invariant a construction path would
@@ -38,7 +39,7 @@ an application-level check and a second statement.
 guards on `email_verified_at IS NULL`;
 [`DrizzleOneTimeTokenRepository.consume`](../../src/identity/infrastructure/adapters/drizzle-one-time-token.repository.ts)
 guards on `used_at IS NULL AND expires_at > now`;
-[`DrizzleRefreshTokenRepository.rotate`](../../src/identity/infrastructure/adapters/drizzle-refresh-token.repository.ts)
+`DrizzleRefreshTokenRepository.rotate` (removed with [ADR 0020](0020-server-side-sessions-replace-jwts.md))
 guards on `used_at IS NULL AND revoked_at IS NULL AND expires_at > now`. Each
 adapter runs a second, unguarded `SELECT` only on the losing path, purely to
 classify why the guard matched nothing (`expired`, `used`, `revoked`,
@@ -101,3 +102,8 @@ for any reason other than the compiler catching its precondition.
 - The three `istanbul ignore next` guards depend on `pnpm build` running; a
   reviewer who sees one added without also running that command has not
   verified the exhaustiveness it claims.
+- Since [ADR 0020](0020-server-side-sessions-replace-jwts.md),
+  [`DrizzleSessionRepository.touch`](../../src/identity/infrastructure/adapters/drizzle-session.repository.ts)
+  is the live instance of this rule: the per-request session lookup and its
+  idle-window extension are one guarded `UPDATE`, so a session revoked
+  between two requests cannot be extended by the second.

@@ -3,7 +3,7 @@
 ## Status
 
 Accepted. The reservation of Mongo for a future context is closed by
-[0021](0021-orders-live-in-postgres.md): orders are relational too.
+[0024](0024-orders-live-in-postgres.md): orders are relational too.
 
 ## Context
 
@@ -28,7 +28,7 @@ cleanup job.
 
 An index on each token table's lookup path
 ([`one_time_tokens_user_id_purpose_idx`](../../src/shared/infrastructure/database/postgres/schema/one-time-tokens.schema.ts),
-[`refresh_tokens_session_id_idx`](../../src/shared/infrastructure/database/postgres/schema/refresh-tokens.schema.ts))
+`refresh_tokens_session_id_idx` (dropped with [ADR 0020](0020-server-side-sessions-replace-jwts.md)))
 is ordinary storage hygiene, the same category as any other query-serving
 index, not a substitute for an expiry guarantee: every token row still
 carries its own `expires_at`, checked in the guarded `WHERE` clause on every

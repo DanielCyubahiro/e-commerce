@@ -48,7 +48,7 @@ test needs rather than by which of the five layers above it belongs to:
 | `unit` | Nothing, no I/O | Unit, Application, and the fake half of Contract |
 | `integration` | Docker, one Postgres container per run, plus a Mailpit container for the SMTP email-sender binding | Integration, and the Drizzle and SMTP halves of Contract |
 | `http` | Nothing, no database | HTTP |
-| `docs` | Nothing, no database | The markdown tree, checked against `src/` |
+| `docs` | Nothing, no database | The markdown tree and `postman/`, checked against `src/` |
 
 Contract is the layer that splits across two projects: the same suite runs
 once bound to the in-memory fake (in `unit`) and once bound to the Drizzle
@@ -180,15 +180,6 @@ staying fast and I/O-free, would noticeably slow the suite every developer
 runs most often. `unit`'s binding uses
 [`FakePasswordHasher`](../test/fakes/fake-password.hasher.ts) instead, which
 every handler spec and http-spec also depends on for the same reason.
-
-`jose`, the JWT library behind
-[`JoseAccessTokenIssuer`](../src/identity/infrastructure/adapters/jose-access-token.issuer.ts),
-is pinned in `package.json` to the exact version `4.15.9`, not the house
-style caret. `jose` 6.x ships ESM-only with no `require` export, which
-breaks every suite in this project's four Jest projects the moment it
-imports the identity infrastructure barrel, since this repository's Jest
-configuration runs on CommonJS. The pin is exact rather than a caret on the
-4.x line because a later 4.16 patch could still backport that same break.
 
 Adding a new adapter and wiring it in through this same mechanism is a fork
 operation; see the numbered procedure and its harness requirements in

@@ -27,14 +27,17 @@ shipped. Everything from 0008 onward is written before or alongside the change.
 | [0013](0013-guarded-writes-never-rehydration.md) | Auth state transitions are guarded writes, never rehydrated | Accepted |
 | [0014](0014-email-is-immutable-after-registration.md) | Email is immutable after registration | Accepted |
 | [0015](0015-authentication-without-authorization.md) | Authentication ships without authorization | Accepted |
-| [0016](0016-refresh-rotation-with-reuse-detection.md) | Refresh tokens rotate with strict reuse detection | Accepted |
+| [0016](0016-refresh-rotation-with-reuse-detection.md) | Refresh tokens rotate with strict reuse detection | Superseded by 0020 |
 | [0017](0017-token-state-in-postgres.md) | Credential and token state lives in Postgres, not Mongo | Accepted |
 | [0018](0018-mail-sent-inline-after-commit.md) | Mail is sent inline after commit, not through an outbox | Accepted |
 | [0019](0019-commands-call-collaborators-directly.md) | Commands call collaborators directly; no domain events | Accepted |
-| [0020](0020-role-granted-never-claimed.md) | Role is granted by an operator, never claimed by a request | Accepted |
-| [0021](0021-orders-live-in-postgres.md) | Orders live in Postgres, not Mongo | Accepted |
-| [0022](0022-contexts-integrate-through-published-ports.md) | Contexts integrate through published ports, never tables | Accepted |
-| [0023](0023-stock-allocated-in-the-placement-transaction.md) | Stock is allocated in the placement transaction through a unit of work | Accepted |
-| [0024](0024-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md) | Aggregates with a lifecycle are reconstituted and saved under optimistic concurrency | Accepted |
-| [0025](0025-order-lines-snapshot-the-product.md) | Order lines snapshot the product; cross-context references carry no foreign key | Accepted |
-| [0026](0026-order-number-and-idempotency-key-beside-the-aggregate.md) | Order number and idempotency key live beside the aggregate, not in it | Accepted |
+| [0020](0020-server-side-sessions-replace-jwts.md) | Server-side sessions replace JWTs for instant revocation | Accepted |
+| [0021](0021-cookie-transport-with-lax-and-origin-check.md) | The session travels in a `SameSite=Lax` cookie with Origin verification | Accepted |
+| [0022](0022-postman-collections-in-the-repo.md) | Postman collections live in the repo and are checked against the controllers | Accepted |
+| [0023](0023-role-granted-never-claimed.md) | Role is granted by an operator, never claimed by a request | Accepted |
+| [0024](0024-orders-live-in-postgres.md) | Orders live in Postgres, not Mongo | Accepted |
+| [0025](0025-contexts-integrate-through-published-ports.md) | Contexts integrate through published ports, never tables | Accepted |
+| [0026](0026-stock-allocated-in-the-placement-transaction.md) | Stock is allocated in the placement transaction through a unit of work | Accepted |
+| [0027](0027-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md) | Aggregates with a lifecycle are reconstituted and saved under optimistic concurrency | Accepted |
+| [0028](0028-order-lines-snapshot-the-product.md) | Order lines snapshot the product; cross-context references carry no foreign key | Accepted |
+| [0029](0029-order-number-and-idempotency-key-beside-the-aggregate.md) | Order number and idempotency key live beside the aggregate, not in it | Accepted |

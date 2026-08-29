@@ -43,9 +43,10 @@ export interface UserWriteRepository {
   delete(id: UserId): Promise<boolean>;
 
   /**
-   * Replaces every *mutable* field of the user holding `id`: both names, the
-   * role, and the phone. Email is not among them and cannot be changed through
-   * this port, so unlike the old `replace` this can never conflict on email.
+   * Replaces every *mutable* field of the user holding `id`: both names and
+   * the phone. Email and role are not among them: neither can be changed
+   * through this port, so this can never conflict on email and never grant a
+   * role.
    *
    * @returns false when no user held that id
    */

@@ -19,8 +19,13 @@ only way to construct one, over one shared validation path:
   `UserProfile`.
 - Email: [`Email.create`](../../src/identity/domain/value-objects/email.vo.ts)
   lowercases and bounds length to 254 characters.
-- Role: [`UserRole.create`](../../src/identity/domain/value-objects/user-role.vo.ts)
-  accepts only `customer` or `seller`.
+- Role: every registration is a `customer`, assigned by
+  [`UserRole.customer`](../../src/identity/domain/value-objects/user-role.vo.ts)
+  inside `User.create`; no request can choose one, and `PUT /users/:id`
+  cannot change one. A seller is made by the operator statement in the
+  README. [`UserRole.create`](../../src/identity/domain/value-objects/user-role.vo.ts)
+  still parses the `GET /users?role=` filter and accepts only `customer` or
+  `seller`.
 - Phone: [`Phone.create`](../../src/identity/domain/value-objects/phone.vo.ts)
   normalises to a leading `+` and 8 to 15 digits. This is not E.164: country
   code and trunk prefix are not validated. Optional; absent means `null`.
@@ -96,7 +101,10 @@ what would change it. The two session endpoints are the one exception:
 `DELETE /auth/sessions/:id` revokes only the caller's own, because the
 repository predicate carries `user_id = caller` rather than a handler
 comparing ids, so another user's session id answers the same 404 as a made-up
-one.
+one. The one other authorization rule identity enforces is
+negative: a role cannot be claimed through `POST /users` or `PUT /users/:id`,
+so an endpoint elsewhere that branches on `seller` (ordering's staff
+transitions) is gating something a caller cannot grant themselves.
 
 Two more things this table does not say by itself. `POST /users` answering
 409 on a duplicate email is an account-existence oracle: an unauthenticated

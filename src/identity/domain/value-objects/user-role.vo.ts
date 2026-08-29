@@ -30,6 +30,14 @@ export class UserRole {
     return new UserRole(normalised);
   }
 
+  /**
+   * The role every registration starts with. A seller is made by an operator
+   * afterwards (see the README's promotion statement), never by a request.
+   */
+  static customer(): UserRole {
+    return new UserRole('customer');
+  }
+
   private static isRole(value: string): value is UserRoleValue {
     return (ROLES as readonly string[]).includes(value);
   }

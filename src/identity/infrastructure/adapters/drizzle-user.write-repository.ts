@@ -42,7 +42,7 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
           firstName: user.profile.firstName,
           lastName: user.profile.lastName,
           email: user.email.value,
-          role: user.profile.role.value,
+          role: user.role.value,
           phone: user.profile.phone?.value ?? null,
         });
 
@@ -71,13 +71,13 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
 
   async replaceProfile(id: UserId, profile: UserProfile): Promise<boolean> {
     // No try/catch and no duplicate-email branch: email is not in the SET list,
-    // so this statement cannot raise a unique violation.
+    // so this statement cannot raise a unique violation. Role is not in it
+    // either, so this statement cannot grant one.
     const updated = await this.db
       .update(users)
       .set({
         firstName: profile.firstName,
         lastName: profile.lastName,
-        role: profile.role.value,
         phone: profile.phone?.value ?? null,
         // updatedAt is absent deliberately: the users_set_updated_at trigger
         // owns it, so both timestamps come from the database clock. See ADR 0009.

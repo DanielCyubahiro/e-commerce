@@ -34,7 +34,9 @@ bypasses the domain.
 ## Consequences
 
 - A role is replaceable through `PUT /users/:id` like any other field, which
-  is harmless while nothing depends on it.
+  is harmless while nothing depends on it. Superseded by
+  [ADR 0023](0023-role-granted-never-claimed.md) once ordering's staff
+  transitions gave the role something to depend on it for.
 - Two copies of the role list exist, in
   [`ROLES`](../../src/identity/domain/value-objects/user-role.vo.ts) and in the
   `user_role` pgEnum, and nothing enforces their agreement.

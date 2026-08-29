@@ -5,7 +5,7 @@
 Accepted. Narrowed by [0020](0020-server-side-sessions-replace-jwts.md):
 `GET /auth/sessions` and `DELETE /auth/sessions/:id` are owner-scoped, the
 first endpoints here that are. Everything this record says about `/users`
-still holds.
+still holds. Narrowed again by [ADR 0023](0023-role-granted-never-claimed.md).
 
 ## Context
 

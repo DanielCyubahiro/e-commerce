@@ -14,20 +14,18 @@ describe('ListUsersHandler', () => {
   beforeEach(() => {
     writes = new InMemoryUserWriteRepository();
     handler = new ListUsersHandler(new InMemoryUserReadRepository(writes));
-    writes.seed(
-      User.create({
-        firstName: 'Ada',
-        lastName: 'Lovelace',
-        email: 'ada@example.com',
-        role: 'seller',
-      }),
-    );
+    const ada = User.create({
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      email: 'ada@example.com',
+    });
+    writes.seed(ada);
+    writes.promote(ada.id);
     writes.seed(
       User.create({
         firstName: 'Grace',
         lastName: 'Hopper',
         email: 'grace@example.com',
-        role: 'customer',
       }),
     );
   });

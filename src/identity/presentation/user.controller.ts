@@ -68,7 +68,6 @@ export class UserController {
           firstName: body.firstName,
           lastName: body.lastName,
           email: body.email,
-          role: body.role,
           phone: body.phone,
         },
         body.password,
@@ -126,7 +125,6 @@ export class UserController {
       new UpdateUserCommand(params.id, {
         firstName: body.firstName,
         lastName: body.lastName,
-        role: body.role,
         phone: body.phone,
       }),
     );

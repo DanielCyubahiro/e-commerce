@@ -3,11 +3,18 @@ import {
   type Registration,
   type UserWriteRepository,
 } from '@/identity/application';
-import type { Email, User, UserId, UserProfile } from '@/identity/domain';
+import {
+  type Email,
+  type User,
+  type UserId,
+  type UserProfile,
+  UserRole,
+} from '@/identity/domain';
 
 export interface StoredUser {
   id: UserId;
   email: Email;
+  role: UserRole;
   profile: UserProfile;
   /** Assigned once, on `register`; stands in for `created_at`. */
   createdSeq: number;
@@ -48,6 +55,7 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
     this.rows.set(registration.user.id.value, {
       id: registration.user.id,
       email: registration.user.email,
+      role: registration.user.role,
       profile: registration.user.profile,
       createdSeq: this.writes,
       updatedSeq: this.writes,
@@ -67,6 +75,7 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
     this.rows.set(user.id.value, {
       id: user.id,
       email: user.email,
+      role: user.role,
       profile: user.profile,
       createdSeq: this.writes,
       updatedSeq: this.writes,
@@ -76,6 +85,21 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
   /** Test seam: the credential and token bundle each `register` call carried. */
   registrations(): Registration[] {
     return [...this.registered];
+  }
+
+  /**
+   * Test-only seam standing in for the operator's `UPDATE users SET role`:
+   * with registration fixed to `customer`, this is the only way a test can
+   * hold a seller.
+   */
+  promote(id: UserId): void {
+    const existing = this.rows.get(id.value);
+
+    if (!existing) {
+      throw new Error(`No stored user holds id ${id.value}.`);
+    }
+
+    this.rows.set(id.value, { ...existing, role: UserRole.create('seller') });
   }
 
   replaceProfile(id: UserId, profile: UserProfile): Promise<boolean> {
@@ -89,6 +113,7 @@ export class InMemoryUserWriteRepository implements UserWriteRepository {
     this.rows.set(id.value, {
       id: existing.id,
       email: existing.email,
+      role: existing.role,
       profile,
       // `createdSeq` is carried over so the row keeps its place in created_at
       // order exactly as the adapter's row does.

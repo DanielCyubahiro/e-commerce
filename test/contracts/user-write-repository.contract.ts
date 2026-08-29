@@ -39,7 +39,6 @@ export function userWriteRepositoryContract(
         firstName: 'Ada',
         lastName: 'Lovelace',
         email,
-        role: 'seller',
         phone,
       });
 
@@ -47,7 +46,6 @@ export function userWriteRepositoryContract(
       UserProfile.create({
         firstName: 'Grace',
         lastName: 'Hopper',
-        role: 'customer',
         phone: '+32489123456',
       });
 

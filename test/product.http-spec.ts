@@ -9,13 +9,24 @@ import {
   PRODUCT_WRITE_REPOSITORY,
 } from '@/catalogue/application';
 import { CatalogueModule } from '@/catalogue/catalogue.module';
-import { ACCESS_TOKEN_ISSUER } from '@/identity/application';
-import { JwtAuthGuard } from '@/identity/presentation/guards/jwt-auth.guard';
-import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
+import { CqrsModule } from '@nestjs/cqrs';
+import {
+  AuthenticateSessionHandler,
+  SESSION_REPOSITORY,
+} from '@/identity/application';
+import {
+  AUTH_WEB_SETTINGS,
+  authWebSettingsFrom,
+} from '@/identity/presentation/auth-web-settings';
+import { SessionAuthGuard } from '@/identity/presentation/guards/session-auth.guard';
+import { SessionCookie } from '@/identity/presentation/session-cookie';
 import { InMemoryProductReadRepository } from '@test/fakes/in-memory-product-read.repository';
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
+import { seedSessionCookie } from '@test/support/session-cookie';
 
 const MISSING_ID = '3f2504e0-4f89-11d3-9a0c-0305e82c3301';
+const ALLOWED_ORIGIN = 'http://localhost:5173';
 
 /**
  * supertest types `body` as `any`, so asserting on it directly is unchecked.
@@ -53,31 +64,39 @@ const validBody = (
 });
 
 // CatalogueModule carries no guard of its own; identity.module.ts is the only
-// place JwtAuthGuard is normally wired in, so this suite wires it by hand,
-// the same way production wiring reaches every context through APP_GUARD.
-const issuer = new FakeAccessTokenIssuer();
+// place SessionAuthGuard is normally wired in, so this suite wires it by hand
+// with everything it resolves: the cookie, the web settings, and the one
+// command handler it dispatches, registered through CqrsModule.
+const lifetimes = {
+  passwordResetMinutes: 60,
+  emailVerificationHours: 24,
+  sessionIdleDays: 30,
+  sessionAbsoluteDays: 365,
+};
 
 describe('products HTTP contract', () => {
   let app: INestApplication<App>;
-  let authHeader: string;
-
-  beforeAll(async () => {
-    const { token } = await issuer.issue({
-      userId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
-      role: 'seller',
-      sessionId: '9c858901-8a57-4791-81fe-4c455b099bc9',
-    });
-    authHeader = `Bearer ${token}`;
-  });
+  let authCookie: string;
 
   beforeEach(async () => {
     const writes = new InMemoryProductWriteRepository();
+    const sessions = new InMemorySessionRepository(lifetimes);
+    ({ cookie: authCookie } = await seedSessionCookie(sessions, {
+      userId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      role: 'seller',
+    }));
 
     const moduleRef = await Test.createTestingModule({
-      imports: [CatalogueModule],
+      imports: [CatalogueModule, CqrsModule],
       providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-        { provide: ACCESS_TOKEN_ISSUER, useValue: issuer },
+        { provide: APP_GUARD, useClass: SessionAuthGuard },
+        { provide: SESSION_REPOSITORY, useValue: sessions },
+        {
+          provide: AUTH_WEB_SETTINGS,
+          useValue: authWebSettingsFrom(ALLOWED_ORIGIN, lifetimes),
+        },
+        SessionCookie,
+        AuthenticateSessionHandler,
       ],
     })
       .overrideProvider(PRODUCT_WRITE_REPOSITORY)
@@ -88,6 +107,7 @@ describe('products HTTP contract', () => {
 
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
+      { allowedOrigin: ALLOWED_ORIGIN },
     );
     // Listening on an OS-assigned port, rather than app.init(), stops
     // supertest from opening and closing an ephemeral listener on every
@@ -102,7 +122,7 @@ describe('products HTTP contract', () => {
   const create = (overrides: Record<string, unknown> = {}): request.Test =>
     request(app.getHttpServer())
       .post('/products')
-      .set('Authorization', authHeader)
+      .set('Cookie', authCookie)
       .send(validBody(overrides));
 
   const get = (path: string): request.Test =>
@@ -312,7 +332,7 @@ describe('products HTTP contract', () => {
     const remove = (id: string): request.Test =>
       request(app.getHttpServer())
         .delete(`/products/${id}`)
-        .set('Authorization', authHeader);
+        .set('Cookie', authCookie);
 
     it('returns 204 and removes the product', async () => {
       const created = await create();
@@ -350,7 +370,7 @@ describe('products HTTP contract', () => {
     const put = (id: string, body: Record<string, unknown>): request.Test =>
       request(app.getHttpServer())
         .put(`/products/${id}`)
-        .set('Authorization', authHeader)
+        .set('Cookie', authCookie)
         .send(body);
 
     const createdId = async (): Promise<string> =>
@@ -431,14 +451,14 @@ describe('products HTTP contract', () => {
     });
   });
 
-  it('refuses a protected endpoint with no token', async () => {
+  it('refuses a protected endpoint with no cookie', async () => {
     await request(app.getHttpServer())
       .post('/products')
       .send(validBody())
       .expect(401);
   });
 
-  it('leaves the public endpoints reachable without a token', async () => {
+  it('leaves the public endpoints reachable without a cookie', async () => {
     expect((await get('/products')).status).toBe(200);
   });
 });

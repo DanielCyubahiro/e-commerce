@@ -94,6 +94,15 @@ export default tseslint.config(
     },
   },
   {
+    // Repo scripts are ESM that node runs straight from source: no tsconfig
+    // covers them, so the type-aware rules have no program to consult, and a
+    // CLI's output is its whole interface.
+    files: ['scripts/**/*.mjs'],
+    extends: [tseslint.configs.disableTypeChecked],
+    languageOptions: { sourceType: 'module' },
+    rules: { 'no-console': 'off' },
+  },
+  {
     files: ['test/**/*.ts', 'src/**/*.spec.ts'],
     ...jestPlugin.configs['flat/recommended'],
     rules: {

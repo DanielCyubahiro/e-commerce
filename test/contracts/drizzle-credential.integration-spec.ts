@@ -4,10 +4,10 @@ import { Email } from '@/identity/domain';
 import { users } from '@/shared/infrastructure/database/postgres/schema';
 import { closeTestDb, testDb, truncateAll } from '@test/setup/test-db';
 
-// Outside the shared contract, the same way jose-access-token.integration-spec
-// covers expiry: the harness's seed always writes both a users row and a
-// credentials row, and the in-memory fake holds only the joined shape, so
-// neither binding can represent a user with no credential row. That gap is
+// Outside the shared contract, the same way drizzle-session.integration-spec
+// covers the users cascade: the harness's seed always writes both a users row
+// and a credentials row, and the in-memory fake holds only the joined shape,
+// so neither binding can represent a user with no credential row. That gap is
 // exactly what the inner join in drizzle-credential.repository.ts exists to
 // answer, and holding the fake to it would only make the fake lie more
 // elaborately.

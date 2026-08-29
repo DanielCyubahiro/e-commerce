@@ -1,6 +1,10 @@
 import type { Request } from 'express';
 
-/** Exactly the access token's claims. Nothing here is read from the database. */
+/**
+ * The owner of the live session the cookie named, read from the database on
+ * this very request by `SessionAuthGuard`. `role` is therefore never stale,
+ * unlike the claim a token would have carried.
+ */
 export interface AuthenticatedUser {
   userId: string;
   role: string;

@@ -18,7 +18,7 @@ import { OrderingModule } from './ordering/ordering.module';
  * bootstraps `IdentityModule` on its own, without this module, and a guard
  * applied via `@UseGuards()` cannot be swapped out with `overrideProvider`
  * the way the config-backed providers below are. Registering it where the
- * guarded controllers live is what the existing `JwtAuthGuard` /
+ * guarded controllers live is what the existing `SessionAuthGuard` /
  * `APP_GUARD` pairing in `identity.module.ts` already does for the same
  * reason.
  */

@@ -6,7 +6,6 @@ import {
   IsUrl,
   Max,
   Min,
-  MinLength,
   validateSync,
 } from 'class-validator';
 
@@ -28,23 +27,6 @@ export class EnvSchema {
   @Max(65535)
   PORT: number = 3000;
 
-  // No default, deliberately: a defaulted signing secret is a signing secret
-  // someone ships. 32 characters is the floor at which an HS256 secret stops
-  // being brute-forceable offline from a single captured token.
-  @IsString()
-  @MinLength(32)
-  JWT_SECRET!: string;
-
-  // Bounds how long a revoked role or a deleted user's token stays accepted;
-  // see the accepted gaps in the spec.
-  @IsInt()
-  @Min(60)
-  ACCESS_TOKEN_TTL_SECONDS: number = 900;
-
-  @IsInt()
-  @Min(1)
-  REFRESH_TOKEN_TTL_DAYS: number = 30;
-
   @IsInt()
   @Min(1)
   PASSWORD_RESET_TTL_MINUTES: number = 60;
@@ -52,6 +34,16 @@ export class EnvSchema {
   @IsInt()
   @Min(1)
   EMAIL_VERIFICATION_TTL_HOURS: number = 24;
+
+  // How long a session survives without a request. Also the cookie's Max-Age.
+  @IsInt()
+  @Min(1)
+  SESSION_IDLE_TTL_DAYS: number = 30;
+
+  // The cap no amount of activity extends past.
+  @IsInt()
+  @Min(1)
+  SESSION_ABSOLUTE_TTL_DAYS: number = 365;
 
   @IsString()
   @IsNotEmpty()
@@ -67,8 +59,15 @@ export class EnvSchema {
   SMTP_FROM!: string;
 
   // require_tld off so http://localhost:5173 validates; the default rule wants a
-  // public suffix, which no development host has.
-  @IsUrl({ require_tld: false })
+  // public suffix, which no development host has. require_protocol and the
+  // http/https allow-list are on because `new URL(...).origin` is the literal
+  // string "null" for a scheme-less or non-http URL, which would turn the
+  // guard's Origin check into an allow-list for `Origin: null`.
+  @IsUrl({
+    require_tld: false,
+    require_protocol: true,
+    protocols: ['http', 'https'],
+  })
   WEB_BASE_URL!: string;
 }
 
@@ -97,6 +96,13 @@ export function validateEnv(config: Record<string, unknown>): EnvSchema {
       )
       .join('\n');
     throw new Error(`Invalid environment configuration:\n${details}`);
+  }
+
+  // The one rule class-validator cannot express: a decorator sees one field.
+  if (validated.SESSION_ABSOLUTE_TTL_DAYS < validated.SESSION_IDLE_TTL_DAYS) {
+    throw new Error(
+      'Invalid environment configuration:\n  - SESSION_ABSOLUTE_TTL_DAYS must be at least SESSION_IDLE_TTL_DAYS',
+    );
   }
 
   return validated;

@@ -1,6 +1,6 @@
 # Identity
 
-The identity context: one aggregate, fourteen endpoints, eight ports. Layer
+The identity context: one aggregate, sixteen endpoints, seven ports. Layer
 rules, the error mechanism, and the generic fork procedure live in
 [`docs/architecture.md`](../architecture.md); this file carries only what is
 specific to `src/identity/`.
@@ -34,11 +34,11 @@ only way to construct one, over one shared validation path:
   property that reliably buys entropy once composition rules are off the
   table.
 
-A credential, a session's refresh-token chain, and a one-time token are
-deliberately not modelled as aggregates. None of their rows carries a
-cross-field invariant a construction path would need to validate; each is a
-state machine on one or two timestamp columns, guarded by the write itself
-rather than by a domain object. See
+A credential, a session, and a one-time token are deliberately not modelled
+as aggregates. None of their rows carries a cross-field invariant a
+construction path would need to validate; each is a state machine on one to
+three timestamp columns, guarded by the write itself rather than by a domain
+object. See
 [ADR 0013](../adr/0013-guarded-writes-never-rehydration.md) for the
 mechanism and why a persistence factory was rejected.
 
@@ -46,29 +46,32 @@ Passwords are hashed with argon2id at
 [`Argon2PasswordHasher`](../../src/identity/infrastructure/adapters/argon2-password.hasher.ts)'s
 parameters: 19 MiB of memory, a time cost of 2, and a parallelism of 1,
 OWASP's floor for the algorithm. Four TTLs govern how long an issued
-credential stays usable, all configured, none hardcoded: how long an access
-token is accepted (`ACCESS_TOKEN_TTL_SECONDS`), how long a refresh token's
-rotation chain stays valid (`REFRESH_TOKEN_TTL_DAYS`), how long a password
-reset link works (`PASSWORD_RESET_TTL_MINUTES`), and how long an email
-verification link works (`EMAIL_VERIFICATION_TTL_HOURS`).
+credential stays usable, all configured, none hardcoded: how long a session
+survives without a request (`SESSION_IDLE_TTL_DAYS`), how long a session lasts
+however active it is (`SESSION_ABSOLUTE_TTL_DAYS`), how long a password reset
+link works (`PASSWORD_RESET_TTL_MINUTES`), and how long an email verification
+link works (`EMAIL_VERIFICATION_TTL_HOURS`).
 
 ## Endpoints
 
-Fourteen endpoints across two controllers, both under
+Sixteen endpoints across two controllers, both under
 [`src/identity/presentation/`](../../src/identity/presentation/):
 [`UserController`](../../src/identity/presentation/user.controller.ts) at the
 `users` root, and
 [`AuthController`](../../src/identity/presentation/auth.controller.ts) at
 the `auth` root. The Guard column marks whether
-[`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts),
-registered as `APP_GUARD`, requires a valid access token; `Public` means the
+[`SessionAuthGuard`](../../src/identity/presentation/guards/session-auth.guard.ts),
+registered as `APP_GUARD`, requires a live session cookie; `Public` means the
 [`Public`](../../src/shared/presentation/decorators/public.decorator.ts)
 decorator opts the endpoint out. The Throttle column names the
 `ThrottlerGuard` limit a `@Throttle` decorator sets on that endpoint,
 `count/window`; `none` means no limit beyond `identity.module.ts`'s app-wide
 default of 60 requests per 60 seconds. A caller over a named limit gets a 429
 with no `code`, the same framework-exception shape
-[`architecture.md`](../architecture.md#error-path) describes.
+[`architecture.md`](../architecture.md#error-path) describes. Whatever the
+column says, every request with an `Origin` header that is not
+`WEB_BASE_URL`'s origin answers 403 `AUTH_ORIGIN_FORBIDDEN` before anything
+else runs.
 
 | Method | Path | Guard | Throttle | Success | Request DTO |
 | --- | --- | --- | --- | --- | --- |
@@ -77,25 +80,31 @@ with no `code`, the same framework-exception shape
 | GET | `/users/:id` | Protected | none | 200 | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
 | PUT | `/users/:id` | Protected | none | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts), [`UpdateUserProfileDto`](../../src/identity/presentation/dtos/update-user-profile.dto.ts) |
 | DELETE | `/users/:id` | Protected | none | 204, no body | [`UserIdParamDto`](../../src/identity/presentation/dtos/user-id.param.dto.ts) |
-| POST | `/auth/login` | Public | 10/60s | 200 | [`LoginDto`](../../src/identity/presentation/dtos/login.dto.ts) |
+| POST | `/auth/login` | Public | 10/60s | 200, [`CurrentUserResponseDto`](../../src/identity/presentation/dtos/current-user-response.dto.ts), `Set-Cookie: session` | [`LoginDto`](../../src/identity/presentation/dtos/login.dto.ts) |
+| GET | `/auth/me` | Protected | none | 200, `CurrentUserResponseDto` | none, the caller comes from the session the cookie names |
 | POST | `/auth/verify-email` | Public | none | 204, no body | [`VerifyEmailDto`](../../src/identity/presentation/dtos/verify-email.dto.ts) |
 | POST | `/auth/verify-email/resend` | Public | 5/hour | 202, no body | [`ResendVerificationDto`](../../src/identity/presentation/dtos/resend-verification.dto.ts) |
-| POST | `/auth/refresh` | Public | none | 200 | [`RefreshDto`](../../src/identity/presentation/dtos/refresh.dto.ts) |
-| POST | `/auth/logout` | Protected | none | 204, no body | none, the session comes from the access token's claim |
-| POST | `/auth/logout-all` | Protected | none | 204, no body | none, the user comes from the access token's claim |
+| POST | `/auth/logout` | Protected | none | 204, no body | none, the session comes from the cookie; the cookie is cleared |
+| POST | `/auth/logout-all` | Protected | none | 204, no body | none, the user comes from the cookie; the cookie is cleared |
+| GET | `/auth/sessions` | Protected | none | 200, [`SessionResponseDto`](../../src/identity/presentation/dtos/session-response.dto.ts) array, most recently seen first | none, the user comes from the cookie |
+| DELETE | `/auth/sessions/:id` | Protected | none | 204, no body; the cookie is cleared when `:id` is the caller's own session | [`SessionIdParamDto`](../../src/identity/presentation/dtos/session-id.param.dto.ts) |
 | POST | `/auth/forgot-password` | Public | 5/hour | 202, no body | [`ForgotPasswordDto`](../../src/identity/presentation/dtos/forgot-password.dto.ts) |
 | POST | `/auth/reset-password` | Public | 10/60s | 204, no body | [`ResetPasswordDto`](../../src/identity/presentation/dtos/reset-password.dto.ts) |
 | POST | `/auth/change-password` | Protected | 10/60s | 204, no body | [`ChangePasswordDto`](../../src/identity/presentation/dtos/change-password.dto.ts) |
 
 Authentication and authorization are different concerns here, and only the
-first is built: any authenticated caller may act on any user, and
+first is built for `/users`: any authenticated caller may act on any user, and
 `GET /users` lists everyone with no ownership filter and no role check. See
 [ADR 0015](../adr/0015-authentication-without-authorization.md) for why, and
-what would change it. The one authorization rule identity itself now
-enforces is negative: a role cannot be claimed through `POST /users` or
-`PUT /users/:id`, so an endpoint elsewhere that branches on `seller`
-(ordering's staff transitions) is gating something a caller cannot grant
-themselves.
+what would change it. The two session endpoints are the one exception:
+`GET /auth/sessions` lists only the caller's own sessions and
+`DELETE /auth/sessions/:id` revokes only the caller's own, because the
+repository predicate carries `user_id = caller` rather than a handler
+comparing ids, so another user's session id answers the same 404 as a made-up
+one. The one other authorization rule identity enforces is
+negative: a role cannot be claimed through `POST /users` or `PUT /users/:id`,
+so an endpoint elsewhere that branches on `seller` (ordering's staff
+transitions) is gating something a caller cannot grant themselves.
 
 Two more things this table does not say by itself. `POST /users` answering
 409 on a duplicate email is an account-existence oracle: an unauthenticated
@@ -109,12 +118,20 @@ makes registration usable, and the endpoint's own throttle limits how many
 addresses a caller can probe. It is written here only so the system's
 posture is stated, not implied by omission.
 
-Second, no revocation path reaches a live access token. `POST /auth/logout`
-and `POST /auth/logout-all` both answer 204 by ending a refresh chain's
-ability to renew, not by invalidating the access token already issued: the
-token keeps working for whatever TTL remains, because `JwtAuthGuard` verifies
-a signature and an expiry, never a per-request revocation lookup. Shortening
-that window is what `ACCESS_TOKEN_TTL_SECONDS` is for.
+Second, every revocation reaches the very next request. `POST /auth/logout`,
+`POST /auth/logout-all`, a password change or reset, and `DELETE /users/:id`
+(through the `sessions.user_id` cascade) each answer by ending the session
+rows involved, and `SessionAuthGuard` resolves the cookie against those rows
+on every request, so there is no issued credential left to outlive its
+revocation. The cost is one write per authenticated request, since the same
+statement that checks liveness also moves `last_seen_at`;
+`SESSION_IDLE_TTL_DAYS` and `SESSION_ABSOLUTE_TTL_DAYS` bound how long an
+untouched or a very old session stays live. See
+[ADR 0020](../adr/0020-server-side-sessions-replace-jwts.md) for the
+credential model and
+[ADR 0021](../adr/0021-cookie-transport-with-lax-and-origin-check.md) for
+the cookie and the Origin check, including the constraint that the frontend
+be same-site with the API.
 
 ## Ports and adapters
 
@@ -130,8 +147,7 @@ and bound to adapters in
 | [`PASSWORD_HASHER`](../../src/identity/application/ports/password-hasher.ts) | `PasswordHasher` | [`Argon2PasswordHasher`](../../src/identity/infrastructure/adapters/argon2-password.hasher.ts) |
 | [`CREDENTIAL_REPOSITORY`](../../src/identity/application/ports/credential.repository.ts) | `CredentialRepository` | [`DrizzleCredentialRepository`](../../src/identity/infrastructure/adapters/drizzle-credential.repository.ts) |
 | [`ONE_TIME_TOKEN_REPOSITORY`](../../src/identity/application/ports/one-time-token.repository.ts) | `OneTimeTokenRepository` | [`DrizzleOneTimeTokenRepository`](../../src/identity/infrastructure/adapters/drizzle-one-time-token.repository.ts) |
-| [`REFRESH_TOKEN_REPOSITORY`](../../src/identity/application/ports/refresh-token.repository.ts) | `RefreshTokenRepository` | [`DrizzleRefreshTokenRepository`](../../src/identity/infrastructure/adapters/drizzle-refresh-token.repository.ts) |
-| [`ACCESS_TOKEN_ISSUER`](../../src/identity/application/ports/access-token.issuer.ts) | `AccessTokenIssuer` | [`JoseAccessTokenIssuer`](../../src/identity/infrastructure/adapters/jose-access-token.issuer.ts) |
+| [`SESSION_REPOSITORY`](../../src/identity/application/ports/session.repository.ts) | `SessionRepository` | [`DrizzleSessionRepository`](../../src/identity/infrastructure/adapters/drizzle-session.repository.ts) |
 | [`EMAIL_SENDER`](../../src/identity/application/ports/email.sender.ts) | `EmailSender` | [`SmtpEmailSender`](../../src/identity/infrastructure/adapters/smtp-email.sender.ts) |
 
 `UserWriteRepository.register` replaced the old `add`: it writes the user,
@@ -143,7 +159,7 @@ duplicate-email conflict, because email is not among the fields it writes
 (see [ADR 0014](../adr/0014-email-is-immutable-after-registration.md)).
 
 Each port has one contract suite with two bindings, one per implementation,
-sixteen binding files in total. The mechanism, and why a fake is held to the
+fourteen binding files in total. The mechanism, and why a fake is held to the
 same suite as the adapter, is in
 [`docs/testing.md`](../testing.md#the-contract-mechanism).
 
@@ -154,8 +170,7 @@ same suite as the adapter, is in
 | [`passwordHasherContract`](../../test/contracts/password-hasher.contract.ts) | [`password-hasher.spec.ts`](../../test/contracts/password-hasher.spec.ts) | [`password-hasher.integration-spec.ts`](../../test/contracts/password-hasher.integration-spec.ts) |
 | [`credentialRepositoryContract`](../../test/contracts/credential-repository.contract.ts) | [`credential-repository.spec.ts`](../../test/contracts/credential-repository.spec.ts) | [`credential-repository.integration-spec.ts`](../../test/contracts/credential-repository.integration-spec.ts) |
 | [`oneTimeTokenRepositoryContract`](../../test/contracts/one-time-token-repository.contract.ts) | [`one-time-token-repository.spec.ts`](../../test/contracts/one-time-token-repository.spec.ts) | [`one-time-token-repository.integration-spec.ts`](../../test/contracts/one-time-token-repository.integration-spec.ts) |
-| [`refreshTokenRepositoryContract`](../../test/contracts/refresh-token-repository.contract.ts) | [`refresh-token-repository.spec.ts`](../../test/contracts/refresh-token-repository.spec.ts) | [`refresh-token-repository.integration-spec.ts`](../../test/contracts/refresh-token-repository.integration-spec.ts) |
-| [`accessTokenIssuerContract`](../../test/contracts/access-token-issuer.contract.ts) | [`access-token-issuer.spec.ts`](../../test/contracts/access-token-issuer.spec.ts) | [`access-token-issuer.integration-spec.ts`](../../test/contracts/access-token-issuer.integration-spec.ts) |
+| [`sessionRepositoryContract`](../../test/contracts/session-repository.contract.ts) | [`session-repository.spec.ts`](../../test/contracts/session-repository.spec.ts) | [`session-repository.integration-spec.ts`](../../test/contracts/session-repository.integration-spec.ts) |
 | [`emailSenderContract`](../../test/contracts/email-sender.contract.ts) | [`email-sender.spec.ts`](../../test/contracts/email-sender.spec.ts) | [`email-sender.integration-spec.ts`](../../test/contracts/email-sender.integration-spec.ts) |
 
 Each fake binding constructs one in-memory or recording double:
@@ -165,9 +180,8 @@ and
 predate this feature; [`FakePasswordHasher`](../../test/fakes/fake-password.hasher.ts),
 [`InMemoryCredentialRepository`](../../test/fakes/in-memory-credential.repository.ts),
 [`InMemoryOneTimeTokenRepository`](../../test/fakes/in-memory-one-time-token.repository.ts),
-[`InMemoryRefreshTokenRepository`](../../test/fakes/in-memory-refresh-token.repository.ts),
-[`FakeAccessTokenIssuer`](../../test/fakes/fake-access-token.issuer.ts), and
-[`RecordingEmailSender`](../../test/fakes/recording-email.sender.ts) are new.
+[`InMemorySessionRepository`](../../test/fakes/in-memory-session.repository.ts),
+and [`RecordingEmailSender`](../../test/fakes/recording-email.sender.ts) are new.
 `reset` clears whatever row map or record the fake holds and `close` is a
 no-op, since none of these fakes acquires anything to release. Most adapter
 bindings reach the same shared test Postgres connection; `reset` truncates
@@ -175,20 +189,15 @@ the relevant table and `close` ends that connection. The email-sender
 adapter binding is the exception: it starts its own Mailpit container in a
 `beforeAll` rather than using the `integration` project's shared
 `globalSetup`, since it is the only suite that needs Mailpit (see
-[`docs/testing.md`](../testing.md#the-contract-mechanism)). The
-access-token-issuer adapter binding constructs
-[`JoseAccessTokenIssuer`](../../src/identity/infrastructure/adapters/jose-access-token.issuer.ts)
-directly with plain values rather than through Nest's DI, since its
-constructor reads two settings and holds no other collaborator.
+[`docs/testing.md`](../testing.md#the-contract-mechanism)).
 
 Failure modes a fake cannot reproduce are covered outside the shared
 contracts. The `users_set_updated_at` trigger moving `updated_at` on a real
 `replaceProfile` is covered in
 [`drizzle-user-write.integration-spec.ts`](../../test/contracts/drizzle-user-write.integration-spec.ts).
-Real-clock expiry, and a validly-signed token missing a claim, which no fake
-ever produces since a fake only ever encodes what it was given, are covered
-in
-[`jose-access-token.integration-spec.ts`](../../test/contracts/jose-access-token.integration-spec.ts).
+The `users` cascade removing a user's sessions is covered in
+[`drizzle-session.integration-spec.ts`](../../test/contracts/drizzle-session.integration-spec.ts),
+since the fake models no `users` table.
 
 ## Request lifecycle
 
@@ -289,8 +298,7 @@ sequenceDiagram
     participant H as LoginHandler
     participant CR as CredentialRepository
     participant Hash as PasswordHasher
-    participant RT as RefreshTokenRepository
-    participant AT as AccessTokenIssuer
+    participant S as SessionRepository
 
     C->>Ctl: POST /auth/login
     Ctl->>H: LoginCommand
@@ -309,10 +317,9 @@ sequenceDiagram
         H-->>Ctl: EmailNotVerifiedException
         Ctl-->>C: 403
     else password verified and email verified
-        H->>RT: issue(refresh token)
-        H->>AT: issue(access claims)
+        H->>S: start(session with the token's digest)
         H-->>Ctl: LoginResult
-        Ctl-->>C: 200, SessionResponseDto
+        Ctl-->>C: 200 CurrentUserResponseDto, Set-Cookie: session
     end
 ```
 
@@ -328,51 +335,45 @@ possible after the password has already verified: an attacker who has
 guessed an address but not its password sees the same `401` as any other
 wrong guess, and cannot use this endpoint to confirm the account exists.
 
-Refresh consumes the presented token in a single guarded statement and
-branches on what that statement saw:
+Every protected request resolves the cookie against the `sessions` table in
+one statement that is both the liveness check and the idle-window extension:
 
 ```mermaid
 sequenceDiagram
-    participant C as Client
-    participant Ctl as AuthController
-    participant H as RefreshSessionHandler
-    participant RT as RefreshTokenRepository
+    participant B as Browser
+    participant G as SessionAuthGuard
+    participant H as AuthenticateSessionHandler
+    participant S as SessionRepository
     participant DB as Postgres
-    participant AT as AccessTokenIssuer
+    participant Ctl as Controller
 
-    C->>Ctl: POST /auth/refresh
-    Ctl->>H: RefreshSessionCommand
-    H->>RT: rotate(presentedHash, successor, now)
-    RT->>DB: UPDATE refresh_tokens SET used_at = now<br/>WHERE token_hash = presented<br/>AND used_at IS NULL AND revoked_at IS NULL<br/>AND expires_at > now
-    alt guard matches the row (won the race)
-        DB-->>RT: row returned
-        RT->>DB: INSERT successor row (same transaction)
-        RT-->>H: rotated { userId, role, sessionId }
-        H->>AT: issue(access claims)
-        H-->>Ctl: LoginResult
-        Ctl-->>C: 200, new access and refresh tokens
-    else guard matches nothing (already used)
-        DB-->>RT: no row
-        RT->>DB: SELECT to classify why
-        DB-->>RT: usedAt is set: replayed { sessionId }
-        RT-->>H: replayed
-        H->>RT: revokeSession(sessionId)
-        H-->>Ctl: InvalidRefreshTokenException
-        Ctl-->>C: 401
-    else guard matches nothing (expired, revoked, or unknown)
-        DB-->>RT: classification
-        RT-->>H: expired | revoked | unknown
-        H-->>Ctl: InvalidRefreshTokenException
-        Ctl-->>C: 401
+    B->>G: request with cookie `session`
+    G->>G: Origin present and not WEB_BASE_URL's? 403
+    G->>G: @Public()? pass through
+    G->>G: no cookie? 401
+    G->>H: AuthenticateSessionCommand(plaintext)
+    H->>S: touch(SecretToken.hashOf(plaintext), now)
+    S->>DB: UPDATE sessions SET last_seen_at = now FROM users<br/>WHERE token_hash = digest AND revoked_at IS NULL<br/>AND last_seen_at > now - idle AND created_at > now - absolute<br/>RETURNING id, user_id, role
+    alt no row
+        S-->>H: null
+        H-->>G: null
+        G-->>B: 401 AUTH_UNAUTHENTICATED
+    else row
+        S-->>H: { userId, role, sessionId }
+        H-->>G: AuthenticatedSession
+        G->>G: request.user = session; Set-Cookie with a fresh Max-Age
+        G->>Ctl: proceed
     end
 ```
 
-The guarded `UPDATE` is what makes exactly one of two concurrent presenters
-of the same token win; see
-[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md) for the
-mechanism, and
-[ADR 0016](../adr/0016-refresh-rotation-with-reuse-detection.md) for why a
-replay revokes the whole chain rather than only the replayed token.
+The guard dispatches a command rather than calling the port because hashing
+the presented token is `SecretToken.hashOf`, a domain operation presentation
+may not perform. The `UPDATE` is guarded in the sense of
+[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md): a session revoked
+between two requests cannot be extended by the second, because the revocation
+changed the row the guard tests. Unknown, revoked, idle-expired and absolutely
+expired all answer the same 401, since telling a forger which check failed is
+a gift.
 
 ## Error codes
 
@@ -389,10 +390,11 @@ Codes raised by `src/identity/`.
 | `USER_TOKEN_HASH_INVALID` | `invariant` | 422 | [`TokenHash`](../../src/identity/domain/value-objects/token-hash.vo.ts) |
 | `USER_EMAIL_DUPLICATE` | `conflict` | 409 | [`DuplicateEmailException`](../../src/identity/application/exceptions/duplicate-email.exception.ts) |
 | `USER_NOT_FOUND` | `not-found` | 404 | [`GetUserHandler`](../../src/identity/application/use-cases/queries/get-user/get-user.handler.ts), [`DeleteUserHandler`](../../src/identity/application/use-cases/commands/delete-user/delete-user.handler.ts), [`UpdateUserHandler`](../../src/identity/application/use-cases/commands/update-user/update-user.handler.ts) |
-| `AUTH_UNAUTHENTICATED` | `unauthorized` | 401 | [`JwtAuthGuard`](../../src/identity/presentation/guards/jwt-auth.guard.ts) |
+| `AUTH_SESSION_NOT_FOUND` | `not-found` | 404 | [`RevokeSessionHandler`](../../src/identity/application/use-cases/commands/revoke-session/revoke-session.handler.ts) |
+| `AUTH_UNAUTHENTICATED` | `unauthorized` | 401 | [`SessionAuthGuard`](../../src/identity/presentation/guards/session-auth.guard.ts) |
+| `AUTH_ORIGIN_FORBIDDEN` | `forbidden` | 403 | [`SessionAuthGuard`](../../src/identity/presentation/guards/session-auth.guard.ts) |
 | `AUTH_INVALID_CREDENTIALS` | `unauthorized` | 401 | [`LoginHandler`](../../src/identity/application/use-cases/commands/login/login.handler.ts), [`ChangePasswordHandler`](../../src/identity/application/use-cases/commands/change-password/change-password.handler.ts) |
 | `AUTH_EMAIL_NOT_VERIFIED` | `forbidden` | 403 | [`LoginHandler`](../../src/identity/application/use-cases/commands/login/login.handler.ts) |
-| `AUTH_REFRESH_TOKEN_INVALID` | `unauthorized` | 401 | [`RefreshSessionHandler`](../../src/identity/application/use-cases/commands/refresh-session/refresh-session.handler.ts) |
 | `AUTH_RESET_TOKEN_EXPIRED` | `unauthorized` | 401 | [`ResetPasswordHandler`](../../src/identity/application/use-cases/commands/reset-password/reset-password.handler.ts) |
 | `AUTH_RESET_TOKEN_INVALID` | `unauthorized` | 401 | [`ResetPasswordHandler`](../../src/identity/application/use-cases/commands/reset-password/reset-password.handler.ts) |
 | `AUTH_VERIFICATION_TOKEN_EXPIRED` | `unauthorized` | 401 | [`VerifyEmailHandler`](../../src/identity/application/use-cases/commands/verify-email/verify-email.handler.ts) |
@@ -403,11 +405,10 @@ are deliberately two codes apiece rather than one: both tokens reach the
 account owner's inbox, so telling the holder "expired, request another"
 leaks nothing to anyone who does not already hold the link, and collapsing
 the two would make a routine expiry read as a broken one.
-`AUTH_REFRESH_TOKEN_INVALID` deliberately does the opposite, one code for
-every failure mode (replayed, expired, revoked, unknown), because a refresh
-token is held by whoever presents it, not delivered to an inbox, so naming
-which check fired would tell an attacker that reuse detection triggered and
-which copy of a stolen token they hold.
+`AUTH_UNAUTHENTICATED` deliberately does the opposite, one code for every
+failure mode (no cookie, unknown, revoked, idle-expired, absolutely expired),
+because a session cookie is held by whoever presents it, not delivered to an
+inbox, so naming which check fired would tell a forger which part to fix.
 
 ## Fork notes
 
@@ -429,7 +430,7 @@ fork that keeps the column but omits the trigger leaves it frozen at insert
 time with no error anywhere. [ADR 0009](../adr/0009-postgres-owns-updated-at.md)
 records why the database owns the column.
 
-Three couplings are new with this feature. The `token_purpose` Postgres enum
+Two couplings are new with authentication. The `token_purpose` Postgres enum
 in
 [`one-time-tokens.schema.ts`](../../src/shared/infrastructure/database/postgres/schema/one-time-tokens.schema.ts)
 duplicates the value set
@@ -449,6 +450,16 @@ a `users` row with no matching `credentials` row, and that user can never
 log in again, with no error anywhere to surface the gap; see
 [ADR 0013](../adr/0013-guarded-writes-never-rehydration.md).
 
+Three couplings are new with sessions. `sessions.token_hash` is `varchar(64)`
+and must stay equal to `TokenHash.LENGTH`, the same by-hand coupling
+`one_time_tokens.token_hash` carries. `sessions.user_agent` and
+`sessions.ip_address` are `text` on purpose, so there is no column length for
+[`originOf`](../../src/identity/presentation/request-origin.ts)'s ceilings to
+drift from. Liveness has no column at all: a fork that adds an `expires_at`
+and computes it once at login reintroduces the frozen-TTL behaviour
+[ADR 0020](../adr/0020-server-side-sessions-replace-jwts.md) rejects, with
+nothing failing to say so.
+
 `credentials` has no `updated_at` column and therefore no trigger, and that
 absence is deliberate, not an oversight of the `updated_at` coupling above:
 nothing reads a mutation timestamp for a credential, and the comment on
@@ -463,10 +474,18 @@ the clear. That protection stops at the presentation boundary: a command may
 not import a domain value object, so
 [`LoginCommand.password`](../../src/identity/application/use-cases/commands/login/login.command.ts),
 [`ChangePasswordCommand.currentPassword`](../../src/identity/application/use-cases/commands/change-password/change-password.command.ts)
-and `newPassword`, and
+and `newPassword`,
 [`ResetPasswordCommand.token`](../../src/identity/application/use-cases/commands/reset-password/reset-password.command.ts)
-and `newPassword`
+and `newPassword`, and
+[`AuthenticateSessionCommand.presentedToken`](../../src/identity/application/use-cases/commands/authenticate-session/authenticate-session.command.ts)
 are raw public strings, each carrying only its own interface comment as a
-warning. Nothing logs a command today, so there is no live leak, but a CQRS
-logging interceptor added later would put a plaintext password in every log
-line it touched, and no test here would go red to catch it.
+warning. `presentedToken` is dispatched on every protected request carrying a
+live credential, so a logging interceptor would leak far more here than at
+login, one command per request rather than one per login. The same risk sits
+on the way out:
+[`LoginResult.token`](../../src/identity/application/use-cases/commands/login/login.handler.ts)
+is the plaintext the controller writes into `Set-Cookie`, held in a plain
+string for the same presentation-boundary reason as the commands above.
+Nothing logs a command today, so there is no live leak, but a CQRS logging
+interceptor added later would put a plaintext password in every log line it
+touched, and no test here would go red to catch it.

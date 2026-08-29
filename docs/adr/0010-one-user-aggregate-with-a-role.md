@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted. Narrowed by [ADR 0020](0020-role-granted-never-claimed.md): a role
+Accepted. Narrowed by [ADR 0023](0023-role-granted-never-claimed.md): a role
 now has behaviour (ordering's staff transitions), so it is no longer
 replaceable through `PUT /users/:id` and registration always creates a
 customer.
@@ -38,7 +38,7 @@ bypasses the domain.
 
 - A role is replaceable through `PUT /users/:id` like any other field, which
   is harmless while nothing depends on it. Superseded by
-  [ADR 0020](0020-role-granted-never-claimed.md) once ordering's staff
+  [ADR 0023](0023-role-granted-never-claimed.md) once ordering's staff
   transitions gave the role something to depend on it for.
 - Two copies of the role list exist, in
   [`ROLES`](../../src/identity/domain/value-objects/user-role.vo.ts) and in the

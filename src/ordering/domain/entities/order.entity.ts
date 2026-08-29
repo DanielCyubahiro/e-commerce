@@ -2,6 +2,7 @@ import { AggregateRoot, Money } from '@/shared/domain';
 import { InvalidOrderLinesException } from '../exceptions/invalid-order-lines.exception';
 import { CustomerId } from '../value-objects/customer-id.vo';
 import { OrderId } from '../value-objects/order-id.vo';
+import type { OrderLineRequest } from '../value-objects/order-line-request.vo';
 import { OrderLine, type OrderLineInput } from '../value-objects/order-line.vo';
 import { OrderStatus } from '../value-objects/order-status.vo';
 import {
@@ -86,6 +87,22 @@ export class Order extends AggregateRoot<OrderId> {
   }
 
   /**
+   * The collection rules `place` enforces, for a caller that must refuse a
+   * request before spending anything on it: the handler runs this before stock
+   * is allocated, so an oversized or repeated request locks no rows and answers
+   * 422 rather than a shortfall. `place` runs the same private checks again, so
+   * each rule still lives in one place.
+   *
+   * @throws InvalidOrderLinesException for no lines, more than 100, or a repeated product
+   */
+  static checkLineRequests(requests: readonly OrderLineRequest[]): void {
+    Order.validateLineCount(requests.length);
+    Order.validateDistinctProductIds(
+      requests.map((request) => request.productRef.value),
+    );
+  }
+
+  /**
    * Validates the count before building a single line, then every line's own
    * rules, then that no product repeats and that one currency prices them
    * all. Fee and tax are zero until a pricing rule supplies them; the columns
@@ -95,18 +112,19 @@ export class Order extends AggregateRoot<OrderId> {
    * `ShippingAddress.create` throw
    */
   static place(input: PlaceOrderInput): Order {
-    if (input.lines.length > Order.MAX_LINES) {
-      throw InvalidOrderLinesException.tooMany(Order.MAX_LINES);
-    }
+    Order.validateLineCount(input.lines.length);
 
     const lines = input.lines.map((line) => OrderLine.create(line));
     const [first, ...rest] = lines;
 
+    /* istanbul ignore if -- unreachable by construction: validateLineCount rejected an empty list above */
     if (first === undefined) {
       throw InvalidOrderLinesException.empty();
     }
 
-    Order.validateDistinctProducts(lines);
+    Order.validateDistinctProductIds(
+      lines.map((line) => line.productRef.value),
+    );
 
     const currency = first.unitPrice.currency;
     const mismatched = rest.find(
@@ -150,16 +168,25 @@ export class Order extends AggregateRoot<OrderId> {
     return new Order(state);
   }
 
-  private static validateDistinctProducts(lines: readonly OrderLine[]): void {
+  private static validateLineCount(count: number): void {
+    if (count > Order.MAX_LINES) {
+      throw InvalidOrderLinesException.tooMany(Order.MAX_LINES);
+    }
+    if (count < Order.MIN_LINES) {
+      throw InvalidOrderLinesException.empty();
+    }
+  }
+
+  private static validateDistinctProductIds(
+    productIds: readonly string[],
+  ): void {
     const seen = new Set<string>();
 
-    for (const line of lines) {
-      if (seen.has(line.productRef.value)) {
-        throw InvalidOrderLinesException.duplicateProduct(
-          line.productRef.value,
-        );
+    for (const productId of productIds) {
+      if (seen.has(productId)) {
+        throw InvalidOrderLinesException.duplicateProduct(productId);
       }
-      seen.add(line.productRef.value);
+      seen.add(productId);
     }
   }
 

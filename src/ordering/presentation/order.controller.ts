@@ -35,7 +35,7 @@ import { OrderDetailResponseDto } from './dtos/order-detail.response.dto';
 import { OrderIdParamDto } from './dtos/order-id.param.dto';
 import { OrderSummaryResponseDto } from './dtos/order-summary.response.dto';
 import { PlaceOrderDto } from './dtos/place-order.dto';
-import { scopeOf } from './scope-of';
+import { scopeOf, STAFF_ROLE } from './scope-of';
 
 /**
  * Translates HTTP to a command or query and back; holds no logic of its own,
@@ -142,7 +142,7 @@ export class OrderController {
 
   @Post(':id/pay')
   @UseGuards(RolesGuard)
-  @Roles('seller')
+  @Roles(STAFF_ROLE)
   @HttpCode(HttpStatus.NO_CONTENT)
   async pay(@Param() params: OrderIdParamDto): Promise<void> {
     await this.commandBus.execute<PayOrderCommand, void>(
@@ -152,7 +152,7 @@ export class OrderController {
 
   @Post(':id/ship')
   @UseGuards(RolesGuard)
-  @Roles('seller')
+  @Roles(STAFF_ROLE)
   @HttpCode(HttpStatus.NO_CONTENT)
   async ship(@Param() params: OrderIdParamDto): Promise<void> {
     await this.commandBus.execute<ShipOrderCommand, void>(
@@ -162,7 +162,7 @@ export class OrderController {
 
   @Post(':id/deliver')
   @UseGuards(RolesGuard)
-  @Roles('seller')
+  @Roles(STAFF_ROLE)
   @HttpCode(HttpStatus.NO_CONTENT)
   async deliver(@Param() params: OrderIdParamDto): Promise<void> {
     await this.commandBus.execute<DeliverOrderCommand, void>(

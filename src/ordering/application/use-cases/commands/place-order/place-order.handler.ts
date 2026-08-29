@@ -49,6 +49,10 @@ export class PlaceOrderHandler implements ICommandHandler<
     // Before any port: a negative quantity would turn the allocator's
     // `stock - qty` into an increment.
     const requests = command.lines.map((line) => OrderLineRequest.create(line));
+    // Count and distinctness cost nothing; checking them here, before any
+    // port runs, means an oversized or repeated request is never paid for
+    // with an allocation's row locks.
+    Order.checkLineRequests(requests);
     const customerId = CustomerId.create(command.customerId);
     const { idempotencyKey } = command;
 

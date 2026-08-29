@@ -53,7 +53,7 @@ class ProbeTransitionException extends DomainException {
 class ProbeDetailedException extends ApplicationException {
   readonly code = 'PROBE_DETAILED';
   readonly kind: ApplicationErrorKind = 'conflict';
-  readonly details = [{ productId: 'p-1', reason: 'insufficient' }];
+  override readonly details = [{ productId: 'p-1', reason: 'insufficient' }];
 
   constructor() {
     super('probe conflict with details');

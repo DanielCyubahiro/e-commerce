@@ -57,3 +57,7 @@ timeout) slides in behind the same two methods.
 - `products_stock_non_negative` is the database's backstop behind the guard.
 - A fork whose `allocate` processes requests in request order deadlocks under
   concurrent orders sharing products; ordering's fork notes say so.
+- The line count and distinctness rules run before the allocator, through
+  `Order.checkLineRequests`, so a request the domain will refuse locks no
+  rows; the currency rule cannot, since it needs the allocation's snapshot,
+  and a mixed-currency request is the one case that allocates and rolls back.

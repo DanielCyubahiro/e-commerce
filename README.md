@@ -6,6 +6,7 @@ page under [docs/contexts/](docs/contexts/) each:
 
 - [identity](docs/contexts/identity.md)
 - [catalogue](docs/contexts/catalogue.md)
+- [ordering](docs/contexts/ordering.md)
 
 It is deliberately architected to be forked onto new infrastructure when that
 is worth learning, not to serve real users.

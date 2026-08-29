@@ -4,7 +4,7 @@ import { AUTH_WEB_SETTINGS, type AuthWebSettings } from './auth-web-settings';
 
 /**
  * The only place the session cookie's name and attributes exist. Reads the
- * plaintext the browser sent, writes it with the attributes ADR 0021 fixes,
+ * plaintext the browser sent, writes it with the fixed attributes,
  * and clears it with the same attributes, since a browser drops only a cookie
  * whose name, path and domain match the one it holds.
  *

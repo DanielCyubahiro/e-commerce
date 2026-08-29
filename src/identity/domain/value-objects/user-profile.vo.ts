@@ -7,7 +7,7 @@ import { Phone } from './phone.vo';
 /**
  * `phone` accepts three spellings of absence because the edge produces all
  * three: an omitted JSON key, an explicit `undefined`, and an explicit `null`.
- * The tolerance is one-directional and ends in `create`. See ADR 0011.
+ * The tolerance is one-directional and ends in `create`.
  */
 export interface UserProfileInput {
   firstName: string;
@@ -18,8 +18,8 @@ export interface UserProfileInput {
 /**
  * Everything about a user that they may change about themselves after
  * registration. Email is deliberately absent (set once, never rewritten, so
- * nobody can claim a verified status for an address nobody confirmed; ADR
- * 0014). Role is deliberately absent too: it is granted by an operator and
+ * nobody can claim a verified status for an address nobody confirmed). Role
+ * is deliberately absent too: it is granted by an operator and
  * lives on `User`, so `PUT /users/:id` cannot become privilege escalation once
  * an endpoint branches on `seller`.
  *

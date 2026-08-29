@@ -21,7 +21,7 @@ import {
 } from '@/shared/infrastructure/database/postgres/schema';
 
 /**
- * Every state transition is one guarded statement (ADR 0013). `touch` is the
+ * Every state transition is one guarded statement. `touch` is the
  * sharpest case: the lookup the guard performs on every request and the
  * idle-window extension are the same UPDATE, so a session can neither be read
  * as live and then fail to be extended, nor be extended after revocation.

@@ -202,7 +202,7 @@ Four couplings fail silently rather than loudly.
   database, but the client gets a 500 where it should get the original 201.
 - `orders_set_updated_at` in `drizzle/0009_orders_updated_at_trigger.sql`
   owns `updated_at`; a fork that drops the trigger leaves it frozen at insert
-  time with no error anywhere (ADR 0009).
+  time with no error anywhere.
 - `number` is `GENERATED ALWAYS AS IDENTITY`; the adapter never writes it. A
   fork whose schema tool does not emit identity columns needs a sequence and
   a default, or every insert fails on the not-null constraint.

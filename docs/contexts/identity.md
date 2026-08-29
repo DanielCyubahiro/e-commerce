@@ -10,8 +10,7 @@ specific to `src/identity/`.
 [`User`](../../src/identity/domain/entities/user.entity.ts) is the aggregate
 and the whole consistency boundary; its mutable fields live on
 [`UserProfile`](../../src/identity/domain/value-objects/user-profile.vo.ts),
-extracted so that email cannot change after registration (see
-[ADR 0014](../adr/0014-email-is-immutable-after-registration.md)).
+extracted so that email cannot change after registration.
 [`User.create`](../../src/identity/domain/entities/user.entity.ts) is the
 only way to construct one, over one shared validation path:
 
@@ -38,9 +37,7 @@ A credential, a session, and a one-time token are deliberately not modelled
 as aggregates. None of their rows carries a cross-field invariant a
 construction path would need to validate; each is a state machine on one to
 three timestamp columns, guarded by the write itself rather than by a domain
-object. See
-[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md) for the
-mechanism and why a persistence factory was rejected.
+object.
 
 Passwords are hashed with argon2id at
 [`Argon2PasswordHasher`](../../src/identity/infrastructure/adapters/argon2-password.hasher.ts)'s
@@ -94,9 +91,8 @@ else runs.
 
 Authentication and authorization are different concerns here, and only the
 first is built for `/users`: any authenticated caller may act on any user, and
-`GET /users` lists everyone with no ownership filter and no role check. See
-[ADR 0015](../adr/0015-authentication-without-authorization.md) for why, and
-what would change it. The two session endpoints are the one exception:
+`GET /users` lists everyone with no ownership filter and no role check. The two
+session endpoints are the one exception:
 `GET /auth/sessions` lists only the caller's own sessions and
 `DELETE /auth/sessions/:id` revokes only the caller's own, because the
 repository predicate carries `user_id = caller` rather than a handler
@@ -126,12 +122,8 @@ on every request, so there is no issued credential left to outlive its
 revocation. The cost is one write per authenticated request, since the same
 statement that checks liveness also moves `last_seen_at`;
 `SESSION_IDLE_TTL_DAYS` and `SESSION_ABSOLUTE_TTL_DAYS` bound how long an
-untouched or a very old session stays live. See
-[ADR 0020](../adr/0020-server-side-sessions-replace-jwts.md) for the
-credential model and
-[ADR 0021](../adr/0021-cookie-transport-with-lax-and-origin-check.md) for
-the cookie and the Origin check, including the constraint that the frontend
-be same-site with the API.
+untouched or a very old session stays live. The cookie transport requires the
+frontend to be same-site with the API.
 
 ## Ports and adapters
 
@@ -152,11 +144,9 @@ and bound to adapters in
 
 `UserWriteRepository.register` replaced the old `add`: it writes the user,
 its credential, and its first email-verification token in one transaction,
-so a partial account is never persisted (see
-[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md)).
+so a partial account is never persisted.
 `UserWriteRepository.replaceProfile` replaced `replace`: it can never raise a
-duplicate-email conflict, because email is not among the fields it writes
-(see [ADR 0014](../adr/0014-email-is-immutable-after-registration.md)).
+duplicate-email conflict, because email is not among the fields it writes.
 
 Each port has one contract suite with two bindings, one per implementation,
 fourteen binding files in total. The mechanism, and why a fake is held to the
@@ -267,8 +257,7 @@ Walking each hop:
   on.
 - Only once that transaction commits does the handler call
   `EmailSender.sendEmailVerification`; a rejected send is logged and does
-  not fail the request or undo the write (see
-  [ADR 0018](../adr/0018-mail-sent-inline-after-commit.md)).
+  not fail the request or undo the write.
 - On the success path the handler returns only the new id, never the
   aggregate, and the controller sets a `Location` header before the
   framework serialises a 201.
@@ -368,9 +357,8 @@ sequenceDiagram
 
 The guard dispatches a command rather than calling the port because hashing
 the presented token is `SecretToken.hashOf`, a domain operation presentation
-may not perform. The `UPDATE` is guarded in the sense of
-[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md): a session revoked
-between two requests cannot be extended by the second, because the revocation
+may not perform. The `UPDATE` is guarded: a session revoked between two
+requests cannot be extended by the second, because the revocation
 changed the row the guard tests. Unknown, revoked, idle-expired and absolutely
 expired all answer the same 401, since telling a forger which check failed is
 a gift.
@@ -421,14 +409,12 @@ produces `CONSTRAINT "users_email_unique" UNIQUE("email")` in
 matches that exact string on a `23505` error. A fork whose schema tool names
 the constraint anything else still rejects the duplicate insert; the
 detection just stops recognising it, so the raw driver error escapes as a
-500 where a 409 was expected, the same failure shape
-[ADR 0003](../adr/0003-sku-uniqueness-arbitrated-by-the-database.md) records
-for SKU. `updated_at` is moved by the `users_set_updated_at` trigger in
+500 where a 409 was expected, the same failure shape as catalogue's SKU
+coupling. `updated_at` is moved by the `users_set_updated_at` trigger in
 [`0004_users_updated_at_trigger.sql`](../../drizzle/0004_users_updated_at_trigger.sql),
 not by application code, and no snapshot records that the trigger exists; a
 fork that keeps the column but omits the trigger leaves it frozen at insert
-time with no error anywhere. [ADR 0009](../adr/0009-postgres-owns-updated-at.md)
-records why the database owns the column.
+time with no error anywhere.
 
 Two couplings are new with authentication. The `token_purpose` Postgres enum
 in
@@ -447,8 +433,7 @@ only
 wrapping all three inserts in one transaction does. A fork whose adapter
 drops that transaction, issuing three separate inserts instead, can persist
 a `users` row with no matching `credentials` row, and that user can never
-log in again, with no error anywhere to surface the gap; see
-[ADR 0013](../adr/0013-guarded-writes-never-rehydration.md).
+log in again, with no error anywhere to surface the gap.
 
 Three couplings are new with sessions. `sessions.token_hash` is `varchar(64)`
 and must stay equal to `TokenHash.LENGTH`, the same by-hand coupling
@@ -456,17 +441,15 @@ and must stay equal to `TokenHash.LENGTH`, the same by-hand coupling
 `sessions.ip_address` are `text` on purpose, so there is no column length for
 [`originOf`](../../src/identity/presentation/request-origin.ts)'s ceilings to
 drift from. Liveness has no column at all: a fork that adds an `expires_at`
-and computes it once at login reintroduces the frozen-TTL behaviour
-[ADR 0020](../adr/0020-server-side-sessions-replace-jwts.md) rejects, with
-nothing failing to say so.
+and computes it once at login reintroduces frozen-TTL behaviour, with nothing
+failing to say so.
 
 `credentials` has no `updated_at` column and therefore no trigger, and that
 absence is deliberate, not an oversight of the `updated_at` coupling above:
 nothing reads a mutation timestamp for a credential, and the comment on
 [`credentials.schema.ts`](../../src/shared/infrastructure/database/postgres/schema/credentials.schema.ts)
-states this directly so the missing trigger is not mistaken for the
-[ADR 0009](../adr/0009-postgres-owns-updated-at.md) hazard the two
-`updated_at` couplings above describe.
+states this directly so the missing trigger is not mistaken for the hazard the
+two `updated_at` couplings above describe.
 
 `Password`, `PasswordAttempt`, and `SecretToken` redact themselves when
 serialised, which stops a logged aggregate or read model from carrying one in

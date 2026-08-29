@@ -16,7 +16,7 @@ import {
 
 /**
  * Every write here is a single guarded statement rather than a read followed by
- * a write, so two concurrent callers cannot both pass a check. See ADR 0013.
+ * a write, so two concurrent callers cannot both pass a check.
  */
 @Injectable()
 export class DrizzleCredentialRepository implements CredentialRepository {

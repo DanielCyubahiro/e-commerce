@@ -633,7 +633,7 @@ describe('auth HTTP contract', () => {
 
     it('answers 404 for another user’s session, and leaves it live', async () => {
       // The first ownership rule in this API, enforced by the repository
-      // predicate rather than a comparison in a handler; see ADR 0015.
+      // predicate rather than a comparison in a handler.
       const mine = await loginViaHttp('Firefox/142');
       const theirs = await seedSessionCookie(sessions, {
         userId: OTHER_USER_ID,

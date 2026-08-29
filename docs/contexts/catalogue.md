@@ -190,8 +190,6 @@ tool name it anything else still rejects the duplicate insert at the database;
 the duplicate-detection code just stops recognising it, so the raw driver error
 escapes. The client gets a 500 from `UnhandledExceptionFilter` where it should
 get a 409, and the gap only shows up under concurrent writes.
-[ADR 0003](../adr/0003-sku-uniqueness-arbitrated-by-the-database.md) records why
-detection catches the violation rather than pre-checking.
 
 A second coupling fails just as silently. `updated_at` is moved by the
 `products_set_updated_at` trigger in
@@ -200,8 +198,6 @@ not by application code, and no snapshot or schema file records that the
 trigger exists. A fork that keeps the `updated_at` column but omits the
 trigger leaves it frozen at insert time: no error anywhere, the same failure
 shape as the constraint-name coupling above.
-[ADR 0009](../adr/0009-postgres-owns-updated-at.md) records why the database
-owns the column instead of the write adapter.
 
 `products_stock_non_negative`, the check constraint on `stock`, is the
 backstop behind the allocator's `stock >= $qty` guard. A fork that drops the

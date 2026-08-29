@@ -28,7 +28,7 @@ export class RegisterUserDto {
   /**
    * Typed `string | null` because `@IsOptional` skips validation for an
    * explicit JSON `null` as well as an absent key, so both reach the command.
-   * `User.build` collapses them identically. See ADR 0011.
+   * `User.build` collapses them identically.
    */
   @IsString()
   @IsOptional()

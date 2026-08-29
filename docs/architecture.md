@@ -35,8 +35,7 @@ Contexts are as bounded as layers. A context may import a neighbour only
 through that neighbour's `application` barrel, which is its published
 interface; its domain, adapters, and controllers are private. Catalogue
 publishes `StockAllocator` this way and ordering consumes it; nothing else
-crosses a context line. See [Published interface](./concepts.md#published-interface)
-and [ADR 0025](./adr/0025-contexts-integrate-through-published-ports.md).
+crosses a context line. See [Published interface](./concepts.md#published-interface).
 
 ### Enforcement
 
@@ -74,9 +73,7 @@ checks type, presence, and generous size ceilings, while
 owns the rules (name length, non-empty description, integer non-negative
 stock), so a rule is never written twice. See
 [Invariant](./concepts.md#invariant) in the glossary for how the two layers
-divide that work in general, and
-[ADR 0006](./adr/0006-validation-at-the-edge-versus-the-domain.md) for why the
-split is drawn where it is.
+divide that work in general.
 
 The pipeline itself is described in two files, not one.
 [`configureApp`](../src/app.config.ts) installs cookie parsing, CORS for the
@@ -190,8 +187,7 @@ The procedure:
    `OneTimeTokenRepository`, `SessionRepository`, and `EmailSender`, are the
    sharper case for matching the contract rather than the signature: a fork's
    `SessionRepository.touch` has to reproduce the guarded single-statement
-   behaviour [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md)
-   documents, not only return the same TypeScript shape. Ordering's ports and catalogue's
+   behaviour, not only return the same TypeScript shape. Ordering's ports and catalogue's
    `StockAllocator` are the sharpest cases for the contract rather than the
    signature: `allocate` has to keep its guarded per-row decrement and
    product id ordering, and `save` its version predicate, or the concurrency

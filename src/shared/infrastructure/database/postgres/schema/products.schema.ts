@@ -27,8 +27,8 @@ export const products = pgTable(
     stock: integer('stock').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
     // The products_set_updated_at trigger owns this on update, so both
-    // timestamps come from the database clock. See ADR 0009; a `$onUpdate`
-    // hook here would write the host process clock instead.
+    // timestamps come from the database clock; a `$onUpdate` hook here would
+    // write the host process clock instead.
     updatedAt: timestamp('updated_at').notNull().defaultNow(),
   },
   (table) => [

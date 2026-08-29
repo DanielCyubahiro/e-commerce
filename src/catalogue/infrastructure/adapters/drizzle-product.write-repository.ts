@@ -56,7 +56,7 @@ export class DrizzleProductWriteRepository implements ProductWriteRepository {
           // updatedAt is absent deliberately: the products_set_updated_at
           // trigger from drizzle/0002_updated_at_trigger.sql owns it, so both
           // timestamps come from the database clock. Setting it here would
-          // reintroduce the host clock. See ADR 0009.
+          // reintroduce the host clock.
         })
         .where(eq(products.id, product.id.value))
         .returning({ id: products.id });

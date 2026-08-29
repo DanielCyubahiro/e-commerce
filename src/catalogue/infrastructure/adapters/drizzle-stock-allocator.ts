@@ -17,7 +17,7 @@ import { products } from '@/shared/infrastructure/database/postgres/schema';
  * the caller's transaction. Under READ COMMITTED the UPDATE is the lock: a
  * concurrent allocation of the same product blocks on the row, then
  * re-evaluates the guard against the committed stock, so exactly the
- * affordable number of callers ever see a row come back (ADR 0013).
+ * affordable number of callers ever see a row come back.
  *
  * Holds no `DRIZZLE` handle of its own: every statement runs on the
  * transaction it is given, or it would not roll back with the order.

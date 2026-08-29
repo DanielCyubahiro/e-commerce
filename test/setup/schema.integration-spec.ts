@@ -75,7 +75,7 @@ describe('migrated test database', () => {
 
   it('moves updated_at on an update, from the database clock', async () => {
     // Both timestamps have to come from one clock for this comparison to mean
-    // anything, which is the whole point of ADR 0009.
+    // anything.
     const db = testDb();
     await db.execute(sql`
       INSERT INTO products (id, name, description, price_amount, sku)
@@ -347,7 +347,7 @@ describe('migrated test database', () => {
 
   it('carries no trigger on credentials, deliberately', async () => {
     // credentials has no updated_at, so it needs no trigger. Asserted so the
-    // absence reads as a decision rather than the fork hazard in ADR 0009.
+    // absence reads as a decision rather than a fork hazard.
     const rows = await testDb().execute<{ tgname: string }>(sql`
       SELECT tgname FROM pg_trigger
       WHERE tgrelid = 'credentials'::regclass AND NOT tgisinternal

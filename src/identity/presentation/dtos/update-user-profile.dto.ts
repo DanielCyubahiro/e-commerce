@@ -4,7 +4,7 @@ import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
  * Carries the three mutable fields `PUT /users/:id` may replace. `email` is
  * deliberately absent, not merely unvalidated: it is immutable after
  * registration, and `forbidNonWhitelisted` turns a client that sends one into
- * a 400 rather than a silently ignored field. See ADR 0014. `role` is absent
+ * a 400 rather than a silently ignored field. `role` is absent
  * for the same reason: an endpoint that branches on `seller` cannot let a
  * caller set it.
  *
@@ -27,7 +27,7 @@ export class UpdateUserProfileDto {
   /**
    * Typed `string | null` because `@IsOptional` skips validation for an
    * explicit JSON `null` as well as an absent key, so both reach the command.
-   * `UserProfile.create` collapses them identically. See ADR 0011.
+   * `UserProfile.create` collapses them identically.
    */
   @IsString()
   @IsOptional()

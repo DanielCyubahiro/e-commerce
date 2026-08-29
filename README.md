@@ -84,5 +84,4 @@ union, is only real because `pnpm build` was run.
 | How is it structured, and how do I fork it? | [docs/architecture.md](docs/architecture.md) |
 | How is it tested? | [docs/testing.md](docs/testing.md) |
 | How do I try the API by hand? | [postman/README.md](postman/README.md) |
-| Why was it built this way? | [docs/adr/](docs/adr/) |
 | Rules for agents working here | [AGENTS.md](AGENTS.md) |

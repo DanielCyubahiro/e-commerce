@@ -16,7 +16,7 @@ export const orderLines = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: 'cascade' }),
     // No foreign key: the line is a snapshot of what was sold and must survive
-    // the product's deletion. See ADR 0007's revisit.
+    // the product's deletion.
     productId: uuid('product_id').notNull(),
     // Must stay equal to products.sku and Sku.MAX_LENGTH.
     sku: varchar('sku', { length: 50 }).notNull(),
@@ -29,7 +29,7 @@ export const orderLines = pgTable(
     lineTotalAmount: integer('line_total_amount').notNull(),
   },
   (table) => [
-    // "No product twice on one order" is database-arbitrated, ADR 0003's stance.
+    // "No product twice on one order" is database-arbitrated.
     primaryKey({ columns: [table.orderId, table.productId] }),
     // Quantity's domain minimum is 1; this is the backstop for a writer that
     // bypasses the domain.

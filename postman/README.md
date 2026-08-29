@@ -14,7 +14,6 @@ environment they share:
 **These files are the source of truth.** The copies in the Postman cloud are
 published from here with `pnpm postman:push`; an edit made in the app is
 overwritten by the next push. Change the file, push, then use the app.
-Why, and what was rejected: [ADR 0022](../docs/adr/0022-postman-collections-in-the-repo.md).
 
 ## Running
 

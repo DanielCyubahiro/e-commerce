@@ -15,7 +15,7 @@ export interface UserInput extends UserProfileInput {
  * A user is an identity, an email address, a role, and a profile. `create` is
  * the only constructor, and there is no `replace`: email and role are both
  * immutable through the API, so an update replaces a `UserProfile` and never a
- * `User`. ADR 0014 records why for email; ADR 0023 records why for role.
+ * `User`.
  *
  * Every invariant is owned by the value object it belongs to, so nothing
  * downstream re-checks.

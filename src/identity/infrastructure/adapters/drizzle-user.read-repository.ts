@@ -114,7 +114,7 @@ export class DrizzleUserReadRepository implements UserReadRepository {
     return conditions;
   }
 
-  /** Absence stays `null` here; see ADR 0011. */
+  /** Absence stays `null` here. */
   private static project(row: UserRow): UserReadModel {
     return {
       id: row.id,

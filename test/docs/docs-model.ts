@@ -29,11 +29,11 @@ export interface DocPage {
 
 /**
  * What `readDocsModel` reads in one pass: `src/` for contexts, and every
- * markdown page with its links. `readGlossary` and `readAdrIndex` are
- * separate readers that re-read their own files directly rather than drawing
- * on this model. `contexts` is every directory under `src/` that has its own
- * `domain/` layer, excluding the shared kernel; it is not a fixed name list,
- * so a new bounded context appears here the moment that layer exists.
+ * markdown page with its links. `readGlossary` is a separate reader that
+ * re-reads its own file directly rather than drawing on this model.
+ * `contexts` is every directory under `src/` that has its own `domain/`
+ * layer, excluding the shared kernel; it is not a fixed name list, so a new
+ * bounded context appears here the moment that layer exists.
  */
 export interface DocsModel {
   contexts: string[];
@@ -186,25 +186,4 @@ export function readGlossary(): GlossaryEntry[] {
           ),
       };
     });
-}
-
-/**
- * `files` is every numbered ADR on disk; `indexed` is every ADR any link in
- * `docs/adr/README.md` points at, table or prose, not only the summary
- * table's own rows. Both are bare filenames, sorted, so a mismatch reads as a
- * plain set difference in either direction.
- */
-export function readAdrIndex(): { files: string[]; indexed: string[] } {
-  const dir = join(REPO_ROOT, 'docs/adr');
-  const files = readdirSync(dir)
-    .filter((name) => /^\d{4}-.+\.md$/.test(name))
-    .sort();
-
-  const index = readFileSync(join(dir, 'README.md'), 'utf8');
-  const indexed = [...index.matchAll(LINK)]
-    .map((match) => match[2].trim())
-    .filter((target) => /^\d{4}-.+\.md$/.test(target))
-    .sort();
-
-  return { files, indexed };
 }

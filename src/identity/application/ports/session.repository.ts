@@ -32,8 +32,8 @@ export interface AuthenticatedSession {
 }
 
 /**
- * A session is a state machine on three timestamps, not an aggregate (ADR
- * 0013): every transition below is one guarded statement, and liveness is
+ * A session is a state machine on three timestamps, not an aggregate: every
+ * transition below is one guarded statement, and liveness is
  * computed from `last_seen_at`, `created_at` and the configured lifetimes at
  * query time, never stored. Implementations receive `TokenLifetimes` by
  * constructor so callers pass only `now`.

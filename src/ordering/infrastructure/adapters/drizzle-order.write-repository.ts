@@ -155,10 +155,10 @@ export class DrizzleOrderWriteRepository implements OrderWriteRepository {
   }
 
   /**
-   * The version predicate is the whole concurrency story (ADR 0013's guard,
-   * applied to an aggregate): a save against a row someone else moved first
-   * matches nothing and reports `'conflict'`. `updated_at` is absent on
-   * purpose, the orders_set_updated_at trigger owns it (ADR 0009).
+   * The version predicate is the whole concurrency story: a save against a
+   * row someone else moved first matches nothing and reports `'conflict'`.
+   * `updated_at` is absent on purpose, the orders_set_updated_at trigger owns
+   * it.
    */
   async save(order: Order, tx?: Transaction): Promise<SaveOutcome> {
     const db: DrizzleExecutor = tx ? asDrizzleTransaction(tx) : this.db;

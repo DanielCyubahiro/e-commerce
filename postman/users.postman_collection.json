@@ -422,7 +422,7 @@
             "{{userId}}"
           ]
         },
-        "description": "Replaces the whole user. `email` is deliberately absent from the payload: it is immutable after registration, and sending it answers 400 from `forbidNonWhitelisted` rather than being silently ignored (ADR 0014)."
+        "description": "Replaces the whole user. `email` is deliberately absent from the payload: it is immutable after registration, and sending it answers 400 from `forbidNonWhitelisted` rather than being silently ignored."
       },
       "response": []
     },

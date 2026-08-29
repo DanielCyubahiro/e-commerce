@@ -47,7 +47,7 @@ describe('User', () => {
 
   it('has exactly one construction path, so no unvalidated user exists', () => {
     // `replace` is gone: an update replaces a UserProfile, not a User, because
-    // email is no longer replaceable. See ADR 0014.
+    // email is no longer replaceable.
     expect('replace' in User).toBe(false);
   });
 

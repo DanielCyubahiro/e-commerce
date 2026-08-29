@@ -63,7 +63,7 @@ describe('DrizzleUserWriteRepository, beyond the shared contract', () => {
     `);
 
     // The adapter never sets updated_at; a fork that drops the trigger leaves
-    // it frozen here with no error anywhere. See ADR 0009.
+    // it frozen here with no error anywhere.
     expect(rows[0]?.moved).toBe(true);
   });
 

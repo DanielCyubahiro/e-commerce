@@ -5,14 +5,13 @@ export const CREDENTIAL_REPOSITORY = Symbol('CREDENTIAL_REPOSITORY');
 /**
  * Everything login needs about an account, in one lookup. A projection rather
  * than an aggregate: none of these fields carries an invariant a stored row
- * could violate, so there is nothing for a construction path to validate. See
- * ADR 0013.
+ * could violate, so there is nothing for a construction path to validate.
  *
  * `role` is the raw stored string, following `UserReadRepository`'s reasoning:
  * nothing branches on it, it goes straight into a token claim, so parsing it
  * through `UserRole` would buy nothing.
  *
- * `emailVerifiedAt` is `null` for an unverified account; see ADR 0011.
+ * `emailVerifiedAt` is `null` for an unverified account.
  */
 export interface AuthenticationRecord {
   userId: string;

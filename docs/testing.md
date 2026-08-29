@@ -103,9 +103,7 @@ implementation. Adding a case to the contract, or a method to the port,
 breaks every binding at once until each implementation covers it, which is
 what stops a fake from drifting away from the real adapter unnoticed. See
 [Contract test](./concepts.md#contract-test) in the glossary for why this
-counts as a contract test rather than an ordinary shared test helper, and
-[ADR 0005](./adr/0005-contract-tests-bind-to-every-adapter.md) for why the
-mechanism exists at all.
+counts as a contract test rather than an ordinary shared test helper.
 
 The email-sender contract's adapter binding starts its own Mailpit container
 in a `beforeAll` rather than in the `integration` project's `globalSetup`

@@ -18,7 +18,7 @@ export class UserResponseDto {
   /**
    * `phone` stays `null` rather than being omitted, so every user on the wire
    * carries the same key set and "no phone" never looks like "this endpoint
-   * does not return phone". See ADR 0011.
+   * does not return phone".
    */
   static fromReadModel(model: UserReadModel): UserResponseDto {
     const dto = new UserResponseDto();

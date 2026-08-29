@@ -28,7 +28,7 @@ export const orders = pgTable(
     id: uuid('id').primaryKey(),
     // Store-assigned and never on the aggregate: the domain mints `id`, the
     // database assigns `number` at insert, the same ownership split as
-    // updated_at (ADR 0009). Sequential, so it leaks order volume; accepted.
+    // updated_at. Sequential, so it leaks order volume; accepted.
     number: bigint('number', { mode: 'number' })
       .unique()
       .generatedAlwaysAsIdentity(),
@@ -63,7 +63,7 @@ export const orders = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
-    // The orders_set_updated_at trigger owns this on update. See ADR 0009.
+    // The orders_set_updated_at trigger owns this on update.
     updatedAt: timestamp('updated_at', { withTimezone: true })
       .notNull()
       .defaultNow(),

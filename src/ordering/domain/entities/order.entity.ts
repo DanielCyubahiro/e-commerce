@@ -49,7 +49,7 @@ export interface OrderState {
  *
  * `version` is read by the repository's guarded `save` and never changed
  * here: the store increments it, the aggregate only carries what it loaded.
- * `createdAt` and `updatedAt` are not here at all (ADR 0009).
+ * `createdAt` and `updatedAt` are not here at all.
  */
 export class Order extends AggregateRoot<OrderId> {
   static readonly MIN_LINES = 1;

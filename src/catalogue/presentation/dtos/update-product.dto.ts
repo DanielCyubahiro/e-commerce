@@ -10,7 +10,7 @@ import {
  * The replace payload: the same shape rules as `CreateProductDto`, with one
  * deliberate difference. `currency` is required here: under replace, an
  * omitted field overwrites what is stored, so create's EUR default would
- * silently convert a USD product. See ADR 0008.
+ * silently convert a USD product.
  *
  * The 1000/10000/200 ceilings on name, description, and sku duplicate
  * `CreateProductDto`'s; nothing enforces the two stay equal.

@@ -33,7 +33,7 @@ describe('UpdateUserHandler', () => {
     const replaced = repository.snapshot()[0];
     expect(replaced?.profile.firstName).toBe('Grace');
     expect(replaced?.role.value).toBe('customer');
-    // An omitted phone clears it: PUT replaces, it never merges. See ADR 0008.
+    // An omitted phone clears it: PUT replaces, it never merges.
     expect(replaced?.profile.phone).toBeNull();
   });
 

@@ -50,7 +50,7 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
           userId: user.id.value,
           passwordHash: passwordHash.value,
           // emailVerifiedAt is left at NULL: a new account is unverified, and
-          // NULL is the only spelling of that. See ADR 0011.
+          // NULL is the only spelling of that.
         });
 
         await tx.insert(oneTimeTokens).values({
@@ -80,7 +80,7 @@ export class DrizzleUserWriteRepository implements UserWriteRepository {
         lastName: profile.lastName,
         phone: profile.phone?.value ?? null,
         // updatedAt is absent deliberately: the users_set_updated_at trigger
-        // owns it, so both timestamps come from the database clock. See ADR 0009.
+        // owns it, so both timestamps come from the database clock.
       })
       .where(eq(users.id, id.value))
       .returning({ id: users.id });

@@ -6,7 +6,7 @@ import {
 /**
  * `line2` and `region` accept three spellings of absence because the edge
  * produces all three; a value that is blank after trimming counts as absent
- * too. The tolerance ends in `create`, which stores `null`. See ADR 0011.
+ * too. The tolerance ends in `create`, which stores `null`.
  */
 export interface ShippingAddressInput {
   recipientName: string;

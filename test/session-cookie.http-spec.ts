@@ -103,7 +103,7 @@ describe.each([
     expect(empty.body).toEqual({ token: null });
   });
 
-  it('writes one cookie with every attribute ADR 0021 fixes', async () => {
+  it('writes one cookie with every fixed attribute', async () => {
     const [cookie, ...rest] = setCookiesOf(
       await request(app.getHttpServer()).post('/probe/write').expect(204),
     );

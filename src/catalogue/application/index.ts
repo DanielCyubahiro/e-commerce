@@ -9,6 +9,15 @@ export {
   PRODUCT_WRITE_REPOSITORY,
   type ProductWriteRepository,
 } from './ports/product.write-repository';
+export {
+  type AllocatedLine,
+  type AllocationOutcome,
+  type AllocationRequest,
+  inProductIdOrder,
+  type Shortfall,
+  STOCK_ALLOCATOR,
+  type StockAllocator,
+} from './ports/stock-allocator';
 export type { ProductReadModel } from './read-models/product.read-model';
 export { CreateProductCommand } from './use-cases/commands/create-product/create-product.command';
 export { CreateProductHandler } from './use-cases/commands/create-product/create-product.handler';

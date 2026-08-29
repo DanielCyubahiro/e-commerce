@@ -23,6 +23,12 @@ invalid `Product` is still never representable:
 - Price: [`Money.fromDecimal`](../../src/shared/domain/value-objects/money.vo.ts)
   from the shared kernel, stored as an integer count of minor units.
 
+Catalogue also publishes one capability to other contexts,
+[`StockAllocator`](../../src/catalogue/application/ports/stock-allocator.ts):
+`allocate` decrements stock in one guarded statement per product and returns
+the product snapshot with it, `release` adds stock back. Ordering consumes it
+inside its own transaction; nothing in catalogue calls it.
+
 ## Endpoints
 
 All five live on
@@ -48,6 +54,7 @@ bound to adapters in
 | --- | --- | --- |
 | [`PRODUCT_READ_REPOSITORY`](../../src/catalogue/application/ports/product.read-repository.ts) | `ProductReadRepository` | [`DrizzleProductReadRepository`](../../src/catalogue/infrastructure/adapters/drizzle-product.read-repository.ts) |
 | [`PRODUCT_WRITE_REPOSITORY`](../../src/catalogue/application/ports/product.write-repository.ts) | `ProductWriteRepository` | [`DrizzleProductWriteRepository`](../../src/catalogue/infrastructure/adapters/drizzle-product.write-repository.ts) |
+| [`STOCK_ALLOCATOR`](../../src/catalogue/application/ports/stock-allocator.ts) | `StockAllocator` | [`DrizzleStockAllocator`](../../src/catalogue/infrastructure/adapters/drizzle-stock-allocator.ts) |
 
 Each port has one contract suite with two bindings, one per implementation. The
 mechanism, and why a fake is held to the same suite as the adapter, is in
@@ -57,6 +64,7 @@ mechanism, and why a fake is held to the same suite as the adapter, is in
 | --- | --- | --- |
 | [`productWriteRepositoryContract`](../../test/contracts/product-write-repository.contract.ts) | [`product-write-repository.spec.ts`](../../test/contracts/product-write-repository.spec.ts) | [`product-write-repository.integration-spec.ts`](../../test/contracts/product-write-repository.integration-spec.ts) |
 | [`productReadRepositoryContract`](../../test/contracts/product-read-repository.contract.ts) | [`product-read-repository.spec.ts`](../../test/contracts/product-read-repository.spec.ts) | [`product-read-repository.integration-spec.ts`](../../test/contracts/product-read-repository.integration-spec.ts) |
+| [`stockAllocatorContract`](../../test/contracts/stock-allocator.contract.ts) | [`stock-allocator.spec.ts`](../../test/contracts/stock-allocator.spec.ts) | [`stock-allocator.integration-spec.ts`](../../test/contracts/stock-allocator.integration-spec.ts) |
 
 Each fake binding constructs one in-memory repository:
 [`InMemoryProductWriteRepository`](../../test/fakes/in-memory-product-write.repository.ts)
@@ -72,6 +80,10 @@ connection.
 Failure modes a fake cannot reproduce, such as a column type rejecting a value
 Postgres cannot store, are covered outside the shared contract in
 [`drizzle-product-write.integration-spec.ts`](../../test/contracts/drizzle-product-write.integration-spec.ts).
+The allocator's two concurrency properties, no oversell and no deadlock, are
+likewise adapter-only, in
+[`drizzle-stock-allocator.integration-spec.ts`](../../test/contracts/drizzle-stock-allocator.integration-spec.ts):
+the fake is single-threaded and cannot exhibit either.
 
 ## Request lifecycle
 
@@ -190,3 +202,12 @@ trigger leaves it frozen at insert time: no error anywhere, the same failure
 shape as the constraint-name coupling above.
 [ADR 0009](../adr/0009-postgres-owns-updated-at.md) records why the database
 owns the column instead of the write adapter.
+
+`products_stock_non_negative`, the check constraint on `stock`, is the
+backstop behind the allocator's `stock >= $qty` guard. A fork that drops the
+check keeps the guard and so keeps correctness, but loses the property that
+negative stock is unrepresentable for any writer that bypasses the port.
+[`DrizzleStockAllocator`](../../src/catalogue/infrastructure/adapters/drizzle-stock-allocator.ts)
+also sorts requests by product id before touching a row; a fork that
+processes them in request order deadlocks under concurrent orders that share
+products.

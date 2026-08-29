@@ -5,10 +5,12 @@ import {
   PRODUCT_READ_REPOSITORY,
   PRODUCT_WRITE_REPOSITORY,
   queryHandlers,
+  STOCK_ALLOCATOR,
 } from './application';
 import {
   DrizzleProductReadRepository,
   DrizzleProductWriteRepository,
+  DrizzleStockAllocator,
 } from './infrastructure';
 import { ProductController } from './presentation/product.controller';
 
@@ -19,6 +21,9 @@ import { ProductController } from './presentation/product.controller';
  * module does not provide, so a fork still needs its own client and token
  * wired into an `@Global()` module registered in src/app.module.ts. See the
  * fork seam in docs/architecture.md.
+ *
+ * `STOCK_ALLOCATOR` is the one token this module exports: it is catalogue's
+ * published interface, consumed by `OrderingModule`.
  */
 @Module({
   imports: [CqrsModule],
@@ -34,6 +39,11 @@ import { ProductController } from './presentation/product.controller';
       provide: PRODUCT_READ_REPOSITORY,
       useClass: DrizzleProductReadRepository,
     },
+    {
+      provide: STOCK_ALLOCATOR,
+      useClass: DrizzleStockAllocator,
+    },
   ],
+  exports: [STOCK_ALLOCATOR],
 })
 export class CatalogueModule {}

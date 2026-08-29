@@ -1,7 +1,7 @@
 # Ordering
 
-The ordering context: placing an order against the catalogue, moving it
-through its lifecycle, and reading it back. Layer rules, the error mechanism,
+The ordering context: one aggregate, seven endpoints, two ports of its own
+plus one it consumes from catalogue. Layer rules, the error mechanism,
 and the generic fork procedure live in
 [`docs/architecture.md`](../architecture.md); this file carries only what is
 specific to `src/ordering/`.
@@ -15,6 +15,10 @@ way one comes into being: 1 to 100 lines, no product twice, every line in one
 currency, and the four totals computed once (`subtotal` as the sum of line
 totals, `shippingFee` and `tax` at zero until a pricing rule exists, `total`
 as their sum).
+[`Order.checkLineRequests`](../../src/ordering/domain/entities/order.entity.ts)
+exposes the count and distinctness rules so the handler refuses an oversized
+or repeated request before any stock is locked; only the currency rule needs
+the allocation's snapshot.
 [`Order.reconstitute`](../../src/ordering/domain/entities/order.entity.ts) is
 the persistence factory, taking value objects rather than primitives so each
 value's own rule re-runs on the way back in. Four behaviours,
@@ -119,6 +123,7 @@ sequenceDiagram
     V->>Ctl: PlaceOrderDto
     Ctl->>H: PlaceOrderCommand
     H->>H: OrderLineRequest.create per line (quantity rule)
+    H->>H: Order.checkLineRequests (count, no product twice)
     H->>P: findIdByIdempotencyKey (when a key was sent)
     alt key already placed
         P-->>H: existing id

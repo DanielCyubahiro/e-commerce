@@ -114,6 +114,21 @@ the only test that needs Mailpit, and provisioning it globally would make
 every other integration suite pay a second container's startup cost for a
 dependency it never touches.
 
+Two contracts need a transaction to run their port at all. The unit-of-work
+contract's harness carries `writeRow(tx)` and `rowCount()` so the suite can
+prove a rolled-back write left nothing, against Postgres and against
+[`FakeUnitOfWork`](../test/fakes/fake-unit-of-work.ts) alike. The fake rolls
+back by snapshot: every participant implements
+[`Snapshottable`](../test/fakes/snapshottable.ts), is captured before `work`
+runs, and is restored if it throws. That is what lets a handler spec assert
+"stock is unchanged after a rejected placement" against fakes and mean the
+same thing it means against the adapter. The fake is not safe under
+concurrent `run` calls (a restore would put back a capture older than another
+run's commit), so handler specs drive one command at a time and the two
+properties that need real concurrency, no oversell and no deadlock in the
+stock allocator, live in `integration` only, in
+[`drizzle-stock-allocator.integration-spec.ts`](../test/contracts/drizzle-stock-allocator.integration-spec.ts).
+
 Harness shape follows what a contract's own port needs, not a shape every
 contract shares. A write harness needs only one repository:
 

@@ -297,3 +297,68 @@ status code by accident.
 
 Canonical source: Eric Evans, *Domain-Driven Design* (invariants); on mapping
 errors by architectural layer, Robert C. Martin, *Clean Architecture*.
+
+### Unit of work
+
+A unit of work runs the writes of one use case inside one transaction, so
+they commit or roll back together. This codebase adds one only where two
+ports must be atomic; a single guarded statement takes none, and nesting is
+rejected rather than silently opening a second transaction.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| shared | [`UnitOfWork`](../src/shared/application/unit-of-work.ts), [`DrizzleUnitOfWork`](../src/shared/infrastructure/database/postgres/drizzle-unit-of-work.ts) | the port hands out an opaque `Transaction`; `asDrizzleTransaction` in shared infrastructure is the only place it is unwrapped |
+| catalogue | [`StockAllocator`](../src/catalogue/application/ports/stock-allocator.ts) | a participant, never an owner: both methods take the caller's transaction and open none |
+| identity | none | every write is one statement or one adapter-local transaction (`register`); see [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) |
+| ordering | [`PlaceOrderHandler`](../src/ordering/application/use-cases/commands/place-order/place-order.handler.ts), [`CancelOrderHandler`](../src/ordering/application/use-cases/commands/cancel-order/cancel-order.handler.ts) | the two handlers that write through two ports; pay, ship, and deliver do not take one |
+
+Canonical source: Martin Fowler, *Patterns of Enterprise Application
+Architecture*, "Unit of Work".
+
+### Optimistic concurrency
+
+Optimistic concurrency lets two callers load the same row and makes the save
+decide: the write matches on the version it loaded and increments it, so the
+second save matches nothing and reports a conflict instead of overwriting.
+Load-modify-save is only a race when the save has no such guard.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| catalogue | none | `PUT /products/:id` is last-write-wins by decision; see [ADR 0008](./adr/0008-update-replaces-without-rehydration.md) |
+| identity | none | guarded single statements need no version; see [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) |
+| ordering | [`DrizzleOrderWriteRepository.save`](../src/ordering/infrastructure/adapters/drizzle-order.write-repository.ts) | `WHERE version = $expected`, returning `'conflict'` on zero rows; `Order.version` is carried, never changed, by the aggregate |
+
+Canonical source: Martin Fowler, *Patterns of Enterprise Application
+Architecture*, "Optimistic Offline Lock".
+
+### Reconstitution
+
+Reconstitution rebuilds an aggregate from stored data through a persistence
+factory that trusts what the store holds was valid when written, so behaviour
+can be invoked on it. Here the factory still takes value objects, so each
+value's own rule re-runs; only the collection rules are trusted.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| catalogue | none | replace without rehydration; see [ADR 0008](./adr/0008-update-replaces-without-rehydration.md) |
+| identity | none | no aggregate is loaded after creation; see [ADR 0013](./adr/0013-guarded-writes-never-rehydration.md) |
+| ordering | [`Order.reconstitute`](../src/ordering/domain/entities/order.entity.ts), [`DrizzleOrderWriteRepository.findById`](../src/ordering/infrastructure/adapters/drizzle-order.write-repository.ts) | used by the write adapter's `findById` and by nothing else; queries still project read models ([ADR 0002](./adr/0002-read-write-split-without-rehydration.md)) |
+
+Canonical source: Vaughn Vernon, *Implementing Domain-Driven Design*, Ch. 12,
+"Repositories".
+
+### Published interface
+
+A published interface is the part of a bounded context another context may
+depend on: here, its application barrel (ports, injection tokens, outcome
+types). Everything else in the context is private, and ESLint enforces the
+boundary for every pair of contexts.
+
+| Location | Instance | What's specific here |
+| --- | --- | --- |
+| catalogue | [`STOCK_ALLOCATOR`](../src/catalogue/application/ports/stock-allocator.ts) | the one token `CatalogueModule` exports; catalogue itself never calls it |
+| identity | none | identity publishes nothing to another context; the caller's claims reach ordering on the request, through the shared kernel's `AuthenticatedUser` |
+| ordering | none | a consumer only: it imports `@/catalogue/application` and models the result in its own value objects |
+
+Canonical source: Eric Evans, *Domain-Driven Design*, Part IV, "Published
+Language" and "Customer/Supplier".

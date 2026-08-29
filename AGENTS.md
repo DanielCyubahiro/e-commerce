@@ -67,6 +67,17 @@ and no factory, so `toThrow` would actually compile against it, but
   one-time token's consumption are each one `UPDATE ... WHERE <precondition>`,
   never a read followed by a check followed by a write. See
   [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
+- **Cross-context calls go through a published port.** Ordering never reads
+  `products`; it calls catalogue's `StockAllocator` on its own transaction.
+  A context may import a neighbour only through that neighbour's
+  `application` barrel, and `pnpm lint` enforces it. See
+  [ADR 0025](docs/adr/0025-contexts-integrate-through-published-ports.md).
+- **Aggregates with a lifecycle are reconstituted; counters and tokens are
+  guarded statements.** `Order` is loaded through `findById`, moved by a
+  method, and saved under `WHERE version = $expected`; `products.stock` and
+  every token row are moved by one `UPDATE ... WHERE <precondition>`. See
+  [ADR 0027](docs/adr/0027-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
+  and [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md).
 
 ## Docs that must change with the code
 
@@ -164,3 +175,4 @@ in for a fix, or write an `@param` that retypes the parameter list.
 | "This context has no read model, so I will leave the row out" | A missing row and a forgotten edit are indistinguishable. Write `none`. |
 | "I will load the credential, check it, then save it" | That is load-modify-save: two concurrent callers both pass the check. Guarded single statements, see [ADR 0013](docs/adr/0013-guarded-writes-never-rehydration.md). |
 | "I will update the Postman collection after the PR merges" | The collection is part of the endpoint's change. `pnpm test` is red until the route has a request, and the descriptions are reviewed in the same diff as the code. A plan puts the collection update inside the task that changes the endpoint, never in a task of its own. |
+| "Ordering can just read the products table" | That is an integration database. Call catalogue's published port, on your transaction, and let the contract keep it honest. |

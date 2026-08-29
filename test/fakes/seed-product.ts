@@ -14,13 +14,19 @@ export interface SeededProduct {
 /** Builds a product with sensible defaults, stores it in the fake, and returns the narrow handle. */
 export async function seedProduct(
   products: InMemoryProductWriteRepository,
-  overrides: { sku: string; stock: number; price?: number; name?: string },
+  overrides: {
+    sku: string;
+    stock: number;
+    price?: number;
+    name?: string;
+    currency?: string;
+  },
 ): Promise<SeededProduct> {
   const product = Product.create({
     name: overrides.name ?? `Product ${overrides.sku}`,
     description: 'Seeded for an ordering spec.',
     price: overrides.price ?? 10,
-    currency: 'EUR',
+    currency: overrides.currency ?? 'EUR',
     sku: overrides.sku,
     stock: overrides.stock,
   });

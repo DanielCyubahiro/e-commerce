@@ -47,15 +47,29 @@
     {
       "idx": 6,
       "version": "7",
-      "when": 1787664082274,
-      "tag": "0006_ordering",
+      "when": 1787646317390,
+      "tag": "0006_sessions",
       "breakpoints": true
     },
     {
       "idx": 7,
       "version": "7",
-      "when": 1787664088757,
-      "tag": "0007_orders_updated_at_trigger",
+      "when": 1787654095843,
+      "tag": "0007_drop_refresh_tokens",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1787985512714,
+      "tag": "0008_ordering",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787985512935,
+      "tag": "0009_orders_updated_at_trigger",
       "breakpoints": true
     }
   ]

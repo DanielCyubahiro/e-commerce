@@ -1,17 +1,12 @@
 export { DuplicateEmailException } from './exceptions/duplicate-email.exception';
 export { EmailNotVerifiedException } from './exceptions/email-not-verified.exception';
+export { ForbiddenOriginException } from './exceptions/forbidden-origin.exception';
 export { InvalidCredentialsException } from './exceptions/invalid-credentials.exception';
-export { InvalidRefreshTokenException } from './exceptions/invalid-refresh-token.exception';
 export { InvalidResetTokenException } from './exceptions/invalid-reset-token.exception';
 export { InvalidVerificationTokenException } from './exceptions/invalid-verification-token.exception';
+export { SessionNotFoundException } from './exceptions/session-not-found.exception';
 export { UnauthenticatedException } from './exceptions/unauthenticated.exception';
 export { UserNotFoundException } from './exceptions/user-not-found.exception';
-export {
-  ACCESS_TOKEN_ISSUER,
-  type AccessClaims,
-  type AccessTokenIssuer,
-  type IssuedAccessToken,
-} from './ports/access-token.issuer';
 export {
   CREDENTIAL_REPOSITORY,
   type AuthenticationRecord,
@@ -26,12 +21,12 @@ export {
 } from './ports/one-time-token.repository';
 export { PASSWORD_HASHER, type PasswordHasher } from './ports/password-hasher';
 export {
-  REFRESH_TOKEN_REPOSITORY,
-  type IssuedRefreshToken,
-  type RefreshSuccessor,
-  type RefreshTokenRepository,
-  type RotationOutcome,
-} from './ports/refresh-token.repository';
+  SESSION_REPOSITORY,
+  type AuthenticatedSession,
+  type NewSession,
+  type SessionOrigin,
+  type SessionRepository,
+} from './ports/session.repository';
 export {
   USER_READ_REPOSITORY,
   type UserFilters,
@@ -42,14 +37,18 @@ export {
   type Registration,
   type UserWriteRepository,
 } from './ports/user.write-repository';
+export type { SessionReadModel } from './read-models/session.read-model';
 export type { UserReadModel } from './read-models/user.read-model';
 export {
   TOKEN_LIFETIMES,
   type TokenLifetimes,
-  refreshExpiry,
   resetExpiry,
+  sessionAbsoluteCutoff,
+  sessionIdleCutoff,
   verificationExpiry,
 } from './token-lifetimes';
+export { AuthenticateSessionCommand } from './use-cases/commands/authenticate-session/authenticate-session.command';
+export { AuthenticateSessionHandler } from './use-cases/commands/authenticate-session/authenticate-session.handler';
 export { ChangePasswordCommand } from './use-cases/commands/change-password/change-password.command';
 export { ChangePasswordHandler } from './use-cases/commands/change-password/change-password.handler';
 export { DeleteUserCommand } from './use-cases/commands/delete-user/delete-user.command';
@@ -63,8 +62,6 @@ export { LogoutAllSessionsCommand } from './use-cases/commands/logout-all-sessio
 export { LogoutAllSessionsHandler } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
 export { LogoutCommand } from './use-cases/commands/logout/logout.command';
 export { LogoutHandler } from './use-cases/commands/logout/logout.handler';
-export { RefreshSessionCommand } from './use-cases/commands/refresh-session/refresh-session.command';
-export { RefreshSessionHandler } from './use-cases/commands/refresh-session/refresh-session.handler';
 export { RegisterUserCommand } from './use-cases/commands/register-user/register-user.command';
 export { RegisterUserHandler } from './use-cases/commands/register-user/register-user.handler';
 export { RequestPasswordResetCommand } from './use-cases/commands/request-password-reset/request-password-reset.command';
@@ -73,31 +70,40 @@ export { ResendVerificationCommand } from './use-cases/commands/resend-verificat
 export { ResendVerificationHandler } from './use-cases/commands/resend-verification/resend-verification.handler';
 export { ResetPasswordCommand } from './use-cases/commands/reset-password/reset-password.command';
 export { ResetPasswordHandler } from './use-cases/commands/reset-password/reset-password.handler';
+export { RevokeSessionCommand } from './use-cases/commands/revoke-session/revoke-session.command';
+export { RevokeSessionHandler } from './use-cases/commands/revoke-session/revoke-session.handler';
 export { UpdateUserCommand } from './use-cases/commands/update-user/update-user.command';
 export { UpdateUserHandler } from './use-cases/commands/update-user/update-user.handler';
 export { VerifyEmailCommand } from './use-cases/commands/verify-email/verify-email.command';
 export { VerifyEmailHandler } from './use-cases/commands/verify-email/verify-email.handler';
 export { GetUserHandler } from './use-cases/queries/get-user/get-user.handler';
 export { GetUserQuery } from './use-cases/queries/get-user/get-user.query';
+export {
+  ListSessionsHandler,
+  type ListedSession,
+} from './use-cases/queries/list-sessions/list-sessions.handler';
+export { ListSessionsQuery } from './use-cases/queries/list-sessions/list-sessions.query';
 export { ListUsersHandler } from './use-cases/queries/list-users/list-users.handler';
 export {
   ListUsersQuery,
   type ListUsersFilters,
 } from './use-cases/queries/list-users/list-users.query';
 
+import { AuthenticateSessionHandler as AuthenticateSession } from './use-cases/commands/authenticate-session/authenticate-session.handler';
 import { ChangePasswordHandler as ChangePassword } from './use-cases/commands/change-password/change-password.handler';
 import { DeleteUserHandler as DeleteUser } from './use-cases/commands/delete-user/delete-user.handler';
 import { LoginHandler as Login } from './use-cases/commands/login/login.handler';
 import { LogoutAllSessionsHandler as LogoutAllSessions } from './use-cases/commands/logout-all-sessions/logout-all-sessions.handler';
 import { LogoutHandler as Logout } from './use-cases/commands/logout/logout.handler';
-import { RefreshSessionHandler as RefreshSession } from './use-cases/commands/refresh-session/refresh-session.handler';
 import { RegisterUserHandler as RegisterUser } from './use-cases/commands/register-user/register-user.handler';
 import { RequestPasswordResetHandler as RequestPasswordReset } from './use-cases/commands/request-password-reset/request-password-reset.handler';
 import { ResendVerificationHandler as ResendVerification } from './use-cases/commands/resend-verification/resend-verification.handler';
 import { ResetPasswordHandler as ResetPassword } from './use-cases/commands/reset-password/reset-password.handler';
+import { RevokeSessionHandler as RevokeSession } from './use-cases/commands/revoke-session/revoke-session.handler';
 import { UpdateUserHandler as UpdateUser } from './use-cases/commands/update-user/update-user.handler';
 import { VerifyEmailHandler as VerifyEmail } from './use-cases/commands/verify-email/verify-email.handler';
 import { GetUserHandler as GetUser } from './use-cases/queries/get-user/get-user.handler';
+import { ListSessionsHandler as ListSessions } from './use-cases/queries/list-sessions/list-sessions.handler';
 import { ListUsersHandler as ListUsers } from './use-cases/queries/list-users/list-users.handler';
 
 export const commandHandlers = [
@@ -107,11 +113,12 @@ export const commandHandlers = [
   VerifyEmail,
   ResendVerification,
   Login,
-  RefreshSession,
+  AuthenticateSession,
   Logout,
   LogoutAllSessions,
   RequestPasswordReset,
   ResetPassword,
   ChangePassword,
+  RevokeSession,
 ];
-export const queryHandlers = [ListUsers, GetUser];
+export const queryHandlers = [ListUsers, GetUser, ListSessions];

@@ -20,3 +20,12 @@ export type {
   OrderSummaryReadModel,
   ShippingAddressReadModel,
 } from './read-models/order.read-model';
+export { CancelOrderCommand } from './use-cases/commands/cancel-order/cancel-order.command';
+export { CancelOrderHandler } from './use-cases/commands/cancel-order/cancel-order.handler';
+export { PlaceOrderCommand } from './use-cases/commands/place-order/place-order.command';
+export { PlaceOrderHandler } from './use-cases/commands/place-order/place-order.handler';
+
+import { CancelOrderHandler as CancelOrder } from './use-cases/commands/cancel-order/cancel-order.handler';
+import { PlaceOrderHandler as PlaceOrder } from './use-cases/commands/place-order/place-order.handler';
+
+export const commandHandlers = [PlaceOrder, CancelOrder];

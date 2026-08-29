@@ -2,9 +2,9 @@ import { Inject } from '@nestjs/common';
 import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs';
 import { UserId } from '@/identity/domain';
 import {
-  REFRESH_TOKEN_REPOSITORY,
-  type RefreshTokenRepository,
-} from '../../../ports/refresh-token.repository';
+  SESSION_REPOSITORY,
+  type SessionRepository,
+} from '../../../ports/session.repository';
 import { LogoutAllSessionsCommand } from './logout-all-sessions.command';
 
 /**
@@ -18,12 +18,11 @@ export class LogoutAllSessionsHandler implements ICommandHandler<
   void
 > {
   constructor(
-    @Inject(REFRESH_TOKEN_REPOSITORY)
-    private readonly refreshTokens: RefreshTokenRepository,
+    @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
   ) {}
 
   async execute(command: LogoutAllSessionsCommand): Promise<void> {
-    await this.refreshTokens.revokeAllForUser(
+    await this.sessions.revokeAllForUser(
       UserId.create(command.userId),
       new Date(),
     );

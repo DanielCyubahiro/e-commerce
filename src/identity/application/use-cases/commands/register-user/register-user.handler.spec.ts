@@ -21,9 +21,10 @@ describe('RegisterUserHandler', () => {
   let handler: RegisterUserHandler;
 
   const lifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
+    sessionIdleDays: 30,
+    sessionAbsoluteDays: 365,
   };
 
   const command = (over: { email?: string; password?: string } = {}) =>

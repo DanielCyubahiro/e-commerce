@@ -11,7 +11,6 @@ export { OneTimeTokenId } from './value-objects/one-time-token-id.vo';
 export { Password, PasswordAttempt } from './value-objects/password.vo';
 export { PasswordHash } from './value-objects/password-hash.vo';
 export { Phone } from './value-objects/phone.vo';
-export { RefreshTokenId } from './value-objects/refresh-token-id.vo';
 export { SecretToken } from './value-objects/secret-token.vo';
 export { SessionId } from './value-objects/session-id.vo';
 export { TokenHash } from './value-objects/token-hash.vo';

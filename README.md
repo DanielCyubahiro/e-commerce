@@ -26,12 +26,10 @@ pnpm db:migrate
 
 Every variable in `.env.example` is required at boot. A missing or malformed one
 aborts startup with a message naming it, rather than failing later on first
-query. `JWT_SECRET` is the one exception to having a usable default: generate
-it yourself and never commit the real value.
-
-```bash
-openssl rand -base64 48
-```
+query. There is no signing secret to generate: authentication is a server-side
+session in an `HttpOnly` cookie, and the only value that has to match your
+frontend is `WEB_BASE_URL`, which doubles as the CORS origin and the cookie's
+`Secure` switch.
 
 There is no frontend, so a verification or password-reset email has nowhere
 to land except the mailbox `docker-compose.yml` starts for local development:
@@ -63,6 +61,7 @@ UPDATE users SET role = 'seller' WHERE email = 'you@example.com';
 | `pnpm lint` | ESLint with type-aware rules |
 | `pnpm db:up` / `db:down` / `db:logs` | Local Postgres and Mongo |
 | `pnpm db:migrate` | Apply pending Drizzle migrations to that Postgres |
+| `pnpm postman:push` | Publish `postman/` to the Postman cloud (needs `POSTMAN_API_KEY`) |
 
 `start:dev` migrates before it starts watching. `start` and `start:prod` do
 not, so a database left behind a new migration answers with a 500 from the
@@ -84,5 +83,6 @@ union, is only real because `pnpm build` was run.
 | What does a given context contain? | [docs/contexts/](docs/contexts/) |
 | How is it structured, and how do I fork it? | [docs/architecture.md](docs/architecture.md) |
 | How is it tested? | [docs/testing.md](docs/testing.md) |
+| How do I try the API by hand? | [postman/README.md](postman/README.md) |
 | Why was it built this way? | [docs/adr/](docs/adr/) |
 | Rules for agents working here | [AGENTS.md](AGENTS.md) |

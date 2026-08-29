@@ -15,9 +15,9 @@ import {
   type PasswordHasher,
 } from '../../../ports/password-hasher';
 import {
-  REFRESH_TOKEN_REPOSITORY,
-  type RefreshTokenRepository,
-} from '../../../ports/refresh-token.repository';
+  SESSION_REPOSITORY,
+  type SessionRepository,
+} from '../../../ports/session.repository';
 import { InvalidCredentialsException } from '../../../exceptions/invalid-credentials.exception';
 import { ChangePasswordCommand } from './change-password.command';
 
@@ -35,8 +35,7 @@ export class ChangePasswordHandler implements ICommandHandler<
     @Inject(CREDENTIAL_REPOSITORY)
     private readonly credentials: CredentialRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
-    @Inject(REFRESH_TOKEN_REPOSITORY)
-    private readonly refreshTokens: RefreshTokenRepository,
+    @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
   ) {}
 
   async execute(command: ChangePasswordCommand): Promise<void> {
@@ -52,10 +51,10 @@ export class ChangePasswordHandler implements ICommandHandler<
 
     const stored = await this.credentials.findPasswordHash(userId);
 
-    // A valid access token proves the caller holds a token, not that they are
-    // the account owner. Requiring the current password is what stops a
-    // stolen access token turning into permanent account takeover inside its
-    // fifteen-minute window.
+    // A live session proves the caller holds a cookie, not that they are the
+    // account owner. Requiring the current password is what stops a stolen
+    // cookie turning into permanent account takeover for as long as the
+    // session lives.
     const matches =
       stored !== null && (await this.hasher.verify(attempt, stored));
 
@@ -72,7 +71,7 @@ export class ChangePasswordHandler implements ICommandHandler<
 
     // Every other session goes; this one stays, which is what a user expects
     // from changing their own password rather than recovering it.
-    await this.refreshTokens.revokeAllForUser(
+    await this.sessions.revokeAllForUser(
       userId,
       now,
       SessionId.create(command.sessionId),

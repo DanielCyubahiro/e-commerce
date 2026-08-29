@@ -146,4 +146,79 @@ describe('Money', () => {
       );
     });
   });
+
+  describe('arithmetic', () => {
+    it('zero carries the normalised currency and no amount', () => {
+      const zero = Money.zero(' eur ');
+
+      expect(zero.minorUnits).toBe(0);
+      expect(zero.currency).toBe('EUR');
+    });
+
+    it('adds two amounts of one currency exactly', () => {
+      const sum = Money.fromMinorUnits(1999, 'EUR').add(
+        Money.fromMinorUnits(1, 'EUR'),
+      );
+
+      expect(sum.minorUnits).toBe(2000);
+      expect(sum.currency).toBe('EUR');
+    });
+
+    it('rejects adding across currencies', () => {
+      const error = catchError(
+        () =>
+          Money.fromMinorUnits(1, 'EUR').add(Money.fromMinorUnits(1, 'USD')),
+        InvalidMoneyException,
+      );
+
+      expect(error.code).toBe('MONEY_INVALID');
+      expect(error.message).toMatch(/EUR.*USD/);
+    });
+
+    it('multiplies by an integer factor exactly', () => {
+      expect(Money.fromMinorUnits(1999, 'EUR').multiply(3).minorUnits).toBe(
+        5997,
+      );
+    });
+
+    it('multiplying by zero yields zero in the same currency', () => {
+      const product = Money.fromMinorUnits(1999, 'EUR').multiply(0);
+
+      expect(product.minorUnits).toBe(0);
+      expect(product.currency).toBe('EUR');
+    });
+
+    it('rejects a fractional factor', () => {
+      expect(
+        catchError(
+          () => Money.fromMinorUnits(100, 'EUR').multiply(1.5),
+          InvalidMoneyException,
+        ).message,
+      ).toMatch(/whole number/);
+    });
+
+    it('rejects a negative factor', () => {
+      expect(
+        catchError(
+          () => Money.fromMinorUnits(100, 'EUR').multiply(-1),
+          InvalidMoneyException,
+        ).message,
+      ).toMatch(/negative/);
+    });
+
+    it('is closed under addition for any two valid amounts', () => {
+      fc.assert(
+        fc.property(
+          fc.integer({ min: 0, max: 1_000_000 }),
+          fc.integer({ min: 0, max: 1_000_000 }),
+          (left, right) => {
+            const sum = Money.fromMinorUnits(left, 'EUR').add(
+              Money.fromMinorUnits(right, 'EUR'),
+            );
+            expect(sum.minorUnits).toBe(left + right);
+          },
+        ),
+      );
+    });
+  });
 });

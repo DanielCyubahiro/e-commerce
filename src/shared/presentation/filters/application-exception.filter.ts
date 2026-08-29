@@ -26,17 +26,28 @@ const STATUS_BY_KIND: Record<ApplicationErrorKind, HttpStatus> = {
  * `ApplicationErrorKind` and safe for a client to branch on, but only for
  * responses this filter emits: a `ValidationPipe` rejection passes through
  * `UnhandledExceptionFilter` instead, with Nest's own body and no `code`
- * field. See "Error path" in docs/architecture.md.
+ * field. `details` is present only when the exception defines it. See "Error
+ * path" in docs/architecture.md.
  */
 @Catch(ApplicationException)
 export class ApplicationExceptionFilter implements ExceptionFilter {
   catch(exception: ApplicationException, host: ArgumentsHost): void {
     const status = STATUS_BY_KIND[exception.kind];
-
-    host.switchToHttp().getResponse<Response>().status(status).json({
+    const body: {
+      statusCode: HttpStatus;
+      code: string;
+      message: string;
+      details?: unknown;
+    } = {
       statusCode: status,
       code: exception.code,
       message: exception.message,
-    });
+    };
+
+    if (exception.details !== undefined) {
+      body.details = exception.details;
+    }
+
+    host.switchToHttp().getResponse<Response>().status(status).json(body);
   }
 }

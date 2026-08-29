@@ -15,6 +15,9 @@ import {
 const STATUS_BY_KIND: Record<DomainErrorKind, HttpStatus> = {
   invariant: HttpStatus.UNPROCESSABLE_ENTITY,
   'malformed-identifier': HttpStatus.BAD_REQUEST,
+  // A state machine refusing a move: the request was well formed, the
+  // aggregate is simply not in a state that allows it.
+  'illegal-transition': HttpStatus.CONFLICT,
 };
 
 @Catch(DomainException)

@@ -107,7 +107,7 @@ Four couplings fail silently rather than loudly.
   matches that exact name on a `23505` to report `'duplicate-key'`. A fork
   whose schema tool names it anything else still rejects the replay at the
   database, but the client gets a 500 where it should get the original 201.
-- `orders_set_updated_at` in `drizzle/0007_orders_updated_at_trigger.sql`
+- `orders_set_updated_at` in `drizzle/0009_orders_updated_at_trigger.sql`
   owns `updated_at`; a fork that drops the trigger leaves it frozen at insert
   time with no error anywhere (ADR 0009).
 - `number` is `GENERATED ALWAYS AS IDENTITY`; the adapter never writes it. A

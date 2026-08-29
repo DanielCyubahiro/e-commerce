@@ -1,56 +1,57 @@
-import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
-import {
-  RefreshTokenId,
-  SecretToken,
-  SessionId,
-  UserId,
-} from '@/identity/domain';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
+import { SecretToken, SessionId, UserId } from '@/identity/domain';
 import { LogoutAllSessionsCommand } from './logout-all-sessions.command';
 import { LogoutAllSessionsHandler } from './logout-all-sessions.handler';
 
 describe('LogoutAllSessionsHandler', () => {
-  let refreshTokens: InMemoryRefreshTokenRepository;
+  const now = new Date('2026-08-19T10:00:00.000Z');
+  const lifetimes = {
+    passwordResetMinutes: 60,
+    emailVerificationHours: 24,
+    sessionIdleDays: 30,
+    sessionAbsoluteDays: 365,
+  };
+
+  let sessions: InMemorySessionRepository;
   let handler: LogoutAllSessionsHandler;
 
-  const issueChain = async (
-    sessionId: SessionId,
-    userId: UserId,
-  ): Promise<void> => {
-    await refreshTokens.issue({
-      id: RefreshTokenId.create(),
-      sessionId,
-      userId,
-      tokenHash: SecretToken.issue().hash,
-      expiresAt: new Date('2026-09-18T10:00:00.000Z'),
-    });
+  const startSession = async (userId: UserId): Promise<SecretToken> => {
+    const secret = SecretToken.issue();
+    await sessions.start(
+      {
+        id: SessionId.create(),
+        userId,
+        tokenHash: secret.hash,
+        origin: { userAgent: null, ipAddress: null },
+      },
+      now,
+    );
+    return secret;
   };
 
   beforeEach(() => {
-    refreshTokens = new InMemoryRefreshTokenRepository();
-    handler = new LogoutAllSessionsHandler(refreshTokens);
+    jest.useFakeTimers().setSystemTime(now);
+    sessions = new InMemorySessionRepository(lifetimes);
+    handler = new LogoutAllSessionsHandler(sessions);
   });
 
-  it('revokes every chain of the user, including the one it was called from, and leaves another user alone', async () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('ends every session of the user, including the caller’s, and leaves another user alone', async () => {
     const userId = UserId.create();
-    const callerSession = SessionId.create();
-    const otherDeviceSession = SessionId.create();
     const otherUserId = UserId.create();
-    const otherUserSession = SessionId.create();
-    await issueChain(callerSession, userId);
-    await issueChain(otherDeviceSession, userId);
-    await issueChain(otherUserSession, otherUserId);
+    sessions.seedUserRole(userId.value, 'seller');
+    sessions.seedUserRole(otherUserId.value, 'customer');
+    const caller = await startSession(userId);
+    const otherDevice = await startSession(userId);
+    const otherUser = await startSession(otherUserId);
 
     await handler.execute(new LogoutAllSessionsCommand(userId.value));
 
-    const rows = refreshTokens.rows();
-    expect(
-      rows.find((row) => row.sessionId === callerSession.value)?.revokedAt,
-    ).not.toBeNull();
-    expect(
-      rows.find((row) => row.sessionId === otherDeviceSession.value)?.revokedAt,
-    ).not.toBeNull();
-    expect(
-      rows.find((row) => row.sessionId === otherUserSession.value)?.revokedAt,
-    ).toBeNull();
+    await expect(sessions.touch(caller.hash, now)).resolves.toBeNull();
+    await expect(sessions.touch(otherDevice.hash, now)).resolves.toBeNull();
+    await expect(sessions.touch(otherUser.hash, now)).resolves.not.toBeNull();
   });
 });

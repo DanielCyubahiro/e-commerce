@@ -13,9 +13,10 @@ describe('ResendVerificationHandler', () => {
 
   const userId = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
   const lifetimes = {
-    refreshTokenDays: 30,
     passwordResetMinutes: 60,
     emailVerificationHours: 24,
+    sessionIdleDays: 30,
+    sessionAbsoluteDays: 365,
   };
 
   let tokens: InMemoryOneTimeTokenRepository;

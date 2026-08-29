@@ -4,14 +4,13 @@ import { APP_GUARD } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ThrottlerModule } from '@nestjs/throttler';
 import {
-  ACCESS_TOKEN_ISSUER,
   commandHandlers,
   CREDENTIAL_REPOSITORY,
   EMAIL_SENDER,
   ONE_TIME_TOKEN_REPOSITORY,
   PASSWORD_HASHER,
   queryHandlers,
-  REFRESH_TOKEN_REPOSITORY,
+  SESSION_REPOSITORY,
   TOKEN_LIFETIMES,
   type TokenLifetimes,
   USER_READ_REPOSITORY,
@@ -21,14 +20,19 @@ import {
   Argon2PasswordHasher,
   DrizzleCredentialRepository,
   DrizzleOneTimeTokenRepository,
-  DrizzleRefreshTokenRepository,
+  DrizzleSessionRepository,
   DrizzleUserReadRepository,
   DrizzleUserWriteRepository,
-  JoseAccessTokenIssuer,
   SmtpEmailSender,
 } from './infrastructure';
+import {
+  AUTH_WEB_SETTINGS,
+  type AuthWebSettings,
+  authWebSettingsFrom,
+} from './presentation/auth-web-settings';
 import { AuthController } from './presentation/auth.controller';
-import { JwtAuthGuard } from './presentation/guards/jwt-auth.guard';
+import { SessionAuthGuard } from './presentation/guards/session-auth.guard';
+import { SessionCookie } from './presentation/session-cookie';
 import { UserController } from './presentation/user.controller';
 
 /**
@@ -48,15 +52,12 @@ import { UserController } from './presentation/user.controller';
  * way round.
  */
 @Module({
-  imports: [
-    CqrsModule,
-    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }]),
-  ],
+  imports: [CqrsModule, ThrottlerModule.forRoot([{ ttl: 60_000, limit: 60 }])],
   controllers: [UserController, AuthController],
   providers: [
     ...commandHandlers,
     ...queryHandlers,
-    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: SessionAuthGuard },
     { provide: USER_WRITE_REPOSITORY, useClass: DrizzleUserWriteRepository },
     { provide: USER_READ_REPOSITORY, useClass: DrizzleUserReadRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
@@ -65,19 +66,7 @@ import { UserController } from './presentation/user.controller';
       provide: ONE_TIME_TOKEN_REPOSITORY,
       useClass: DrizzleOneTimeTokenRepository,
     },
-    {
-      provide: REFRESH_TOKEN_REPOSITORY,
-      useClass: DrizzleRefreshTokenRepository,
-    },
-    {
-      provide: ACCESS_TOKEN_ISSUER,
-      useFactory: (config: ConfigService) =>
-        new JoseAccessTokenIssuer(
-          config.getOrThrow<string>('JWT_SECRET'),
-          config.getOrThrow<number>('ACCESS_TOKEN_TTL_SECONDS'),
-        ),
-      inject: [ConfigService],
-    },
+    { provide: SESSION_REPOSITORY, useClass: DrizzleSessionRepository },
     {
       provide: EMAIL_SENDER,
       useFactory: (config: ConfigService) =>
@@ -90,19 +79,35 @@ import { UserController } from './presentation/user.controller';
       inject: [ConfigService],
     },
     {
-      // The only place the three lifetime keys are read.
+      // The only place the four lifetime keys are read.
       provide: TOKEN_LIFETIMES,
       useFactory: (config: ConfigService): TokenLifetimes => ({
-        refreshTokenDays: config.getOrThrow<number>('REFRESH_TOKEN_TTL_DAYS'),
         passwordResetMinutes: config.getOrThrow<number>(
           'PASSWORD_RESET_TTL_MINUTES',
         ),
         emailVerificationHours: config.getOrThrow<number>(
           'EMAIL_VERIFICATION_TTL_HOURS',
         ),
+        sessionIdleDays: config.getOrThrow<number>('SESSION_IDLE_TTL_DAYS'),
+        sessionAbsoluteDays: config.getOrThrow<number>(
+          'SESSION_ABSOLUTE_TTL_DAYS',
+        ),
       }),
       inject: [ConfigService],
     },
+    {
+      provide: AUTH_WEB_SETTINGS,
+      useFactory: (
+        config: ConfigService,
+        lifetimes: TokenLifetimes,
+      ): AuthWebSettings =>
+        authWebSettingsFrom(
+          config.getOrThrow<string>('WEB_BASE_URL'),
+          lifetimes,
+        ),
+      inject: [ConfigService, TOKEN_LIFETIMES],
+    },
+    SessionCookie,
   ],
 })
 export class IdentityModule {}

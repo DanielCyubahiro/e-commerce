@@ -3,15 +3,10 @@ import { CommandHandler, type ICommandHandler } from '@nestjs/cqrs';
 import {
   Email,
   PasswordAttempt,
-  RefreshTokenId,
   SecretToken,
   SessionId,
   UserId,
 } from '@/identity/domain';
-import {
-  ACCESS_TOKEN_ISSUER,
-  type AccessTokenIssuer,
-} from '../../../ports/access-token.issuer';
 import {
   CREDENTIAL_REPOSITORY,
   type CredentialRepository,
@@ -21,26 +16,23 @@ import {
   type PasswordHasher,
 } from '../../../ports/password-hasher';
 import {
-  REFRESH_TOKEN_REPOSITORY,
-  type RefreshTokenRepository,
-} from '../../../ports/refresh-token.repository';
-import {
-  TOKEN_LIFETIMES,
-  type TokenLifetimes,
-  refreshExpiry,
-} from '../../../token-lifetimes';
+  SESSION_REPOSITORY,
+  type SessionOrigin,
+  type SessionRepository,
+} from '../../../ports/session.repository';
 import { EmailNotVerifiedException } from '../../../exceptions/email-not-verified.exception';
 import { InvalidCredentialsException } from '../../../exceptions/invalid-credentials.exception';
 import { LoginCommand } from './login.command';
 
 export interface LoginResult {
-  accessToken: string;
-  expiresInSeconds: number;
-  refreshToken: string;
+  /** The cookie's plaintext. Never stored; the row holds only its digest. */
+  token: string;
+  userId: string;
+  role: string;
 }
 
 /**
- * The only place tokens are minted. Every failure before the mint answers with
+ * The only place a session is started. Every failure before that answers with
  * one code, and the two orderings below are the security-relevant part.
  */
 @CommandHandler(LoginCommand)
@@ -52,11 +44,7 @@ export class LoginHandler implements ICommandHandler<
     @Inject(CREDENTIAL_REPOSITORY)
     private readonly credentials: CredentialRepository,
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
-    @Inject(REFRESH_TOKEN_REPOSITORY)
-    private readonly refreshTokens: RefreshTokenRepository,
-    @Inject(ACCESS_TOKEN_ISSUER)
-    private readonly accessTokens: AccessTokenIssuer,
-    @Inject(TOKEN_LIFETIMES) private readonly lifetimes: TokenLifetimes,
+    @Inject(SESSION_REPOSITORY) private readonly sessions: SessionRepository,
   ) {}
 
   async execute(command: LoginCommand): Promise<LoginResult> {
@@ -84,34 +72,26 @@ export class LoginHandler implements ICommandHandler<
       throw new EmailNotVerifiedException();
     }
 
-    return this.startSession(record.userId, record.role);
+    return this.startSession(record.userId, record.role, command.origin);
   }
 
   private async startSession(
     userId: string,
     role: string,
+    origin: SessionOrigin,
   ): Promise<LoginResult> {
-    const sessionId = SessionId.create();
-    const refresh = SecretToken.issue();
+    const secret = SecretToken.issue();
 
-    await this.refreshTokens.issue({
-      id: RefreshTokenId.create(),
-      sessionId,
-      userId: UserId.create(userId),
-      tokenHash: refresh.hash,
-      expiresAt: refreshExpiry(new Date(), this.lifetimes),
-    });
+    await this.sessions.start(
+      {
+        id: SessionId.create(),
+        userId: UserId.create(userId),
+        tokenHash: secret.hash,
+        origin,
+      },
+      new Date(),
+    );
 
-    const access = await this.accessTokens.issue({
-      userId,
-      role,
-      sessionId: sessionId.value,
-    });
-
-    return {
-      accessToken: access.token,
-      expiresInSeconds: access.expiresInSeconds,
-      refreshToken: refresh.plaintext,
-    };
+    return { token: secret.plaintext, userId, role };
   }
 }

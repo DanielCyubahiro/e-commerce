@@ -7,7 +7,7 @@ import { InvalidTokenHashException } from '../exceptions/invalid-token-hash.exce
  * belongs even though both are strings at runtime.
  */
 export class TokenHash {
-  // Must stay equal to refresh_tokens.token_hash and one_time_tokens.token_hash's
+  // Must stay equal to one_time_tokens.token_hash and sessions.token_hash's
   // varchar length.
   static readonly LENGTH = 64;
 

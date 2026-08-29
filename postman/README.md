@@ -8,7 +8,8 @@ environment they share:
 | [auth.postman_collection.json](auth.postman_collection.json) | `AuthController`, `/auth` |
 | [users.postman_collection.json](users.postman_collection.json) | `UserController`, `/users` |
 | [products.postman_collection.json](products.postman_collection.json) | `ProductController`, `/products` |
-| [e-commerce.local.postman_environment.json](e-commerce.local.postman_environment.json) | `baseUrl`, `mailpitUrl`, the account, the emailed tokens |
+| [orders.postman_collection.json](orders.postman_collection.json) | `OrderController`, `/orders` |
+| [e-commerce.local.postman_environment.json](e-commerce.local.postman_environment.json) | `baseUrl`, `mailpitUrl`, the account, the emailed tokens, `productId` |
 
 **These files are the source of truth.** The copies in the Postman cloud are
 published from here with `pnpm postman:push`; an edit made in the app is
@@ -19,7 +20,7 @@ Why, and what was rejected: [ADR 0022](../docs/adr/0022-postman-collections-in-t
 
 1. `pnpm start:dev`: Postgres, Mongo and Mailpit through Docker Compose, then
    Nest on the port in `.env` (3000 by default).
-2. In the Postman app, import the four files (File > Import, drop the
+2. In the Postman app, import the five files (File > Import, drop the
    directory) or open the published copies in the workspace. Use the desktop
    app, or the desktop agent if running Postman in a browser: the browser
    agent sends Postman's own `Origin` header, which the API's Origin check
@@ -28,7 +29,9 @@ Why, and what was rejected: [ADR 0022](../docs/adr/0022-postman-collections-in-t
    environment check aborts every request with a clear error when none is
    active, because variable writes would otherwise vanish silently.
 4. Run `Create user` in the users collection, then the auth collection top
-   to bottom, then whatever else you want to try.
+   to bottom, then whatever else you want to try. The orders collection
+   reads `productId`, so run `Create product` before it, and promote the
+   account to `seller` (README, the UPDATE statement) before `Pay order`.
 
 The credential is an `HttpOnly` cookie named `session`. Postman's cookie
 jar stores it from Login's `Set-Cookie` and attaches it to every later

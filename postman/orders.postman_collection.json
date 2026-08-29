@@ -1,0 +1,649 @@
+{
+  "info": {
+    "name": "e-commerce API · orders",
+    "description": "The order endpoints of the e-commerce learning repo, served by `OrderController` at the `orders` root.\n\n**Before running:** start the API with `pnpm start:dev`, which brings up Postgres, Mongo and Mailpit through Docker Compose and boots Nest on the port in `.env` (3000 by default).\n\n**Where this lives:** the repo's `postman/` directory is the source of truth and `pnpm postman:push` publishes it here. An edit made in the app is overwritten by the next push; change the file instead.\n\n**Variables:** `baseUrl` and `productId` come from the shared **e-commerce (local)** environment; select it, and run Create product in the products collection first. `orderId` and `cancelOrderId` stay collection variables, because nothing outside this collection reads them.\n\n**Auth model:** every route is behind `SessionAuthGuard`; there is no public order endpoint. Run Login in the auth collection first: Postman's cookie jar keeps the `session` cookie and attaches it to every request against the same host. Pay, ship and deliver add `RolesGuard` and want a `seller`; every registration is a `customer`, and the README's UPDATE statement is the only way to promote one. The role is read from the database on each request, so the promotion takes effect without a new login.\n\n**Run order:** `Place order` stores the new id in `orderId`, and the next five requests read it: list, get, then pay, ship and deliver in that order, since each transition only accepts the state before it. `Place order to cancel` stores a second id in `cancelOrderId` for `Cancel order`, which would answer 409 on the delivered one.\n\n**Status codes:** 400 comes from the validation pipe or a malformed `Idempotency-Key` and carries no `code`; 422, 404, 409 and 403 come from the typed exception filters and carry a stable `code`. A stock shortfall is a 409 whose body also carries `details`, one entry per short line.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Failure paths",
+      "item": [
+        {
+          "name": "401 · POST with no cookie",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{cookielessBaseUrl}}/orders",
+              "host": [
+                "{{cookielessBaseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": {\n    \"recipientName\": \"Bob Mensah\",\n    \"line1\": \"1 Analytical Way\",\n    \"city\": \"London\",\n    \"postalCode\": \"N1 1AA\",\n    \"country\": \"GB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Sent to `{{cookielessBaseUrl}}`, the same server under a host name the cookie jar holds nothing for, so the guard sees no session whatever is logged in."
+          },
+          "response": []
+        },
+        {
+          "name": "400 · POST without a shipping address",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The validation pipe rejects the missing object; no `code`."
+          },
+          "response": []
+        },
+        {
+          "name": "400 · POST with a malformed Idempotency-Key",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Idempotency-Key",
+                "value": "not-a-uuid"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": {\n    \"recipientName\": \"Bob Mensah\",\n    \"line1\": \"1 Analytical Way\",\n    \"city\": \"London\",\n    \"postalCode\": \"N1 1AA\",\n    \"country\": \"GB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "The header must be a UUID when present. Nest's own 400 body, no `code`."
+          },
+          "response": []
+        },
+        {
+          "name": "422 · POST with a zero quantity",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 0\n    }\n  ],\n  \"shippingAddress\": {\n    \"recipientName\": \"Bob Mensah\",\n    \"line1\": \"1 Analytical Way\",\n    \"city\": \"London\",\n    \"postalCode\": \"N1 1AA\",\n    \"country\": \"GB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`@IsInt()` lets 0 through; the domain's 1 to 999 rule answers `ORDER_QUANTITY_INVALID`."
+          },
+          "response": []
+        },
+        {
+          "name": "409 · POST more than the stock holds",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 999\n    }\n  ],\n  \"shippingAddress\": {\n    \"recipientName\": \"Bob Mensah\",\n    \"line1\": \"1 Analytical Way\",\n    \"city\": \"London\",\n    \"postalCode\": \"N1 1AA\",\n    \"country\": \"GB\"\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "`ORDER_STOCK_UNAVAILABLE`, with a `details` array naming the product, the reason and the quantity available. Nothing is allocated: the whole placement rolls back."
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('names the short product in details', () => {",
+                  "  const details = pm.response.json().details;",
+                  "  pm.expect(details).to.be.an('array').that.is.not.empty;",
+                  "  pm.expect(details[0].reason).to.eql('insufficient');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "403 · POST pay as a customer",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/pay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{orderId}}",
+                "pay"
+              ]
+            },
+            "description": "Precondition: the session belongs to a `customer`, the role every registration gets. `AUTH_ROLE_FORBIDDEN`. After the README's promotion statement this answers 204 instead, since the role is read from the database on every request."
+          },
+          "response": []
+        },
+        {
+          "name": "404 · GET an unknown id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/00000000-0000-4000-8000-0000000000aa",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "00000000-0000-4000-8000-0000000000aa"
+              ]
+            },
+            "description": "`ORDER_NOT_FOUND`. Another customer's order answers the same 404, so an id leaks nothing."
+          },
+          "response": []
+        },
+        {
+          "name": "400 · GET a malformed id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/not-a-uuid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "not-a-uuid"
+              ]
+            },
+            "description": "The param DTO rejects it before any query runs."
+          },
+          "response": []
+        },
+        {
+          "name": "422 · GET the list with an unknown status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders?status=refunded",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "refunded"
+                }
+              ]
+            },
+            "description": "`status` is any string at the edge; `OrderStatus` owns the closed set and answers `ORDER_STATUS_INVALID`."
+          },
+          "response": []
+        },
+        {
+          "name": "409 · POST ship a cancelled order",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{cancelOrderId}}/ship",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "orders",
+                "{{cancelOrderId}}",
+                "ship"
+              ]
+            },
+            "description": "Precondition: a seller session and `cancelOrderId` set by Place order to cancel, then Cancel order. `ORDER_TRANSITION_ILLEGAL`: cancelled is terminal."
+          },
+          "response": []
+        }
+      ],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Every request in this folder is named for the status it should",
+              "// return, so one assertion here covers all of them and cannot drift",
+              "// from the names the way a copy per request would.",
+              "const expected = Number(pm.info.requestName.match(/^(\\d{3})/)[1]);",
+              "",
+              "pm.test(`${expected}`, () => pm.response.to.have.status(expected));",
+              "",
+              "// 400 comes from the validation pipe and carries no `code`; the typed",
+              "// exception filters all do. 202 has no body at all.",
+              "if (![202, 400].includes(expected)) {",
+              "  pm.test('carries a stable code', () =>",
+              "    pm.expect(pm.response.json().code).to.be.a('string'));",
+              "}"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Place order",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "{{$guid}}",
+            "description": "Optional. A UUID; replaying it answers the first order again."
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": {\n    \"recipientName\": \"Bob Mensah\",\n    \"line1\": \"1 Analytical Way\",\n    \"city\": \"London\",\n    \"postalCode\": \"N1 1AA\",\n    \"country\": \"GB\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "Places one line of `{{productId}}`, which Create product in the products collection set. Stock is allocated inside the same transaction; the response carries only the id, the detail is one GET away. `country` is ISO 3166-1 alpha-2; `line2` and `region` are optional."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "",
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "",
+              "pm.test('Location header points at the new order', () => {",
+              "  pm.expect(pm.response.headers.get('Location')).to.eql('/orders/' + body.id);",
+              "});",
+              "",
+              "pm.collectionVariables.set('orderId', body.id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "List orders",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders?limit=20&offset=0",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "20",
+              "description": "1 to 100. Defaults to 20."
+            },
+            {
+              "key": "offset",
+              "value": "0",
+              "description": "Zero or greater. Defaults to 0."
+            },
+            {
+              "key": "status",
+              "value": "placed",
+              "description": "One of placed, paid, shipped, delivered, cancelled.",
+              "disabled": true
+            },
+            {
+              "key": "customerId",
+              "value": "",
+              "description": "Staff only; a customer sending one is scoped to their own orders regardless.",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "A customer sees only their own orders, newest first; a seller sees every order and may filter by `customerId`. Scope comes from the session's role, not from a parameter."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "pm.test('includes the order just placed', () => {",
+              "  const ids = pm.response.json().items.map((item) => item.id);",
+              "  pm.expect(ids).to.include(pm.collectionVariables.get('orderId'));",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Get order",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}"
+          ]
+        },
+        "description": "The detail: number, status, decimal amounts, the lines with the product name and price as they were at placement, and the address. Another customer's order answers 404, not 403."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "",
+              "pm.test('is the order just placed, still placed', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.id).to.eql(pm.collectionVariables.get('orderId'));",
+              "  pm.expect(body.status).to.eql('placed');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Pay order",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/pay",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "pay"
+          ]
+        },
+        "description": "Staff only: `RolesGuard` wants a `seller`. Promote the account with the README's UPDATE statement first; the role is read from the database on every request, so no new login is needed. placed → paid."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Ship order",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/ship",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "ship"
+          ]
+        },
+        "description": "Staff only. paid → shipped."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Deliver order",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{orderId}}/deliver",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{orderId}}",
+            "deliver"
+          ]
+        },
+        "description": "Staff only. shipped → delivered, the terminal state."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Place order to cancel",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/orders",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders"
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"lines\": [\n    {\n      \"productId\": \"{{productId}}\",\n      \"quantity\": 1\n    }\n  ],\n  \"shippingAddress\": {\n    \"recipientName\": \"Bob Mensah\",\n    \"line1\": \"1 Analytical Way\",\n    \"city\": \"London\",\n    \"postalCode\": \"N1 1AA\",\n    \"country\": \"GB\"\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "description": "A second order, so Cancel order has one that is still placed."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "",
+              "pm.collectionVariables.set('cancelOrderId', pm.response.json().id);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cancel order",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/orders/{{cancelOrderId}}/cancel",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "orders",
+            "{{cancelOrderId}}",
+            "cancel"
+          ]
+        },
+        "description": "The owner or a seller may cancel while the order is placed or paid; the allocated stock is released in the same transaction. Shipped and later answer 409."
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204 No Content', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "orderId",
+      "value": "",
+      "description": "Set automatically by Place order. List, Get, Pay, Ship, Deliver and one failure path read it."
+    },
+    {
+      "key": "cancelOrderId",
+      "value": "",
+      "description": "Set automatically by Place order to cancel. Cancel order and one failure path read it."
+    }
+  ]
+}

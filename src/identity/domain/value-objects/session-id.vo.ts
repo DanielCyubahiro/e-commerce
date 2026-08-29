@@ -1,8 +1,8 @@
 import { UniqueId } from '@/shared/domain';
 
 /**
- * Identifies one login's rotation chain. Every refresh token minted from one
- * login shares it, which is what makes revoking a whole chain a single write.
+ * Identifies one login. The session row carries it, so revoking that login is
+ * a single write.
  */
 export class SessionId extends UniqueId<'SessionId'> {
   /**

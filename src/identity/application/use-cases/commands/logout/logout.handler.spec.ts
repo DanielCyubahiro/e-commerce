@@ -1,50 +1,73 @@
-import { InMemoryRefreshTokenRepository } from '@test/fakes/in-memory-refresh-token.repository';
-import {
-  RefreshTokenId,
-  SecretToken,
-  SessionId,
-  UserId,
-} from '@/identity/domain';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
+import { SecretToken, SessionId, UserId } from '@/identity/domain';
 import { LogoutCommand } from './logout.command';
 import { LogoutHandler } from './logout.handler';
 
 describe('LogoutHandler', () => {
-  let refreshTokens: InMemoryRefreshTokenRepository;
+  const now = new Date('2026-08-19T10:00:00.000Z');
+  const lifetimes = {
+    passwordResetMinutes: 60,
+    emailVerificationHours: 24,
+    sessionIdleDays: 30,
+    sessionAbsoluteDays: 365,
+  };
+
+  let sessions: InMemorySessionRepository;
   let handler: LogoutHandler;
 
-  const issueChain = async (
-    sessionId: SessionId,
+  const startSession = async (
     userId: UserId,
-  ): Promise<void> => {
-    await refreshTokens.issue({
-      id: RefreshTokenId.create(),
-      sessionId,
-      userId,
-      tokenHash: SecretToken.issue().hash,
-      expiresAt: new Date('2026-09-18T10:00:00.000Z'),
-    });
+  ): Promise<{ secret: SecretToken; sessionId: SessionId }> => {
+    const secret = SecretToken.issue();
+    const sessionId = SessionId.create();
+    await sessions.start(
+      {
+        id: sessionId,
+        userId,
+        tokenHash: secret.hash,
+        origin: { userAgent: null, ipAddress: null },
+      },
+      now,
+    );
+    return { secret, sessionId };
   };
 
   beforeEach(() => {
-    refreshTokens = new InMemoryRefreshTokenRepository();
-    handler = new LogoutHandler(refreshTokens);
+    jest.useFakeTimers().setSystemTime(now);
+    sessions = new InMemorySessionRepository(lifetimes);
+    handler = new LogoutHandler(sessions);
   });
 
-  it('revokes the caller session while leaving another session of the same user alone', async () => {
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('ends the caller’s session while leaving another session of the same user alone', async () => {
     const userId = UserId.create();
-    const callerSession = SessionId.create();
-    const otherSession = SessionId.create();
-    await issueChain(callerSession, userId);
-    await issueChain(otherSession, userId);
+    sessions.seedUserRole(userId.value, 'seller');
+    const caller = await startSession(userId);
+    const other = await startSession(userId);
 
-    await handler.execute(new LogoutCommand(callerSession.value));
+    await handler.execute(
+      new LogoutCommand(userId.value, caller.sessionId.value),
+    );
 
-    const rows = refreshTokens.rows();
-    expect(
-      rows.find((row) => row.sessionId === callerSession.value)?.revokedAt,
-    ).not.toBeNull();
-    expect(
-      rows.find((row) => row.sessionId === otherSession.value)?.revokedAt,
-    ).toBeNull();
+    await expect(sessions.touch(caller.secret.hash, now)).resolves.toBeNull();
+    await expect(
+      sessions.touch(other.secret.hash, now),
+    ).resolves.not.toBeNull();
+  });
+
+  it('resolves on a second logout of the same session', async () => {
+    const userId = UserId.create();
+    sessions.seedUserRole(userId.value, 'seller');
+    const caller = await startSession(userId);
+    await handler.execute(
+      new LogoutCommand(userId.value, caller.sessionId.value),
+    );
+
+    await expect(
+      handler.execute(new LogoutCommand(userId.value, caller.sessionId.value)),
+    ).resolves.toBeUndefined();
   });
 });

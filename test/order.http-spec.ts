@@ -1,5 +1,6 @@
 import { Global, type INestApplication, Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
+import { CqrsModule } from '@nestjs/cqrs';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { App } from 'supertest/types';
@@ -9,28 +10,45 @@ import {
   PRODUCT_WRITE_REPOSITORY,
   STOCK_ALLOCATOR,
 } from '@/catalogue/application';
-import { ACCESS_TOKEN_ISSUER } from '@/identity/application';
-import { JwtAuthGuard } from '@/identity/presentation/guards/jwt-auth.guard';
+import {
+  AuthenticateSessionHandler,
+  SESSION_REPOSITORY,
+} from '@/identity/application';
+import {
+  AUTH_WEB_SETTINGS,
+  authWebSettingsFrom,
+} from '@/identity/presentation/auth-web-settings';
+import { SessionAuthGuard } from '@/identity/presentation/guards/session-auth.guard';
+import { SessionCookie } from '@/identity/presentation/session-cookie';
 import {
   ORDER_READ_REPOSITORY,
   ORDER_WRITE_REPOSITORY,
 } from '@/ordering/application';
 import { OrderingModule } from '@/ordering/ordering.module';
 import { UNIT_OF_WORK } from '@/shared/application';
-import { FakeAccessTokenIssuer } from '@test/fakes/fake-access-token.issuer';
 import { FakeUnitOfWork } from '@test/fakes/fake-unit-of-work';
 import { InMemoryOrderReadRepository } from '@test/fakes/in-memory-order-read.repository';
 import { InMemoryOrderWriteRepository } from '@test/fakes/in-memory-order-write.repository';
 import { InMemoryProductReadRepository } from '@test/fakes/in-memory-product-read.repository';
 import { InMemoryProductWriteRepository } from '@test/fakes/in-memory-product-write.repository';
+import { InMemorySessionRepository } from '@test/fakes/in-memory-session.repository';
 import { InMemoryStockAllocator } from '@test/fakes/in-memory-stock-allocator';
+import { seedSessionCookie } from '@test/support/session-cookie';
 
 const CUSTOMER_A = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 const CUSTOMER_B = '16fd2706-8baf-433b-82eb-8c7fada847da';
 const SELLER = '9c858901-8a57-4791-81fe-4c455b099bc9';
-const SESSION = '00000000-0000-4000-8000-000000000099';
 const MISSING_ID = '00000000-0000-4000-8000-0000000000aa';
 const KEY = '00000000-0000-4000-8000-0000000000bb';
+const ALLOWED_ORIGIN = 'http://localhost:5173';
+
+// Only the session lifetimes matter here; the fake's `touch` reads them.
+const lifetimes = {
+  passwordResetMinutes: 60,
+  emailVerificationHours: 24,
+  sessionIdleDays: 30,
+  sessionAbsoluteDays: 365,
+};
 
 interface ResponseBody {
   id?: string;
@@ -54,11 +72,6 @@ interface ResponseBody {
 const bodyOf = (response: request.Response): ResponseBody =>
   response.body as ResponseBody;
 
-const issuer = new FakeAccessTokenIssuer();
-
-const tokenFor = async (userId: string, role: string): Promise<string> =>
-  `Bearer ${(await issuer.issue({ userId, role, sessionId: SESSION })).token}`;
-
 describe('orders HTTP contract', () => {
   let app: INestApplication<App>;
   let customerA: string;
@@ -67,13 +80,14 @@ describe('orders HTTP contract', () => {
   let espressoId: string;
   let kettleId: string;
 
-  beforeAll(async () => {
-    customerA = await tokenFor(CUSTOMER_A, 'customer');
-    customerB = await tokenFor(CUSTOMER_B, 'customer');
-    seller = await tokenFor(SELLER, 'seller');
-  });
-
   beforeEach(async () => {
+    const sessions = new InMemorySessionRepository(lifetimes);
+    const seed = async (userId: string, role: string): Promise<string> =>
+      (await seedSessionCookie(sessions, { userId, role })).cookie;
+    customerA = await seed(CUSTOMER_A, 'customer');
+    customerB = await seed(CUSTOMER_B, 'customer');
+    seller = await seed(SELLER, 'seller');
+
     const products = new InMemoryProductWriteRepository();
     const orders = new InMemoryOrderWriteRepository();
     const uow = new FakeUnitOfWork([products, orders]);
@@ -88,10 +102,18 @@ describe('orders HTTP contract', () => {
     class FakeUnitOfWorkModule {}
 
     const moduleRef = await Test.createTestingModule({
-      imports: [FakeUnitOfWorkModule, OrderingModule],
+      imports: [FakeUnitOfWorkModule, OrderingModule, CqrsModule],
+      // OrderingModule carries no guard of its own, so the session guard is
+      // wired by hand with everything it resolves, as product.http-spec does.
       providers: [
-        { provide: APP_GUARD, useClass: JwtAuthGuard },
-        { provide: ACCESS_TOKEN_ISSUER, useValue: issuer },
+        { provide: APP_GUARD, useClass: SessionAuthGuard },
+        { provide: SESSION_REPOSITORY, useValue: sessions },
+        {
+          provide: AUTH_WEB_SETTINGS,
+          useValue: authWebSettingsFrom(ALLOWED_ORIGIN, lifetimes),
+        },
+        SessionCookie,
+        AuthenticateSessionHandler,
       ],
     })
       .overrideProvider(PRODUCT_WRITE_REPOSITORY)
@@ -108,6 +130,7 @@ describe('orders HTTP contract', () => {
 
     app = configureApp(
       moduleRef.createNestApplication<INestApplication<App>>({ logger: false }),
+      { allowedOrigin: ALLOWED_ORIGIN },
     );
     await app.listen(0);
 
@@ -132,7 +155,7 @@ describe('orders HTTP contract', () => {
   }): Promise<string> => {
     const response = await request(app.getHttpServer())
       .post('/products')
-      .set('Authorization', seller)
+      .set('Cookie', seller)
       .send({
         name: `Product ${over.sku}`,
         description: 'Seeded.',
@@ -164,29 +187,29 @@ describe('orders HTTP contract', () => {
   });
 
   const place = (
-    token: string,
+    cookie: string,
     body: Record<string, unknown> = orderBody(),
     key?: string,
   ): request.Test => {
     const req = request(app.getHttpServer())
       .post('/orders')
-      .set('Authorization', token);
+      .set('Cookie', cookie);
     return (key ? req.set('Idempotency-Key', key) : req).send(body);
   };
 
-  const placed = async (token = customerA): Promise<string> =>
-    bodyOf(await place(token).expect(201)).id ?? '';
+  const placed = async (cookie = customerA): Promise<string> =>
+    bodyOf(await place(cookie).expect(201)).id ?? '';
 
-  const act = (token: string, id: string, action: string): request.Test =>
+  const act = (cookie: string, id: string, action: string): request.Test =>
     request(app.getHttpServer())
       .post(`/orders/${id}/${action}`)
-      .set('Authorization', token);
+      .set('Cookie', cookie);
 
-  const get = (token: string, path: string): request.Test =>
-    request(app.getHttpServer()).get(path).set('Authorization', token);
+  const get = (cookie: string, path: string): request.Test =>
+    request(app.getHttpServer()).get(path).set('Cookie', cookie);
 
   describe('POST /orders', () => {
-    it('returns 401 without a token', async () => {
+    it('returns 401 without a cookie', async () => {
       await request(app.getHttpServer())
         .post('/orders')
         .send(orderBody())

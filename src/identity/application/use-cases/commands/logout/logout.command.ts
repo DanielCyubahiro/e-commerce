@@ -1,9 +1,11 @@
 /**
- * `sessionId` comes from the caller's access token `sid` claim
- * (`AuthenticatedUser.sessionId`), never from the request body: the endpoint
- * takes no body, so a client that has lost its refresh token can still end
- * the session.
+ * Both ids come from the caller's own session as the guard attached it, never
+ * from the body: the endpoint takes none, and scoping the revocation to the
+ * caller is what stops a session id alone from ending someone else's.
  */
 export class LogoutCommand {
-  constructor(public readonly sessionId: string) {}
+  constructor(
+    public readonly userId: string,
+    public readonly sessionId: string,
+  ) {}
 }

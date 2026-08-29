@@ -1,0 +1,1114 @@
+{
+  "info": {
+    "_postman_id": "2f9fcb52-2257-4678-9f7f-4881ce2da740",
+    "name": "e-commerce API · auth",
+    "description": "The eleven authentication endpoints of the e-commerce learning repo, served by `AuthController` at the `auth` root. The two sibling collections cover the rest: **e-commerce API · users** the five on `UserController`, **e-commerce API · products** the five on `ProductController`.\n\n**Before running:** start the API with `pnpm start:dev`, which brings up Postgres, Mongo and Mailpit through Docker Compose and boots Nest on the port in `.env` (3000 by default). Select the **e-commerce (local)** environment; a pre-request guard aborts every request with a clear error when none is active, because variable writes would otherwise vanish silently.\n\n**Where this lives:** the repo's `postman/` directory is the source of truth and `pnpm postman:push` publishes it here. An edit made in the app is overwritten by the next push; change the file instead.\n\n**Auth model:** the credential is an `HttpOnly` cookie named `session`, set by Login and cleared by Logout, Logout all, and a revoke of the caller's own session. `SessionAuthGuard` is registered as `APP_GUARD`, so every endpoint needs a live session cookie unless it carries `@Public()`. Nothing here stores a token: Postman's cookie jar keeps the cookie from `Set-Cookie` and attaches it to every later request against the same host, which is exactly what a browser does. Revocation is instant, since the guard resolves the cookie against the `sessions` table on every request. Any request whose `Origin` header is present and is not WEB_BASE_URL's origin answers 403 before anything else runs; the Postman desktop app and its desktop agent send no `Origin`, so that check passes there, but the browser agent adds Postman's own `Origin` and gets refused, and cannot reach `localhost` either. Authorization does not exist yet: any authenticated caller may act on any user (ADR 0015), except that the two session endpoints are scoped to the caller.\n\n**Run order:** create the account first with `Create user` in the users collection; it reads the same `{{userEmail}}` and `{{userPassword}}` from the environment, so the credentials match automatically. This collection deliberately does not duplicate `POST /users`. Then run top to bottom: Resend verification, Verify email, Login, Me, Login from a second device, Sessions, Revoke the other session, Change password, Logout, Login again, Logout all, Forgot password, Reset password. Logout and Logout all each end the current session, which is why a login sits between them. The run assumes a freshly registered, unverified account: Verify email consumes the newest verification email, so a second run on the same account answers 401 there (re-register, or start from Login).\n\n**Emailed tokens:** verification and reset tokens never arrive over HTTP. The collection's pre-request script fetches the newest matching email from Mailpit at `{{mailpitUrl}}` (http://localhost:8025) just before Verify email and Reset password run, and stores the token in `verificationToken` or `resetToken`. No email yet produces a loud script error naming the request to run first, but does not stop the request itself: a `throw` inside the `pm.sendRequest` callback cannot abort the send, so the request still goes out with whatever the token variable already held and answers 401 next to the script error. Run the named request, then run this one again.\n\n**Status codes:** 400 comes from the validation pipe and carries no `code` field, while 422, 409, 404, 403 and 401 come from the typed exception filters and carry a stable `code`. A caller over a named throttle limit gets a 429 with no `code`. Five endpoints are throttled: login, reset-password and change-password at 10 per 60s, forgot-password and verify-email/resend at 5 per hour.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Failure paths",
+      "id": "b69cfa5d-439d-4863-ba05-cb85c43fc9d5",
+      "description": "Each request here is named for the status it should produce. Several exist to document an *ordering* the happy paths cannot show: which check fires first when a request is wrong in two ways at once. Two go to `{{cookielessBaseUrl}}` so the jar's cookie stays home; see the collection description.",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Every request in this folder is named for the status it should",
+              "// return, so one assertion here covers all of them and cannot drift",
+              "// from the names the way a copy per request would.",
+              "const expected = Number(pm.info.requestName.match(/^(\\d{3})/)[1]);",
+              "",
+              "pm.test(`${expected}`, () => pm.response.to.have.status(expected));",
+              "",
+              "// 400 comes from the validation pipe and carries no `code`; the typed",
+              "// exception filters all do. 202 has no body at all.",
+              "if (![202, 400].includes(expected)) {",
+              "  pm.test('carries a stable code', () =>",
+              "    pm.expect(pm.response.json().code).to.be.a('string'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "item": [
+        {
+          "name": "401 · Login with a wrong password",
+          "id": "c43e776a-7030-4d9c-bf1c-a470777a2fbb",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"wrong-password-entirely\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "401 `AUTH_INVALID_CREDENTIALS`. Compare the next request: the response is byte-for-byte the same for an address that does not exist, which is what keeps login from being an existence oracle."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Login with an unknown address",
+          "id": "a16c681d-e229-4d3d-921c-939739c0bbe6",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody-here@example.com\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "401 `AUTH_INVALID_CREDENTIALS`, identical to a wrong password on a real account. Run both and diff the bodies."
+          },
+          "response": []
+        },
+        {
+          "name": "403 · Login before verifying the email",
+          "id": "aaa31fec-7aae-4e16-a27f-d6ac6ac7f7a3",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"unverified@example.com\",\n  \"password\": \"{{userPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "403 `AUTH_EMAIL_NOT_VERIFIED`, given correct credentials on an account whose address is still unverified. Register a fresh user with this address and run this before Verify email to see it.\n\nNote this *is* distinguishable from a wrong password, so it tells a caller who already knows the password that the account exists."
+          },
+          "response": []
+        },
+        {
+          "name": "403 · Any request from a foreign Origin",
+          "id": "1c6db363-52b5-4fe6-8fb4-7f5a4f12f984",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Origin",
+                "value": "https://evil.example"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "403 `AUTH_ORIGIN_FORBIDDEN`, before the cookie is read and before `@Public()` is consulted: the same header on `/auth/login` answers the same. Only WEB_BASE_URL's origin is accepted when `Origin` is present at all; a request without the header, which is what Postman normally sends, passes. See ADR 0021."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Verify email with a spent token",
+          "id": "3a718318-528c-4f85-a53a-54ecfc088b65",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "description": "401 `AUTH_VERIFICATION_TOKEN_INVALID`. Run this after Verify email: it presents the token that request already consumed (this request is not in the pre-request script's fetch table, so the variable is not refreshed), and consumption is a guarded single UPDATE rather than a read-then-write."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · A protected endpoint with no cookie",
+          "id": "eaceb88b-ec41-44de-b7c6-937ce3af0309",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{cookielessBaseUrl}}/auth/me",
+              "host": [
+                "{{cookielessBaseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "401 `AUTH_UNAUTHENTICATED` from `SessionAuthGuard`, registered as `APP_GUARD` and so covering every handler that does not carry `@Public()`.\n\nThis request goes to `{{cookielessBaseUrl}}`, the same server under `127.0.0.1` instead of `localhost`. Cookies are scoped to a host name, so the jar has nothing to attach, whatever is logged in."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · A protected endpoint with a forged cookie",
+          "id": "3b44c457-90bb-4d87-a66c-db66d2af8019",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "session=forged-by-hand"
+              }
+            ],
+            "url": {
+              "raw": "{{cookielessBaseUrl}}/auth/me",
+              "host": [
+                "{{cookielessBaseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "me"
+              ]
+            },
+            "description": "401 `AUTH_UNAUTHENTICATED`, the same code as no cookie at all. One code for every failure mode (missing, unknown, revoked, expired) is deliberate: a session cookie is held by whoever presents it, so naming which check fired would tell a forger which part to fix.\n\nSent to `{{cookielessBaseUrl}}` so the jar's real cookie cannot ride along."
+          },
+          "response": []
+        },
+        {
+          "name": "404 · Revoke a session that is not yours",
+          "id": "5676d4aa-bbb6-4003-ad1e-ccbc2f777197",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sessions/3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "sessions",
+                "3f2504e0-4f89-11d3-9a0c-0305e82c3301"
+              ]
+            },
+            "description": "404 `AUTH_SESSION_NOT_FOUND`. A session that belongs to another user answers exactly this too, because the delete's predicate carries the caller's user id; there is no way to learn that the id exists. Needs a live session, so run it after Login."
+          },
+          "response": []
+        },
+        {
+          "name": "400 · Revoke with a malformed id",
+          "id": "693fa400-f5af-4700-a8ec-b1bae6800ef0",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/auth/sessions/not-a-uuid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "sessions",
+                "not-a-uuid"
+              ]
+            },
+            "description": "400 with no `code`, from the validation pipe: `SessionIdParamDto` requires a UUID. Guards run before pipes, so without a live session this answers 401 instead; run it after Login."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Change password with a wrong current password",
+          "id": "8f4df605-74dc-4c06-8a36-edf1b8ff9538",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"not-the-current-one\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            },
+            "description": "401 `AUTH_INVALID_CREDENTIALS`. A live cookie is not enough; the body must prove knowledge of the current password. Without a live session the guard answers the same status first."
+          },
+          "response": []
+        },
+        {
+          "name": "422 · Reset password below the 12-character minimum",
+          "id": "57b18d69-778c-4785-b3a5-b09b1a9ce2a7",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"this-token-is-nonsense\",\n  \"newPassword\": \"short\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "422 `USER_PASSWORD_INVALID` **even though the token is garbage**, which is the observable proof that the handler validates and hashes the new password before it touches the token. A policy rejection must not cost the user their link."
+          },
+          "response": []
+        },
+        {
+          "name": "401 · Reset password with a garbage token",
+          "id": "65f17a0d-f4eb-439e-bb2e-e6f916c1790a",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"this-token-is-nonsense\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "401 `AUTH_RESET_TOKEN_INVALID`, once the new password itself passes the length policy. Contrast with the 422 above: same bad token, different status, because the password is checked first."
+          },
+          "response": []
+        },
+        {
+          "name": "400 · Login with an unrecognised field",
+          "id": "6c546815-8244-41e2-9db1-6307b6d315ec",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\",\n  \"rememberMe\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "description": "400 with no `code`, from the global `ValidationPipe`. `forbidNonWhitelisted` turns an undeclared property into a rejection rather than a silent drop, so a client typo fails loudly.\n\n400s come from the pipe and carry no `code`; 401, 403, 404, 409 and 422 come from the typed exception filters and carry a stable one."
+          },
+          "response": []
+        },
+        {
+          "name": "202 · Forgot password for an address that does not exist",
+          "id": "1f63c690-48a5-4dfb-9d59-29345523378e",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"nobody-here@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "202, the same as for a real account, and no mail is sent. Not a failure path so much as proof there is no enumeration oracle here. Resend verification behaves the same way."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Resend verification",
+      "id": "67866b03-9538-46e5-9f77-7aa3febbca58",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('202', () => pm.response.to.have.status(202));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/verify-email/resend",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "verify-email",
+            "resend"
+          ]
+        },
+        "description": "202 whether or not the address exists, and 202 again if it is already verified with no mail sent. It cannot be used to probe for accounts.\n\nThrottled to 5 per hour: a hit spends someone else's inbox, not the caller's own resource. The next request fetches the token out of Mailpit itself."
+      },
+      "response": []
+    },
+    {
+      "name": "Verify email",
+      "id": "6d04c274-1fb3-4a11-82f3-8312ed0778e5",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{verificationToken}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/verify-email",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "verify-email"
+          ]
+        },
+        "description": "204 on success. The token is fetched by the collection's pre-request script just before this runs: the newest `Verify your email address` email to `{{userEmail}}` in Mailpit. Registration sends one, Resend verification another; a second run on an already verified account finds only a spent token and answers 401.\n\nA POST carrying the token in the body, not a clickable GET. Link prefetchers, spam filters and corporate mail scanners follow links, and a GET that consumes a token gets consumed by a robot before the user clicks. The emailed link points at the frontend, which posts here.\n\nTTL comes from EMAIL_VERIFICATION_TTL_HOURS, 24h by default. An expired token answers 401 `AUTH_VERIFICATION_TOKEN_EXPIRED`, a spent or unknown one 401 `AUTH_VERIFICATION_TOKEN_INVALID`. Two codes rather than one is deliberate: the token reaches the account owner's inbox, so telling the holder \"expired, request another\" leaks nothing to anyone who does not already hold the link."
+      },
+      "response": []
+    },
+    {
+      "name": "Login",
+      "id": "4562523d-38f7-4f50-8a29-017084c1e0ca",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('answers the caller identity', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.userId).to.be.a('string');",
+              "  pm.expect(body.role).to.be.a('string');",
+              "});",
+              "pm.test('sets the session cookie', () => {",
+              "  const cookie = pm.response.headers.get('Set-Cookie');",
+              "  pm.expect(cookie).to.match(/^session=[^;]+;/);",
+              "  pm.expect(cookie).to.include('HttpOnly');",
+              "  pm.expect(cookie).to.include('SameSite=Lax');",
+              "  pm.expect(cookie).to.not.include('Secure');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "200 with the caller identity, `{ userId, role }`, and the session in `Set-Cookie`: `session=<token>; Max-Age=<SESSION_IDLE_TTL_DAYS in seconds>; Path=/; HttpOnly; SameSite=Lax`, plus `Secure` when WEB_BASE_URL is https. The body carries the identity so a fresh login needs no second round trip to `GET /auth/me`; the token itself is never in a body, and `HttpOnly` keeps it away from page scripts. Postman's cookie jar stores it and attaches it to every later request against this host, so nothing here writes a variable.\n\nA wrong password and an unknown address answer identically, 401 `AUTH_INVALID_CREDENTIALS`, so this endpoint is not an account-existence oracle. `POST /users` is one: it answers 409 on a duplicate email.\n\nAn unverified address answers 403 `AUTH_EMAIL_NOT_VERIFIED`.\n\nThrottled to 10 per 60s. Every attempt spends 19 MiB in argon2 whether the password is right or not, so the limit pays for that cost decision rather than only guarding against brute force."
+      },
+      "response": []
+    },
+    {
+      "name": "Me",
+      "id": "2cbc03c3-18d4-45fe-b5ba-98c3df9db521",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('answers the caller identity', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.userId).to.be.a('string');",
+              "  pm.expect(body.role).to.be.a('string');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/me",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "me"
+          ]
+        },
+        "description": "200 with `{ userId, role }`, read from the session the guard already resolved; no bus, no extra query. The SPA cannot read an `HttpOnly` cookie, so on a cold start this is its only way to learn whether it is signed in, and as whom.\n\nThe response re-sends the cookie, as every authenticated response does, so the browser's `Max-Age` slides with the row's `last_seen_at`."
+      },
+      "response": []
+    },
+    {
+      "name": "Login from a second device",
+      "id": "6a997b6b-de4a-435f-a5f2-34725ffc0c96",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('answers the caller identity', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.userId).to.be.a('string');",
+              "  pm.expect(body.role).to.be.a('string');",
+              "});",
+              "pm.test('sets the session cookie', () => {",
+              "  const cookie = pm.response.headers.get('Set-Cookie');",
+              "  pm.expect(cookie).to.match(/^session=[^;]+;/);",
+              "  pm.expect(cookie).to.include('HttpOnly');",
+              "  pm.expect(cookie).to.include('SameSite=Lax');",
+              "  pm.expect(cookie).to.not.include('Secure');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "User-Agent",
+            "value": "e-commerce Postman (second device)"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "The same endpoint as Login with a different `User-Agent`, standing in for a phone. Two things happen: the server records a second session row with this user agent, and Postman's jar replaces its `session` cookie with the new one, so from here on the requests run as the second device while the first session stays live server-side. That is the state Sessions and Revoke the other session need.\n\nThe agent string is deliberately ASCII: header bytes are read as latin-1, so a `·` sent as UTF-8 is stored as `Â·` and the assertion in Sessions would never match what came back."
+      },
+      "response": []
+    },
+    {
+      "name": "Sessions",
+      "id": "c7a1652a-e1b4-42a2-8d5c-fd05634f23e6",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('lists both devices, one of them current', () => {",
+              "  const sessions = pm.response.json();",
+              "  pm.expect(sessions).to.have.lengthOf(2);",
+              "  pm.expect(sessions.filter((s) => s.current)).to.have.lengthOf(1);",
+              "  pm.expect(sessions.find((s) => s.current).userAgent).to.eql('e-commerce Postman (second device)');",
+              "});",
+              "",
+              "// Read by Revoke the other session. A collection variable because",
+              "// nothing outside this collection needs it.",
+              "const other = pm.response.json().find((s) => !s.current);",
+              "if (other) {",
+              "  pm.collectionVariables.set('otherSessionId', other.id);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/sessions",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "sessions"
+          ]
+        },
+        "description": "200 with the caller's live sessions, most recently seen first: `id`, `userAgent`, `ipAddress`, `createdAt`, `lastSeenAt`, and `current`, true on the row this request arrived on. Only the caller's own rows: the repository predicate carries `user_id = caller`, so there is no handler comparing ids to get wrong.\n\nThe test stores the other row's id in `otherSessionId` for the next request. Precondition: the account has no other live sessions when the run starts, so exactly two exist here (this one and Login from a second device's). After a run that aborted partway through, run Logout all (or Delete user) before starting again, or the extra rows fail this request's count."
+      },
+      "response": []
+    },
+    {
+      "name": "Revoke the other session",
+      "id": "5dc7e83f-b575-4d94-8a21-78ecd364dddc",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "pm.test('keeps this session: the cookie re-sent is live, not cleared', () => {",
+              "  pm.expect(pm.response.headers.get('Set-Cookie')).to.not.include('Max-Age=0');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/sessions/{{otherSessionId}}",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "sessions",
+            "{{otherSessionId}}"
+          ]
+        },
+        "description": "204. Ends the first device's session while this one continues; the response still carries the slid cookie, not an empty one. Revoking the session the request itself arrived on clears the cookie too, exactly as Logout would.\n\nAn id belonging to another user answers the same 404 `AUTH_SESSION_NOT_FOUND` as a made-up one, because the predicate is owner-scoped."
+      },
+      "response": []
+    },
+    {
+      "name": "Change password",
+      "id": "5889a112-65b8-4387-b577-8608514858ac",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "",
+              "// Keeps Login runnable: the old password no longer exists.",
+              "if (pm.response.code === 204) {",
+              "  pm.environment.set('userPassword', pm.environment.get('newPassword'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"currentPassword\": \"{{userPassword}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/change-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "change-password"
+          ]
+        },
+        "description": "204 on success. Protected, and the body still carries the current password: a live cookie proves the caller holds a cookie, not that they are the account owner. Requiring the current password is what stops a stolen cookie turning into permanent account takeover.\n\nRevokes every **other** session and spares this one, which is what a user expects from changing their own password rather than recovering it. Reset password does the opposite.\n\nA wrong `currentPassword` answers 401 `AUTH_INVALID_CREDENTIALS`. The new password's length is checked *before* that, so a new password outside 12 to 128 characters answers 422 `USER_PASSWORD_INVALID` even when the current password is wrong.\n\nThrottled to 10 per 60s, because the check is an argon2 verify against a caller-supplied guess: without a limit a stolen cookie would buy an attacker one guess per request for as long as the session lives."
+      },
+      "response": []
+    },
+    {
+      "name": "Logout",
+      "id": "a2e5d124-6599-4a84-9743-ce1e17a14d57",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "pm.test('clears the cookie', () => {",
+              "  const cookie = pm.response.headers.get('Set-Cookie');",
+              "  pm.expect(cookie).to.match(/^session=;/);",
+              "  pm.expect(cookie).to.include('Max-Age=0');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout"
+          ]
+        },
+        "description": "204, no body sent and none returned. The session comes from the cookie, and the response clears it: `Set-Cookie: session=; Max-Age=0`. The row is revoked in the same request, so the very next request with the old cookie would answer 401; there is no issued credential left to outlive its revocation.\n\nPostman's jar drops the cookie when it sees `Max-Age=0`, which is why Login again follows."
+      },
+      "response": []
+    },
+    {
+      "name": "Login again",
+      "id": "9519a805-3dd3-4d80-b9bf-27b9d79db0ee",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('200', () => pm.response.to.have.status(200));",
+              "pm.test('answers the caller identity', () => {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.userId).to.be.a('string');",
+              "  pm.expect(body.role).to.be.a('string');",
+              "});",
+              "pm.test('sets the session cookie', () => {",
+              "  const cookie = pm.response.headers.get('Set-Cookie');",
+              "  pm.expect(cookie).to.match(/^session=[^;]+;/);",
+              "  pm.expect(cookie).to.include('HttpOnly');",
+              "  pm.expect(cookie).to.include('SameSite=Lax');",
+              "  pm.expect(cookie).to.not.include('Secure');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\",\n  \"password\": \"{{userPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/login",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "login"
+          ]
+        },
+        "description": "Login once more, now with `{{userPassword}}` holding the value Change password set, which proves the rotation took. It also gives Logout all a live session to revoke, since Logout just ended the previous one."
+      },
+      "response": []
+    },
+    {
+      "name": "Logout all",
+      "id": "4503de48-442b-4bba-ae54-7d44a774cdaa",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "pm.test('clears the cookie', () => {",
+              "  const cookie = pm.response.headers.get('Set-Cookie');",
+              "  pm.expect(cookie).to.match(/^session=;/);",
+              "  pm.expect(cookie).to.include('Max-Age=0');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/auth/logout-all",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "logout-all"
+          ]
+        },
+        "description": "204. Revokes every session of the caller's user, including the one it was called from, and clears the cookie. Every other device answers 401 on its next request."
+      },
+      "response": []
+    },
+    {
+      "name": "Forgot password",
+      "id": "a8b4ccfe-9b01-4dfb-be4f-1a2220d29832",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('202', () => pm.response.to.have.status(202));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{userEmail}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/forgot-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "forgot-password"
+          ]
+        },
+        "description": "202 whether or not the address exists, so it cannot be used to probe for accounts.\n\nThrottled to 5 per hour: a hit spends someone else's inbox. Reset password fetches the emailed token out of Mailpit itself. Link TTL comes from PASSWORD_RESET_TTL_MINUTES, 60 by default."
+      },
+      "response": []
+    },
+    {
+      "name": "Reset password",
+      "id": "e429ea5d-945d-4393-900d-a35ecc801001",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('204', () => pm.response.to.have.status(204));",
+              "",
+              "// Keeps Login runnable: the old password no longer exists.",
+              "if (pm.response.code === 204) {",
+              "  pm.environment.set('userPassword', pm.environment.get('newPassword'));",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"{{newPassword}}\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/auth/reset-password",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "auth",
+            "reset-password"
+          ]
+        },
+        "description": "204 on success. Public: presenting the reset token is the authentication. The token is fetched by the collection's pre-request script just before this runs, from the newest `Reset your password` email to `{{userEmail}}` in Mailpit; Forgot password must have run first.\n\nRevokes **every** session including any the caller holds, because whoever prompted the reset may be holding one. Change password spares the current session; this deliberately does not.\n\nThe new password is validated and hashed *before* the token is touched, so a policy rejection does not cost the user their link. That ordering is observable: a short password with a garbage token answers 422 `USER_PASSWORD_INVALID`, not 401.\n\nOn the token itself, expired answers 401 `AUTH_RESET_TOKEN_EXPIRED` and spent or unknown 401 `AUTH_RESET_TOKEN_INVALID`.\n\nThrottled to 10 per 60s: because hashing happens first, a garbage token would otherwise buy a full argon2 hash for free every time."
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "id": "5899fd37-28a8-476c-921d-8ec8091f4544",
+        "type": "text/javascript",
+        "exec": [
+          "// Without an active environment, pm.environment.set stores values nowhere",
+          "// and {{baseUrl}} resolves to nothing, both silently. Fail loudly instead.",
+          "if (!pm.environment.name) {",
+          "  throw new Error('No environment selected. Pick \"e-commerce (local)\" in the environment picker (top right).');",
+          "}",
+          "",
+          "// The two emailed tokens never arrive over HTTP. The request that consumes",
+          "// one fetches it from Mailpit just before running, keyed on the request",
+          "// name the way the Failure paths folder keys its assertion. Requests not in",
+          "// this table (the spent-token and garbage-token failure paths) present",
+          "// whatever the variable already holds.",
+          "const EMAILED = {",
+          "  'Verify email': { subject: 'Verify your email address', variable: 'verificationToken', sentBy: 'Resend verification' },",
+          "  'Reset password': { subject: 'Reset your password', variable: 'resetToken', sentBy: 'Forgot password' },",
+          "};",
+          "const emailed = EMAILED[pm.info.requestName];",
+          "",
+          "if (emailed) {",
+          "  const mailpit = pm.environment.get('mailpitUrl');",
+          "  const to = pm.environment.get('userEmail');",
+          "  const query = encodeURIComponent(`to:${to} subject:\"${emailed.subject}\"`);",
+          "",
+          "  // Postman waits for pending sendRequest callbacks before sending the",
+          "  // request itself, so the variable is set by the time the body resolves.",
+          "  pm.sendRequest(`${mailpit}/api/v1/search?query=${query}&limit=1`, (searchError, search) => {",
+          "    if (searchError) throw searchError;",
+          "    const hit = (search.json().messages || [])[0];",
+          "    if (!hit) {",
+          "      throw new Error(`No \"${emailed.subject}\" email for ${to} in Mailpit. Run ${emailed.sentBy} first.`);",
+          "    }",
+          "    pm.sendRequest(`${mailpit}/api/v1/message/${hit.ID}`, (messageError, message) => {",
+          "      if (messageError) throw messageError;",
+          "      const match = /token=([^\\s&\"]+)/.exec(message.json().Text);",
+          "      if (!match) {",
+          "        throw new Error(`The newest \"${emailed.subject}\" email carries no token link.`);",
+          "      }",
+          "      pm.environment.set(emailed.variable, decodeURIComponent(match[1]));",
+          "    });",
+          "  });",
+          "}"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "otherSessionId",
+      "value": "",
+      "description": "Set by Sessions to the id of the row that is not current; read by Revoke the other session. A collection variable because nothing outside this collection reads it."
+    }
+  ]
+}

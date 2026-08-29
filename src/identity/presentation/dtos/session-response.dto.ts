@@ -1,23 +1,28 @@
-import type { LoginResult } from '@/identity/application';
+import type { ListedSession } from '@/identity/application';
 
 /**
- * `tokenType` is fixed at `Bearer` so a client has no reason to guess. The
- * refresh token is in the body rather than a cookie because this API has no
- * browser client; switching to an httpOnly cookie later changes this DTO and
- * the controller, and nothing below them.
+ * The wire contract for one device-list row, kept separate from
+ * `ListedSession` on purpose: this class is the only compile-time checkpoint
+ * marking what is public, so renaming a read-model field cannot change the
+ * API silently. Dates travel as ISO strings.
  */
 export class SessionResponseDto {
-  accessToken!: string;
-  tokenType!: 'Bearer';
-  expiresIn!: number;
-  refreshToken!: string;
+  id!: string;
+  userAgent!: string | null;
+  ipAddress!: string | null;
+  createdAt!: string;
+  lastSeenAt!: string;
+  /** True on the row the request itself arrived on. */
+  current!: boolean;
 
-  static fromResult(result: LoginResult): SessionResponseDto {
+  static fromListed(item: ListedSession): SessionResponseDto {
     const dto = new SessionResponseDto();
-    dto.accessToken = result.accessToken;
-    dto.tokenType = 'Bearer';
-    dto.expiresIn = result.expiresInSeconds;
-    dto.refreshToken = result.refreshToken;
+    dto.id = item.id;
+    dto.userAgent = item.userAgent;
+    dto.ipAddress = item.ipAddress;
+    dto.createdAt = item.createdAt.toISOString();
+    dto.lastSeenAt = item.lastSeenAt.toISOString();
+    dto.current = item.current;
     return dto;
   }
 }

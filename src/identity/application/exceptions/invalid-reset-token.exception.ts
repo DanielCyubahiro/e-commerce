@@ -7,8 +7,8 @@ import {
  * Two codes rather than one because this token reaches the account owner's
  * inbox: telling its holder "expired, ask for another" leaks nothing to anyone
  * who does not already have it, and collapsing the two would make a routine
- * expiry look like a broken link. Refresh tokens deliberately do the
- * opposite; see `InvalidRefreshTokenException`.
+ * expiry look like a broken link. The session cookie deliberately does the
+ * opposite; see `UnauthenticatedException`.
  *
  * Never quotes the token in its message.
  */

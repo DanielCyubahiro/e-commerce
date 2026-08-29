@@ -3,7 +3,6 @@ import { validateEnv } from './env.schema';
 const valid = {
   POSTGRES_DB_URI: 'postgresql://postgres:postgres@localhost:5432/ecommerce',
   MONGO_DB_URI: 'mongodb://localhost:27017/ecommerce',
-  JWT_SECRET: 'a'.repeat(32),
   SMTP_HOST: 'localhost',
   SMTP_FROM: 'no-reply@example.com',
   WEB_BASE_URL: 'https://example.com',
@@ -59,32 +58,18 @@ describe('validateEnv', () => {
     );
   });
 
-  it('rejects a JWT secret short enough to brute-force', () => {
-    expect(() => validateEnv({ ...valid, JWT_SECRET: 'a'.repeat(31) })).toThrow(
-      /JWT_SECRET/,
-    );
-  });
-
-  it('accepts a 32 character JWT secret', () => {
-    expect(
-      validateEnv({ ...valid, JWT_SECRET: 'a'.repeat(32) }).JWT_SECRET,
-    ).toHaveLength(32);
-  });
-
-  it('gives the JWT secret no default, unlike every other new variable', () => {
-    const withoutSecret: Record<string, unknown> = { ...valid };
-    delete withoutSecret.JWT_SECRET;
-
-    expect(() => validateEnv(withoutSecret)).toThrow(/JWT_SECRET/);
-  });
-
   it('defaults the token lifetimes', () => {
     const config = validateEnv({ ...valid });
 
-    expect(config.ACCESS_TOKEN_TTL_SECONDS).toBe(900);
-    expect(config.REFRESH_TOKEN_TTL_DAYS).toBe(30);
     expect(config.PASSWORD_RESET_TTL_MINUTES).toBe(60);
     expect(config.EMAIL_VERIFICATION_TTL_HOURS).toBe(24);
+  });
+
+  it('no longer knows the JWT variables, so a stale .env is harmless', () => {
+    const config = validateEnv({ ...valid, JWT_SECRET: 'x'.repeat(40) });
+
+    expect(config).not.toHaveProperty('ACCESS_TOKEN_TTL_SECONDS');
+    expect(config).not.toHaveProperty('REFRESH_TOKEN_TTL_DAYS');
   });
 
   it('accepts a base URL without a public suffix, so localhost works', () => {
@@ -92,5 +77,46 @@ describe('validateEnv', () => {
       validateEnv({ ...valid, WEB_BASE_URL: 'http://localhost:5173' })
         .WEB_BASE_URL,
     ).toBe('http://localhost:5173');
+  });
+
+  it('rejects a WEB_BASE_URL without a scheme', () => {
+    expect(() =>
+      validateEnv({ ...valid, WEB_BASE_URL: 'localhost:5173' }),
+    ).toThrow(/WEB_BASE_URL/);
+  });
+
+  it('rejects a WEB_BASE_URL with a scheme that is not http or https', () => {
+    expect(() =>
+      validateEnv({ ...valid, WEB_BASE_URL: 'ftp://example.com' }),
+    ).toThrow(/WEB_BASE_URL/);
+  });
+
+  it('defaults the session lifetimes', () => {
+    const config = validateEnv({ ...valid });
+
+    expect(config.SESSION_IDLE_TTL_DAYS).toBe(30);
+    expect(config.SESSION_ABSOLUTE_TTL_DAYS).toBe(365);
+  });
+
+  it('rejects an absolute session lifetime shorter than the idle one', () => {
+    // class-validator has no cross-field decorator; an inverted pair would
+    // make the idle TTL meaningless, so validateEnv checks it by hand.
+    expect(() =>
+      validateEnv({
+        ...valid,
+        SESSION_IDLE_TTL_DAYS: '30',
+        SESSION_ABSOLUTE_TTL_DAYS: '7',
+      }),
+    ).toThrow(/SESSION_ABSOLUTE_TTL_DAYS/);
+  });
+
+  it('accepts an absolute session lifetime equal to the idle one', () => {
+    expect(
+      validateEnv({
+        ...valid,
+        SESSION_IDLE_TTL_DAYS: '30',
+        SESSION_ABSOLUTE_TTL_DAYS: '30',
+      }).SESSION_ABSOLUTE_TTL_DAYS,
+    ).toBe(30);
   });
 });

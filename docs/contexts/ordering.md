@@ -1,7 +1,7 @@
 # Ordering
 
-The ordering context: placing an order against the catalogue, moving it
-through its lifecycle, and reading it back. Layer rules, the error mechanism,
+The ordering context: one aggregate, seven endpoints, two ports of its own
+plus one it consumes from catalogue. Layer rules, the error mechanism,
 and the generic fork procedure live in
 [`docs/architecture.md`](../architecture.md); this file carries only what is
 specific to `src/ordering/`.

@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted.
+Accepted for aggregates without a lifecycle. [0027](0027-lifecycle-aggregates-are-reconstituted-under-optimistic-concurrency.md)
+narrows it: an aggregate with behaviour after creation is reconstituted and
+saved under a version guard instead.
 
 ## Context
 

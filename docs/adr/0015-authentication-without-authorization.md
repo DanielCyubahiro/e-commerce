@@ -2,10 +2,12 @@
 
 ## Status
 
-Accepted. Narrowed by [0020](0020-server-side-sessions-replace-jwts.md):
+Accepted for `/users`. Narrowed by [0020](0020-server-side-sessions-replace-jwts.md):
 `GET /auth/sessions` and `DELETE /auth/sessions/:id` are owner-scoped, the
-first endpoints here that are. Everything this record says about `/users`
-still holds. Narrowed again by [ADR 0023](0023-role-granted-never-claimed.md).
+first endpoints here that are. Narrowed again by
+[ADR 0023](0023-role-granted-never-claimed.md): a role can no longer be
+claimed through the API, and ordering's staff transitions are the first
+role-gated endpoints.
 
 ## Context
 

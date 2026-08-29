@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted.
+Accepted. Narrowed by [ADR 0023](0023-role-granted-never-claimed.md): a role
+now has behaviour (ordering's staff transitions), so it is no longer
+replaceable through `PUT /users/:id` and registration always creates a
+customer.
 
 ## Context
 
